@@ -34,6 +34,7 @@ export const Schema = z.object({
     周数: z.coerce.number().prefault(1).transform(v => _.clamp(Math.round(v), 1, 9999)),
     时段: 时段档.prefault('分配'),
     每日总行动格: z.coerce.number().prefault(8).transform(v => _.clamp(Math.round(v), 1, 24)),
+    每格供奉吞吐: z.coerce.number().prefault(6).transform(v => _.clamp(Math.round(v), 1, 99)), // 可升级:6→12→18→24→30,设施升级+堕落度解锁
     白天分配格: 计数(24),
     白天已用: 计数(24),
     夜晚分配格: 计数(24),

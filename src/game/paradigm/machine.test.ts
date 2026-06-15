@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { pickParadigm, recordTriggered, availableParadigms } from './machine';
+import { pickParadigm, recordTriggered, availableParadigms, renderModeFor, fastSummaryText } from './machine';
 import type { ParadigmRegistry, ParadigmContext } from './types';
 
 // 测试用范式注册表
@@ -47,5 +47,29 @@ describe('范式筛选', () => {
     const p = pickParadigm(registry, 'anal', ctx);
     expect(p.kind).toBe('special_first');
     expect(p.corruptionGain).toBe(4);
+  });
+});
+
+describe('快进模式 (修改2)', () => {
+  it('首次特殊事件:即使快进开着也调AI完整扩写', () => {
+    const pick = pickParadigm(registry, 'oral', emptyCtx()); // 首次
+    expect(renderModeFor(pick, true)).toBe('ai_full');
+    expect(renderModeFor(pick, false)).toBe('ai_full');
+  });
+  it('非首次:快进→fast_summary,非快进→ai_brief', () => {
+    const ctx = emptyCtx();
+    ctx.triggeredSpecials = recordTriggered(ctx.triggeredSpecials, 'oral_first');
+    const pick = pickParadigm(registry, 'oral', ctx); // special_repeat
+    expect(renderModeFor(pick, true)).toBe('fast_summary');
+    expect(renderModeFor(pick, false)).toBe('ai_brief');
+  });
+  it('日常选项:快进→fast_summary', () => {
+    const pick = pickParadigm(registry, 'serve', emptyCtx()); // daily
+    expect(renderModeFor(pick, true)).toBe('fast_summary');
+    expect(renderModeFor(pick, false)).toBe('ai_brief');
+  });
+  it('总结词模板填充', () => {
+    expect(fastSummaryText('大小姐被{n}人插入了', { n: 36 })).toBe('大小姐被36人插入了');
+    expect(fastSummaryText('大小姐给{n}人侍奉了', { n: 18 })).toBe('大小姐给18人侍奉了');
   });
 });

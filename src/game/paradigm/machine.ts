@@ -77,3 +77,35 @@ export function recordTriggered(
 ): Record<string, boolean> {
   return { ...triggeredSpecials, [paradigmId]: true };
 }
+
+// ───────────────────────────────────────
+// 快进模式（用户修改2）
+// ───────────────────────────────────────
+
+/** 单格的执行方式 */
+export type RenderMode =
+  | 'ai_full'    // 调 AI1 重点扩写（特殊事件首次，或非快进时）
+  | 'ai_brief'   // 调 AI1 略写（非快进时的日常/重复特殊）
+  | 'fast_summary';// 快进：不调AI，系统输出 CG+总结词，直接更新变量
+
+/**
+ * 决定某次行动格执行用哪种渲染方式。
+ * 规则（用户修改2）：
+ *  - 快进开启 且 非首次特殊事件 → fast_summary（不调AI，CG+总结词+直接更新变量）。
+ *  - 首次特殊事件 → 永远 ai_full（堕落里程碑不跳过，即使快进开着）。
+ *  - 非快进：首次特殊=ai_full，其余=ai_brief（略写）。
+ */
+export function renderModeFor(pick: ParadigmPick, fastForward: boolean): RenderMode {
+  if (pick.isFirstSpecial) return 'ai_full';        // 首次特殊永远完整扩写
+  if (fastForward) return 'fast_summary';           // 快进跳过其余
+  return 'ai_brief';                                 // 非快进的日常/重复=略写
+}
+
+/**
+ * 快进的系统总结词模板填充（不调AI）。
+ * 模板放这里只是结构占位；具体措辞库后续可扩充/挪到配置。
+ * 例："大小姐被{n}人插入了" / "大小姐给{n}人侍奉了"。
+ */
+export function fastSummaryText(template: string, vars: Record<string, string | number>): string {
+  return template.replace(/\{(\w+)\}/g, (_m, k) => String(vars[k] ?? `{${k}}`));
+}
