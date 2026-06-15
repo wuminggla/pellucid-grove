@@ -155,11 +155,9 @@ export function checkSubmit(state: DayState, period: SlotPeriod): SubmitCheck {
 // 阶段流转与逐格推进
 // ───────────────────────────────────────
 
-/** 从分配阶段进入白天执行（校验白天可提交） */
+/** 从分配阶段进入白天执行（边走边排：不强制全填，执行时逐格校验当前格有无选项） */
 export function beginDay(state: DayState): DayState {
   if (state.phase !== 'allocating') throw new Error(`阶段错误: ${state.phase}`);
-  const check = checkSubmit(state, 'day');
-  if (!check.ok) throw new Error(check.error);
   // 白天0格则直接跳到白天结算（请假场景）
   if (state.dayCount === 0) {
     return { ...state, phase: 'day_settled', cursor: null };
@@ -196,11 +194,9 @@ export function completeCurrent(state: DayState, resultText: string): DayState {
   return { ...s2, phase: 'night_settled', cursor: null };
 }
 
-/** 白天结算后进入夜晚执行 */
+/** 白天结算后进入夜晚执行（边走边排：不强制全填） */
 export function beginNight(state: DayState): DayState {
   if (state.phase !== 'day_settled') throw new Error(`阶段错误: ${state.phase}`);
-  const check = checkSubmit(state, 'night');
-  if (!check.ok) throw new Error(check.error);
   if (state.nightCount === 0) {
     return { ...state, phase: 'night_settled', cursor: null };
   }
@@ -211,4 +207,16 @@ export function beginNight(state: DayState): DayState {
 export function currentSlot(state: DayState): ActionSlot | null {
   if (!state.cursor) return null;
   return slotsOf(state, state.cursor.period)[state.cursor.index] ?? null;
+}
+
+/** 一键填充某时段所有空格为指定选项（如夜晚全供奉，省去逐格填）。locked/已执行格跳过。 */
+export function fillEmpty(
+  state: DayState, period: SlotPeriod, choice: SlotChoice,
+): DayState {
+  const slots = slotsOf(state, period);
+  const next = slots.map(s =>
+    (s.status === 'empty' && !s.locked)
+      ? { ...s, choice, status: 'planned' as const }
+      : s);
+  return withSlots(state, period, next);
 }

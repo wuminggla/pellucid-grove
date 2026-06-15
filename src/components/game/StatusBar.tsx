@@ -16,16 +16,16 @@ export function StatusBar({ engine, day }: { engine: EngineState; day: DayState 
     <div style={{
       display: 'flex', gap: 0, flexWrap: 'wrap',
       background: 'linear-gradient(180deg,#1a1014,#241318)',
-      border: '1px solid #3a2128', borderRadius: 10, overflow: 'hidden',
+      border: '1px solid #3a2128', borderRadius: 8, overflow: 'hidden',
       fontFamily: '"Noto Serif SC", serif',
     }}>
       {cells.map((c, i) => (
         <div key={i} style={{
-          flex: '1 1 auto', minWidth: 88, padding: '10px 14px',
+          flex: '1 1 auto', minWidth: 72, padding: '6px 12px',
           borderRight: i < cells.length - 1 ? '1px solid #2c1a20' : 'none',
         }}>
-          <div style={{ fontSize: 11, color: '#8a6b73', letterSpacing: 1 }}>{c.label}</div>
-          <div style={{ fontSize: 18, fontWeight: 700, color: c.tone ?? '#e8dde0', marginTop: 2 }}>
+          <div style={{ fontSize: 10, color: '#8a6b73', letterSpacing: 1 }}>{c.label}</div>
+          <div style={{ fontSize: 15, fontWeight: 700, color: c.tone ?? '#e8dde0', marginTop: 1 }}>
             {c.value}
           </div>
         </div>

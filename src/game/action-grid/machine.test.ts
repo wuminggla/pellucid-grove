@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import {
   startDay, allocate, setChoice, clearChoice, lockSlot,
-  checkSubmit, beginDay, markRunning, completeCurrent, beginNight, currentSlot,
+  checkSubmit, beginDay, markRunning, completeCurrent, beginNight, currentSlot, fillEmpty,
 } from './machine';
 import type { SlotChoice } from './types';
 
@@ -101,9 +101,24 @@ describe('完整一天流转', () => {
     expect(s.phase).toBe('night_running');
   });
 
-  it('有空格时 beginDay 抛错', () => {
+  it('边走边排：只排一格也能 beginDay(不再强制全填)', () => {
     let s = freshAllocated(2, 2);
     s = setChoice(s, 'day', 0, recruit); // 只排一格
-    expect(() => beginDay(s)).toThrow();
+    s = beginDay(s); // 不抛错
+    expect(s.phase).toBe('day_running');
+    expect(s.cursor!.index).toBe(0);
+  });
+});
+
+describe('fillEmpty 一键填充', () => {
+  it('填充所有空格,已排/锁定格不动', () => {
+    let s = freshAllocated(0, 4);
+    s = setChoice(s, 'night', 0, recruit); // 第0格已排招募
+    s = lockSlot(s, 'night', 1, '强占', serve); // 第1格锁定
+    s = fillEmpty(s, 'night', serve); // 填充剩余
+    expect(s.nightSlots[0].choice!.optionId).toBe('recruit'); // 已排不变
+    expect(s.nightSlots[1].locked).toBe(true); // 锁定不变
+    expect(s.nightSlots[2].choice!.optionId).toBe('serve'); // 空格被填
+    expect(s.nightSlots[3].choice!.optionId).toBe('serve');
   });
 });

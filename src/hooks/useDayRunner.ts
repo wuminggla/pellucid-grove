@@ -4,11 +4,11 @@
 import { useState, useCallback } from 'react';
 import {
   startDay, allocate as allocateFn, setChoice as setChoiceFn, clearChoice as clearChoiceFn,
-  beginDay as beginDayFn, beginNight as beginNightFn, checkSubmit,
+  beginDay as beginDayFn, beginNight as beginNightFn, fillEmpty as fillEmptyFn, currentSlot,
 } from '../game/action-grid/machine';
 import { runCurrentSlot } from '../game/engine/day-runner';
 import type { RunnerState } from '../game/engine/day-runner';
-import type { DayState, SlotChoice, SlotPeriod } from '../game/action-grid/types';
+import type { DayState, SlotChoice, SlotPeriod, ActionSlot } from '../game/action-grid/types';
 import type { EngineState, SettleOptions, SettleResult } from '../game/engine/types';
 
 export interface UseDayRunnerOpts {
@@ -42,18 +42,23 @@ export function useDayRunner(opts: UseDayRunnerOpts) {
   }, [day]);
 
   const beginDay = useCallback(() => {
-    const check = checkSubmit(day, 'day');
-    if (!check.ok) { setError(check.error!); return false; }
     try { setDay(beginDayFn(day)); setError(null); return true; }
     catch (e) { setError((e as Error).message); return false; }
   }, [day]);
 
   const beginNight = useCallback(() => {
-    const check = checkSubmit(day, 'night');
-    if (!check.ok) { setError(check.error!); return false; }
     try { setDay(beginNightFn(day)); setError(null); return true; }
     catch (e) { setError((e as Error).message); return false; }
   }, [day]);
+
+  /** 一键填充某时段空格（如夜晚全供奉） */
+  const fillEmpty = useCallback((period: SlotPeriod, choice: SlotChoice) => {
+    setDay(fillEmptyFn(day, period, choice)); setError(null);
+  }, [day]);
+
+  /** 当前待执行格（cursor 指向）；用于 UI 判断执行按钮可用性 */
+  const cur: ActionSlot | null = currentSlot(day);
+  const canRunCurrent = !!cur && !!cur.choice;
 
   /** 执行当前 cursor 格（异步：调 mock/真AI） */
   const runCurrent = useCallback(async () => {
@@ -78,7 +83,8 @@ export function useDayRunner(opts: UseDayRunnerOpts) {
 
   return {
     day, engine, fastForward, busy, lastSettle, error,
+    canRunCurrent,
     setFastForward,
-    allocate, setChoice, clearChoice, beginDay, beginNight, runCurrent, nextDay,
+    allocate, setChoice, clearChoice, fillEmpty, beginDay, beginNight, runCurrent, nextDay,
   };
 }
