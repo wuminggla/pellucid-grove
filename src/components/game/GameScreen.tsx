@@ -1,10 +1,15 @@
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import { useDayRunner } from '../../hooks/useDayRunner';
 import { StatusBar } from './StatusBar';
+import { ApiConfigPanel, loadApiSettings } from './ApiConfigPanel';
 import { availableParadigms } from '../../game/paradigm/machine';
 import {
   demoRegistry, demoSummaryTemplates, demoExtractBounds, createMockAi,
 } from '../../game/engine/mock-ai';
+import { createRealAi } from '../../game/engine/real-ai';
+import { buildExpandMessages, buildExtractMessages } from '../../game/engine/prompt';
+import { createApiRouter } from '../../sillytavern/api-router';
+import type { ApiSettings } from '../../sillytavern/types';
 import type { EngineState } from '../../game/engine/types';
 import type { ActionSlot, SlotPeriod } from '../../game/action-grid/types';
 
@@ -93,7 +98,20 @@ function btnStyle(primary = false): React.CSSProperties {
 }
 
 export function GameScreen() {
-  const ai = useMemo(() => createMockAi(), []);
+  const [apiSettings, setApiSettings] = useState<ApiSettings | null>(() => loadApiSettings());
+  const [showConfig, setShowConfig] = useState(false);
+
+  // 有API配置→真AI(接api-router)，否则→mock AI
+  const ai = useMemo(() => {
+    if (apiSettings?.apiKey) {
+      const router = createApiRouter(apiSettings);
+      return createRealAi({ router, buildExpandMessages, buildExtractMessages });
+    }
+    return createMockAi();
+  }, [apiSettings]);
+
+  const usingReal = !!apiSettings?.apiKey;
+
   const r = useDayRunner({
     initialEngine: INITIAL_ENGINE,
     totalSlots: 8,
@@ -126,9 +144,21 @@ export function GameScreen() {
       maxWidth: 920, margin: '0 auto', padding: 20, minHeight: '100vh',
       background: C.bg, color: C.text, fontFamily: '"Noto Serif SC", serif',
     }}>
-      <h1 style={{ fontSize: 22, letterSpacing: 4, color: C.gold, margin: '0 0 16px', fontWeight: 700 }}>
-        九条会 <span style={{ fontSize: 12, color: C.dim, letterSpacing: 1 }}>· 行动格演示(mock AI)</span>
-      </h1>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
+        <h1 style={{ fontSize: 22, letterSpacing: 4, color: C.gold, margin: 0, fontWeight: 700 }}>
+          九条会 <span style={{ fontSize: 12, color: C.dim, letterSpacing: 1 }}>· 行动格演示</span>
+        </h1>
+        <button onClick={() => setShowConfig(true)} style={{ ...btnStyle(), fontSize: 12, padding: '6px 12px' }}>
+          ⚙ API{usingReal ? `（${apiSettings!.model}${apiSettings!.secondary?.enabled ? '·双AI' : ''}）` : '（mock）'}
+        </button>
+      </div>
+
+      {showConfig && (
+        <ApiConfigPanel
+          onClose={() => setShowConfig(false)}
+          onSave={s => { setApiSettings(s); setShowConfig(false); }}
+        />
+      )}
 
       <StatusBar engine={r.engine} day={r.day} />
 
