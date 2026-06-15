@@ -15,12 +15,22 @@ export interface EngineState {
   corruption: number;
   cognition: CognitionStage;
   claimedGates: Record<string, boolean>;       // 奖励闸门账本
-  // —— economy 资源（结算会动到的子集）——
+  // —— economy 资源 ——
   money: number;
-  thugTotal: number;
-  // —— 场景上下文（供 fast_summary 填词 / extract 兜底）——
+  thugTotal: number;          // 打手总数
+  garrison: number;           // 驻守占用打手
+  loyalty: number;            // 打手忠诚度 0~100
+  condomStock: number;        // 避孕套库存
+  desire: number;             // 打手欲望值
+  desireCapacity: number;     // 欲望承载上限（设施可提）
+  perSlotThroughput: number;  // 每格供奉吞吐（可升级 6→30）
+  // —— 招募 ——
+  recruitQuota: number;       // 本周剩余招募额度
+  // —— 场景上下文 ——
   presentCount: number;        // 单场在场打手人数
   isDangerousPeriod: boolean;  // 危险期
+  // —— 派生/统计（结算更新，供UI/失败判定）——
+  servedThisNight: number;     // 本晚已被供奉人数（夜晚结算用）
 }
 
 /** 玩家在某格选的内容（来自 action-grid 的 SlotChoice，精简引用） */
@@ -65,6 +75,8 @@ export interface SettleOptions {
   summaryTemplates?: Record<string, string>;
   /** extract 数值的合法范围（防胡诌），如 { presentCount: [0, 2000] } */
   extractBounds?: Record<string, [number, number]>;
+  /** 供奉类 optionId 集合（执行后触发避孕套结算+计入被供奉人数）。如 ['serve','oral','anal'] */
+  serveOptionIds?: string[];
 }
 
 /** 本次结算产生的事件（供 UI 提示/叙事钩子） */

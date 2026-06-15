@@ -4,6 +4,7 @@
 
 import { markRunning, completeCurrent, currentSlot } from '../action-grid/machine';
 import { settleSlot } from './machine';
+import { settleServe } from './settlement';
 import type { DayState } from '../action-grid/types';
 import type { EngineState, SettleOptions, SettleResult } from './types';
 
@@ -16,6 +17,8 @@ export interface RunnerState {
 export interface RunSlotResult {
   state: RunnerState;
   settle: SettleResult;
+  /** 供奉类格子的避孕套结算（非供奉格为 null） */
+  serve?: { condomUsed: number; condomShort: boolean } | null;
 }
 
 /**
@@ -41,10 +44,21 @@ export async function runCurrentSlot(
     params: slot.choice.params,
   }, opts);
 
+  // 供奉类格子：执行后扣避孕套 + 计入被供奉人数
+  let engine = settle.state;
+  let serve: RunSlotResult['serve'] = null;
+  if (opts.serveOptionIds?.includes(slot.choice.optionId)) {
+    const sr = settleServe(engine);
+    engine = sr.state;
+    serve = { condomUsed: sr.condomUsed, condomShort: sr.condomShort };
+  }
+
   const dayDone = completeCurrent(dayRunning, settle.resultText);
 
   return {
-    state: { day: dayDone, engine: settle.state },
-    settle,
+    state: { day: dayDone, engine },
+    settle, serve,
   };
 }
+
+export { settleNight, settleDaily } from './settlement';

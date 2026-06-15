@@ -63,7 +63,7 @@ export async function settleSlot(
   let rejected: string[] = [];
 
   if (mode === 'fast_summary') {
-    const tpl = opts.summaryTemplates?.[choice.optionId] ?? '（{n}人已结算）';
+    const tpl = opts.summaryTemplates?.[choice.optionId] ?? '（已结算）';
     resultText = fastSummaryText(tpl, { n: state.presentCount });
     // 快进不调AI：叙事数值用场景上下文兜底（在场人数已知）
   } else {

@@ -14,7 +14,9 @@ function engineState(): EngineState {
   return {
     triggeredSpecials: {}, unlocked: {},
     corruption: 0, cognition: '死撑', claimedGates: {},
-    money: 8000, thugTotal: 30, presentCount: 18, isDangerousPeriod: false,
+    money: 8000, thugTotal: 30, garrison: 0, loyalty: 60,
+    condomStock: 480, desire: 0, desireCapacity: 60, perSlotThroughput: 6,
+    recruitQuota: 0, presentCount: 18, isDangerousPeriod: false, servedThisNight: 0,
   };
 }
 

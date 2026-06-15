@@ -20,9 +20,15 @@ export const demoRegistry: ParadigmRegistry = {
 
 /** 快进总结词模板 */
 export const demoSummaryTemplates: Record<string, string> = {
+  // 供奉类：带在场人数
   serve: '大小姐给{n}人侍奉了',
   oral: '大小姐为{n}人口交了',
   anal: '大小姐被{n}人开发了后穴',
+  // 非供奉类：不套用"{n}人"供奉文案（修UI待办#4）
+  rest: '凛回房歇下，养精蓄锐。',
+  recruit: '招募事宜处理完毕。',
+  buy_condoms: '采购了一批避孕套。',
+  attack: '据点战事已了结。',
 };
 
 /** extract 防胡诌范围 */

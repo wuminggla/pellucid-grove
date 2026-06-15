@@ -6,8 +6,9 @@ import {
   startDay, allocate as allocateFn, setChoice as setChoiceFn, clearChoice as clearChoiceFn,
   beginDay as beginDayFn, beginNight as beginNightFn, fillEmpty as fillEmptyFn, currentSlot,
 } from '../game/action-grid/machine';
-import { runCurrentSlot } from '../game/engine/day-runner';
+import { runCurrentSlot, settleNight, settleDaily } from '../game/engine/day-runner';
 import type { RunnerState } from '../game/engine/day-runner';
+import type { NightSettleResult } from '../game/engine/settlement';
 import type { DayState, SlotChoice, SlotPeriod, ActionSlot } from '../game/action-grid/types';
 import type { EngineState, SettleOptions, SettleResult } from '../game/engine/types';
 
@@ -23,6 +24,8 @@ export function useDayRunner(opts: UseDayRunnerOpts) {
   const [fastForward, setFastForward] = useState(false);
   const [busy, setBusy] = useState(false);
   const [lastSettle, setLastSettle] = useState<SettleResult | null>(null);
+  const [lastServe, setLastServe] = useState<{ condomUsed: number; condomShort: boolean } | null>(null);
+  const [lastNight, setLastNight] = useState<NightSettleResult | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   const allocate = useCallback((dayCount: number, nightCount: number) => {
@@ -67,7 +70,17 @@ export function useDayRunner(opts: UseDayRunnerOpts) {
     try {
       const state: RunnerState = { day, engine };
       const r = await runCurrentSlot(state, { ...opts.settleOptions, fastForward });
-      setDay(r.state.day); setEngine(r.state.engine); setLastSettle(r.settle);
+      let nextEngine = r.state.engine;
+      let nightInfo: NightSettleResult | null = null;
+      // 夜晚最后一格执行完 → 夜晚收尾结算（欲望滚雪球/溢出）
+      if (r.state.day.phase === 'night_settled') {
+        const ns = settleNight(nextEngine);
+        nextEngine = ns.state;
+        nightInfo = ns;
+      }
+      setDay(r.state.day); setEngine(nextEngine); setLastSettle(r.settle);
+      setLastServe(r.serve ?? null);
+      setLastNight(nightInfo);
     } catch (e) {
       setError((e as Error).message);
     } finally {
@@ -75,14 +88,16 @@ export function useDayRunner(opts: UseDayRunnerOpts) {
     }
   }, [busy, day, engine, fastForward, opts.settleOptions]);
 
-  /** 进入下一天（夜晚结算后） */
+  /** 进入下一天：先做每日收尾结算（招募刷新/武力/硬失败），再开新一天 */
   const nextDay = useCallback(() => {
+    const ds = settleDaily(engine, day.dayNumber, 0, 0); // 威望系统后续接,暂传0
+    setEngine(ds.state);
     setDay(startDay(day.dayNumber + 1, opts.totalSlots));
-    setLastSettle(null); setError(null);
-  }, [day.dayNumber, opts.totalSlots]);
+    setLastSettle(null); setLastServe(null); setLastNight(null); setError(null);
+  }, [engine, day.dayNumber, opts.totalSlots]);
 
   return {
-    day, engine, fastForward, busy, lastSettle, error,
+    day, engine, fastForward, busy, lastSettle, lastServe, lastNight, error,
     canRunCurrent,
     setFastForward,
     allocate, setChoice, clearChoice, fillEmpty, beginDay, beginNight, runCurrent, nextDay,

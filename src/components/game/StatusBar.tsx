@@ -3,13 +3,16 @@ import type { DayState } from '../../game/action-grid/types';
 
 /** 状态栏：顶部显示核心数值。九条会主题（深色+暗红/金）。 */
 export function StatusBar({ engine, day }: { engine: EngineState; day: DayState }) {
+  const condomTone = engine.condomStock <= 0 ? '#e06666' : engine.condomStock < 10 ? '#e8a87a' : undefined;
+  const desireTone = engine.desire >= engine.desireCapacity ? '#e06666' : engine.desire >= engine.desireCapacity * 0.7 ? '#e8a87a' : undefined;
   const cells: Array<{ label: string; value: string | number; tone?: string }> = [
     { label: '第', value: `${day.dayNumber} 天` },
     { label: '资金', value: `¥${engine.money.toLocaleString()}`, tone: '#e8c87a' },
     { label: '打手', value: engine.thugTotal },
     { label: '堕落度', value: engine.corruption, tone: '#d96a8f' },
     { label: '认知防线', value: engine.cognition, tone: '#d96a8f' },
-    { label: '在场', value: `${engine.presentCount}人` },
+    { label: '避孕套', value: engine.condomStock, tone: condomTone },
+    { label: '群体欲望', value: `${engine.desire}/${engine.desireCapacity}`, tone: desireTone },
     { label: '经期', value: engine.isDangerousPeriod ? '危险期' : '安全期', tone: engine.isDangerousPeriod ? '#e06666' : undefined },
   ];
   return (

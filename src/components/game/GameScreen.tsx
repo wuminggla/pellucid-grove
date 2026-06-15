@@ -18,7 +18,10 @@ import type { ActionSlot, SlotPeriod } from '../../game/action-grid/types';
 const INITIAL_ENGINE: EngineState = {
   triggeredSpecials: {}, unlocked: {},
   corruption: 0, cognition: '死撑', claimedGates: {},
-  money: 8000, thugTotal: 30, presentCount: 18, isDangerousPeriod: false,
+  money: 8000, thugTotal: 30, garrison: 0, loyalty: 60,
+  condomStock: 480, desire: 0, desireCapacity: 60, perSlotThroughput: 6,
+  recruitQuota: 0, presentCount: 18, isDangerousPeriod: false,
+  servedThisNight: 0,
 };
 
 const C = {
@@ -146,7 +149,10 @@ export function GameScreen() {
 
   const r = useDayRunner({
     initialEngine: INITIAL_ENGINE, totalSlots: 8,
-    settleOptions: { registry: demoRegistry, ai, summaryTemplates: demoSummaryTemplates, extractBounds: demoExtractBounds },
+    settleOptions: {
+      registry: demoRegistry, ai, summaryTemplates: demoSummaryTemplates,
+      extractBounds: demoExtractBounds, serveOptionIds: ['serve', 'oral', 'anal'],
+    },
   });
 
   const isMobile = useMediaQuery('(max-width: 720px)');
@@ -262,6 +268,21 @@ export function GameScreen() {
                     ◆ 奖励闸门触发：{r.lastSettle.events.firedGateIds.join(', ')}（资源涌入）
                   </div>
                 )}
+              </div>
+            )}
+
+            {/* 避孕套不足警告 */}
+            {r.lastServe?.condomShort && (
+              <div style={{ marginTop: 10, padding: 10, background: '#3a1518', border: `1px solid ${C.danger}`, borderRadius: 6, color: C.danger, fontSize: 13 }}>
+                ⚠ 避孕套库存不足！本场出现无套内射风险（怀孕判定链）
+              </div>
+            )}
+
+            {/* 夜晚收尾结算反馈 */}
+            {r.lastNight && (
+              <div style={{ marginTop: 10, padding: 10, background: '#1a1420', border: `1px solid ${C.borderSoft}`, borderRadius: 6, fontSize: 13, color: C.dim }}>
+                夜晚收尾：未供奉 {r.lastNight.unserved} 人 → 群体欲望 +{r.lastNight.desireGained}
+                {r.lastNight.overflow && <span style={{ color: C.danger, marginLeft: 8 }}>⚠ 欲望溢出！次日将触发强制请假轮奸</span>}
               </div>
             )}
           </div>
