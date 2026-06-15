@@ -1,9 +1,11 @@
-import { useMemo, useState } from 'react';
+import { useMemo, useState, useEffect } from 'react';
 import { useDayRunner } from '../../hooks/useDayRunner';
 import { useMediaQuery } from '../../hooks/useMediaQuery';
 import { StatusBar } from './StatusBar';
 import { CharacterPane } from './CharacterPane';
 import { ApiConfigPanel, loadApiSettings } from './ApiConfigPanel';
+import { SavePanel } from './SavePanel';
+import { autosave } from '../../game/save/store';
 import { availableParadigms } from '../../game/paradigm/machine';
 import {
   demoRegistry, demoSummaryTemplates, demoExtractBounds, createMockAi,
@@ -136,6 +138,7 @@ function SlotCard({
 export function GameScreen() {
   const [apiSettings, setApiSettings] = useState<ApiSettings | null>(() => loadApiSettings());
   const [showConfig, setShowConfig] = useState(false);
+  const [showSaves, setShowSaves] = useState(false);
   const [expandedKey, setExpandedKey] = useState<string | null>(null);
 
   const ai = useMemo(() => {
@@ -157,6 +160,13 @@ export function GameScreen() {
 
   const isMobile = useMediaQuery('(max-width: 720px)');
   const phase = r.day.phase;
+
+  // 每进入新一天自动存档（dayNumber 变化时）
+  useEffect(() => {
+    if (r.day.dayNumber > 1) {
+      void autosave(r.runnerState, r.fastForward, Date.now());
+    }
+  }, [r.day.dayNumber]);
   const dayOpts = useMemo(() => optionsForPeriod(r.engine, 'day'), [r.engine]);
   const nightOpts = useMemo(() => optionsForPeriod(r.engine, 'night'), [r.engine]);
 
@@ -197,9 +207,12 @@ export function GameScreen() {
         <div style={{ flex: 1, padding: '8px 12px' }}>
           <StatusBar engine={r.engine} day={r.day} />
         </div>
-        <button onClick={() => setShowConfig(true)} style={{ ...btn(false, true), margin: 12, alignSelf: 'center', whiteSpace: 'nowrap' }}>
-          ⚙ {usingReal ? `${apiSettings!.model}${apiSettings!.secondary?.enabled ? '·双AI' : ''}` : 'mock'}
-        </button>
+        <div style={{ display: 'flex', gap: 8, margin: 12, alignSelf: 'center' }}>
+          <button onClick={() => setShowSaves(true)} style={{ ...btn(false, true), whiteSpace: 'nowrap' }}>💾 存档</button>
+          <button onClick={() => setShowConfig(true)} style={{ ...btn(false, true), whiteSpace: 'nowrap' }}>
+            ⚙ {usingReal ? `${apiSettings!.model}${apiSettings!.secondary?.enabled ? '·双AI' : ''}` : 'mock'}
+          </button>
+        </div>
       </div>
 
       {/* 主体：左立绘 + 右内容 */}
@@ -308,6 +321,14 @@ export function GameScreen() {
 
       {showConfig && (
         <ApiConfigPanel onClose={() => setShowConfig(false)} onSave={s => { setApiSettings(s); setShowConfig(false); }} />
+      )}
+      {showSaves && (
+        <SavePanel
+          current={r.runnerState}
+          fastForward={r.fastForward}
+          onLoad={(state, ff) => { r.loadState(state, ff); setShowSaves(false); }}
+          onClose={() => setShowSaves(false)}
+        />
       )}
     </div>
   );

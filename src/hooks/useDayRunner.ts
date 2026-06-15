@@ -96,10 +96,19 @@ export function useDayRunner(opts: UseDayRunnerOpts) {
     setLastSettle(null); setLastServe(null); setLastNight(null); setError(null);
   }, [engine, day.dayNumber, opts.totalSlots]);
 
+  /** 读档：用存档快照恢复完整状态 */
+  const loadState = useCallback((state: RunnerState, ff: boolean) => {
+    setDay(state.day); setEngine(state.engine); setFastForward(ff);
+    setLastSettle(null); setLastServe(null); setLastNight(null); setError(null);
+  }, []);
+
+  /** 当前完整状态（供存档） */
+  const runnerState: RunnerState = { day, engine };
+
   return {
     day, engine, fastForward, busy, lastSettle, lastServe, lastNight, error,
-    canRunCurrent,
+    canRunCurrent, runnerState,
     setFastForward,
-    allocate, setChoice, clearChoice, fillEmpty, beginDay, beginNight, runCurrent, nextDay,
+    allocate, setChoice, clearChoice, fillEmpty, beginDay, beginNight, runCurrent, nextDay, loadState,
   };
 }
