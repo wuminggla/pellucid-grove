@@ -11,6 +11,8 @@ const eventOptions: Record<string, EventOption> = {
     nsfw: { worldbookKey: 'wb_oral' },
     first: { ledgerKey: 'oral_first', paradigm: { worldbookKey: 'wb_oral_first' }, corruptionWeight: 10 },
   },
+  attack: { id: 'attack', label: '攻打据点', period: 'day', shape: 'born_sfw', sfw: { worldbookKey: 'wb_attack' }, martialReward: 5 },
+  av_shoot: { id: 'av_shoot', label: '拍AV', period: 'day', shape: 'born_nsfw', nsfw: { worldbookKey: 'wb_av' }, infamyReward: 8 },
 };
 
 function baseState(): EngineState {
@@ -118,6 +120,28 @@ describe('settleSlot 快进模式', () => {
     expect(r.events.renderMode).toBe('ai_full'); // 首次特殊压过快进
     expect(ai.expand).toHaveBeenCalledOnce();
     expect(r.state.corruption).toBe(10);
+  });
+});
+
+describe('settleSlot 威望进账', () => {
+  it('martialReward→极道威望进账(events+累计+今日流量)', async () => {
+    const ai = mockAi('攻打据点的描写');
+    const r = await settleSlot(baseState(), { optionId: 'attack' }, opts(ai));
+    expect(r.events.martialGain).toBe(5);
+    expect(r.state.martialPrestige).toBe(5);
+    expect(r.state.martialGainToday).toBe(5);
+  });
+  it('infamyReward受AV门控:未解锁不进账', async () => {
+    const ai = mockAi();
+    const r = await settleSlot(baseState(), { optionId: 'av_shoot' }, opts(ai));
+    expect(r.events.infamyGain).toBe(0);
+    expect(r.state.infamy).toBe(0);
+  });
+  it('AV解锁后infamyReward进账', async () => {
+    const ai = mockAi();
+    const r = await settleSlot({ ...baseState(), unlocked: { av: true } }, { optionId: 'av_shoot' }, opts(ai));
+    expect(r.events.infamyGain).toBe(8);
+    expect(r.state.infamy).toBe(8);
   });
 });
 

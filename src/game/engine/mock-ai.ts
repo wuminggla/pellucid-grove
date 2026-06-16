@@ -9,7 +9,7 @@ import type { ForcedEvent } from '../events/machine';
 export const demoEventOptions: Record<string, EventOption> = {
   // —— 白天·天生SFW经营 ——
   recruit: { id: 'recruit', label: '招募打手', period: 'day', shape: 'born_sfw', sfw: { worldbookKey: 'wb_recruit' } },
-  attack:  { id: 'attack', label: '攻打据点', period: 'day', shape: 'born_sfw', sfw: { worldbookKey: 'wb_attack' } },
+  attack:  { id: 'attack', label: '攻打据点', period: 'day', shape: 'born_sfw', sfw: { worldbookKey: 'wb_attack' }, martialReward: 5 },
   // —— 白天·双面型（堕落侵蚀）——
   bribe: {
     id: 'bribe', label: '贿赂敌人', period: 'day', shape: 'dual',

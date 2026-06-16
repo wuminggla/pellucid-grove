@@ -4,6 +4,7 @@
 
 import { resolveEvent, markMilestone } from '../events/machine';
 import { gainCorruption, attitudeForStage } from '../corruption/machine';
+import { gainMartialPrestige, gainInfamy, isAvUnlocked } from '../prestige/machine';
 import type {
   EngineState, SlotInput, SettleOptions, SettleResult, AiPort, ExtractRequest,
 } from './types';
@@ -122,6 +123,23 @@ export async function settleSlot(
     if (option.first) next.triggeredSpecials = markMilestone(next.triggeredSpecials, option.first.ledgerKey);
   }
 
+  // —— 威望进账（每次结算都给）：战斗→极道威望 / AV·轮奸规模→淫名(仅AV解锁后) ——
+  let martialGain = 0;
+  let infamyGain = 0;
+  if (option.martialReward) {
+    const g = gainMartialPrestige(
+      { martialPrestige: next.martialPrestige, martialGainToday: next.martialGainToday ?? 0 },
+      option.martialReward,
+    );
+    next.martialPrestige = g.martialPrestige;
+    next.martialGainToday = g.martialGainToday;
+    martialGain = option.martialReward;
+  }
+  if (option.infamyReward && isAvUnlocked(next.unlocked)) {
+    next.infamy = gainInfamy(next.infamy, option.infamyReward);
+    infamyGain = option.infamyReward;
+  }
+
   return {
     state: next,
     resultText,
@@ -132,6 +150,8 @@ export async function settleSlot(
       cognitionAdvancedTo,
       firedGateIds,
       isNsfw: resolution.isNsfw,
+      martialGain,
+      infamyGain,
       rejectedFields: rejected,
     },
   };

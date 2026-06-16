@@ -5,7 +5,7 @@ import {
   condomCost, condomStatus, desireGain, desireOverflow,
   availableThugs, combatPower, weeklyRecruitQuota, totalPrestige,
 } from '../economy/machine';
-import { isAvUnlocked } from '../prestige/machine';
+import { isAvUnlocked, auditMartial } from '../prestige/machine';
 import type { EngineState } from './types';
 
 /** 单个供奉格结算：扣避孕套 + 记录被供奉人数。仅"供奉类"行动触发(serve/oral/anal等)。 */
@@ -67,7 +67,7 @@ export interface DailySettleResult {
   state: EngineState;
   recruitRefreshed: boolean;
   combatPower: number;
-  hardFail: boolean;        // 硬失败信号（占位：资金<0等；极道威望连2次0由威望系统判，后续接）
+  hardFail: boolean;        // 硬失败信号（极道威望连续2次每日审核进账为0，或资金<0兜底）
 }
 
 /**
@@ -83,7 +83,11 @@ export function settleDaily(state: EngineState, dayNumber: number): DailySettleR
     next.recruitQuota = weeklyRecruitQuota(prestige);
   }
   const power = combatPower(availableThugs(next.thugTotal, next.garrison), next.loyalty);
-  const hardFail = next.money < 0; // 占位硬失败条件（C2 改为极道威望连2次审核为0）
+  // 硬失败审核：极道威望连续2次进账为0（纯摆烂者/A面崩盘者）。审核后重置今日流量。
+  const audit = auditMartial(next.martialGainToday ?? 0, next.martialZeroStreak ?? 0);
+  next.martialZeroStreak = audit.martialZeroStreak;
+  next.martialGainToday = 0;
+  const hardFail = audit.hardFail || next.money < 0; // 资金为负兜底
   return { state: next, recruitRefreshed, combatPower: power, hardFail };
 }
 

@@ -95,9 +95,23 @@ describe('每日收尾结算', () => {
     const r = settleDaily(base({ thugTotal: 100, garrison: 20, loyalty: 60 }), 2);
     expect(r.combatPower).toBe(Math.round(80 * 0.6)); // 48
   });
-  it('资金为负→硬失败信号', () => {
-    const r = settleDaily(base({ money: -100 }), 2);
+  it('资金为负→硬失败信号(兜底)', () => {
+    const r = settleDaily(base({ money: -100, martialGainToday: 5 }), 2);
     expect(r.hardFail).toBe(true);
+  });
+  it('极道威望连续2次进账0→硬失败,审核后重置今日流量', () => {
+    const r1 = settleDaily(base({ martialGainToday: 0, martialZeroStreak: 0 }), 2);
+    expect(r1.hardFail).toBe(false);
+    expect(r1.state.martialZeroStreak).toBe(1);
+    expect(r1.state.martialGainToday).toBe(0);
+    const r2 = settleDaily(base({ martialGainToday: 0, martialZeroStreak: 1 }), 2);
+    expect(r2.hardFail).toBe(true);
+    expect(r2.state.martialZeroStreak).toBe(2);
+  });
+  it('今日有极道威望进账→streak归零,不失败', () => {
+    const r = settleDaily(base({ martialGainToday: 5, martialZeroStreak: 1 }), 2);
+    expect(r.hardFail).toBe(false);
+    expect(r.state.martialZeroStreak).toBe(0);
   });
 });
 

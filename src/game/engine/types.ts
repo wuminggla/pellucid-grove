@@ -26,9 +26,11 @@ export interface EngineState {
   desire: number;             // 打手欲望值
   desireCapacity: number;     // 欲望承载上限（设施可提）
   perSlotThroughput: number;  // 每格供奉吞吐（可升级 6→30）
-  // —— 威望（侵蚀闸门/招募用；威望系统未做，先存字段）——
-  infamy: number;             // 淫名
-  martialPrestige: number;    // 极道威望
+  // —— 威望（招募/硬失败/侵蚀闸门用）——
+  infamy: number;             // 淫名（累计；仅 AV 解锁后计入总威望）
+  martialPrestige: number;    // 极道威望（累计）
+  martialGainToday?: number;  // 今日极道威望进账（流量，每日审核后重置）
+  martialZeroStreak?: number; // 连续零进账次数（连续2次=硬失败）
   // —— 招募 ——
   recruitQuota: number;       // 本周剩余招募额度
   // —— 场景上下文 ——
@@ -97,6 +99,10 @@ export interface SettleEvents {
   cognitionAdvancedTo: CognitionStage | null;
   firedGateIds: string[];
   isNsfw: boolean;             // 当前态是否NSFW（UI加♥）
+  /** 本格极道威望进账（战斗胜利等） */
+  martialGain: number;
+  /** 本格淫名进账（仅 AV 解锁后非0） */
+  infamyGain: number;
   /** 被防胡诌拒掉的离谱字段（调试用） */
   rejectedFields: string[];
 }

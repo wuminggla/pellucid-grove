@@ -62,6 +62,10 @@ export interface EventOption {
   pinned?: boolean;
   /** 供奉类（执行后扣避孕套等，对接 settlement.serveOptionIds） */
   isServe?: boolean;
+  /** 极道威望奖励（每次结算给；来源=火并/据点战/复仇胜利） */
+  martialReward?: number;
+  /** 淫名奖励（每次结算给，仅 AV 解锁后生效；来源=AV/轮奸规模/肉体名气） */
+  infamyReward?: number;
 }
 
 /** 事件解析输入上下文（从游戏状态提取） */

@@ -34,6 +34,7 @@ export function useDayRunner(opts: UseDayRunnerOpts) {
   const [forcedLeaveToday, setForcedLeaveToday] = useState(false);
   const [forcedSeize, setForcedSeize] = useState<ForcedEvent | null>(null);
   const [reliefCleared, setReliefCleared] = useState(false);
+  const [hardFail, setHardFail] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const allocate = useCallback((dayCount: number, nightCount: number) => {
@@ -109,6 +110,7 @@ export function useDayRunner(opts: UseDayRunnerOpts) {
     setDay(r.day);
     setForcedLeaveToday(r.forcedLeave);
     setReliefCleared(r.reliefCleared);
+    setHardFail(r.daily.hardFail);
     setForcedSeize(null);
     setLastSettle(null); setLastServe(null); setLastNight(null); setError(null);
   }, [engine, day.dayNumber, day.dayCount, opts.totalSlots, opts.forcedLeaveChoice]);
@@ -117,14 +119,14 @@ export function useDayRunner(opts: UseDayRunnerOpts) {
   const loadState = useCallback((state: RunnerState, ff: boolean) => {
     setDay(state.day); setEngine(state.engine); setFastForward(ff);
     setLastSettle(null); setLastServe(null); setLastNight(null);
-    setForcedLeaveToday(false); setForcedSeize(null); setReliefCleared(false); setError(null);
+    setForcedLeaveToday(false); setForcedSeize(null); setReliefCleared(false); setHardFail(false); setError(null);
   }, []);
 
   /** 当前完整状态（供存档） */
   const runnerState: RunnerState = { day, engine };
 
   return {
-    day, engine, fastForward, busy, lastSettle, lastServe, lastNight, forcedLeaveToday, forcedSeize, reliefCleared, error,
+    day, engine, fastForward, busy, lastSettle, lastServe, lastNight, forcedLeaveToday, forcedSeize, reliefCleared, hardFail, error,
     canRunCurrent, runnerState,
     setFastForward,
     allocate, setChoice, clearChoice, fillEmpty, beginDay, beginNight, runCurrent, nextDay, loadState,
