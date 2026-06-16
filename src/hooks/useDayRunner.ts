@@ -24,7 +24,7 @@ export interface UseDayRunnerOpts {
 const DEFAULT_FORCED_LEAVE_CHOICE: SlotChoice = { optionId: 'serve', label: '供奉（强制请假轮奸）' };
 
 export function useDayRunner(opts: UseDayRunnerOpts) {
-  const [day, setDay] = useState<DayState>(() => startDay(1, opts.totalSlots));
+  const [day, setDay] = useState<DayState>(() => startDay(1, opts.initialEngine.totalSlots ?? opts.totalSlots));
   const [engine, setEngine] = useState<EngineState>(opts.initialEngine);
   const [fastForward, setFastForward] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -102,7 +102,7 @@ export function useDayRunner(opts: UseDayRunnerOpts) {
   /** 进入下一天：每日收尾结算 + 若昨晚欲望溢出则次日强制请假轮奸（霸全） */
   const nextDay = useCallback(() => {
     const r = advanceToNextDay(
-      engine, day.dayNumber, opts.totalSlots,
+      engine, day.dayNumber, engine.totalSlots ?? opts.totalSlots, // 行动格扩容生效
       opts.forcedLeaveChoice ?? DEFAULT_FORCED_LEAVE_CHOICE,
       day.dayCount === 0, // 刚结束的这天是否请假(白天0格)。威望从engine内部读
     );

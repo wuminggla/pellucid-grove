@@ -31,8 +31,12 @@ export interface EngineState {
   martialPrestige: number;    // 极道威望（累计）
   martialGainToday?: number;  // 今日极道威望进账（流量，每日审核后重置）
   martialZeroStreak?: number; // 连续零进账次数（连续2次=硬失败）
-  // —— 升级（群体升级账本：升级项id→等级） ——
+  // —— 升级（群体升级账本：升级项id→等级 + 设施/扩张效果落地的字段） ——
   upgrades?: Record<string, number>;
+  totalSlots?: number;          // 每日总行动格(行动格扩容；默认见 BASE_ACTION_SLOTS)
+  purchaseUpgradeMult?: number; // 避孕套采购扩容倍率(默认1)
+  turfFortifyBonus?: number;    // 据点加固加成(默认0；地盘系统消费)
+  occupyScale?: number;         // 占据规模档序号(地盘扩张；门控扩张日常选项)
   // —— 招募 ——
   recruitQuota: number;       // 本周剩余招募额度
   // —— 场景上下文 ——
