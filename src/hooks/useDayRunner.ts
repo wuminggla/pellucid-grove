@@ -6,8 +6,9 @@ import {
   startDay, allocate as allocateFn, setChoice as setChoiceFn, clearChoice as clearChoiceFn,
   beginDay as beginDayFn, beginNight as beginNightFn, fillEmpty as fillEmptyFn, currentSlot,
 } from '../game/action-grid/machine';
-import { runCurrentSlot, settleNight, advanceToNextDay } from '../game/engine/day-runner';
+import { runCurrentSlot, settleNight, advanceToNextDay, applyForcedSeizes } from '../game/engine/day-runner';
 import type { RunnerState } from '../game/engine/day-runner';
+import type { ForcedEvent } from '../game/events/machine';
 import type { NightSettleResult } from '../game/engine/settlement';
 import type { DayState, SlotChoice, SlotPeriod, ActionSlot } from '../game/action-grid/types';
 import type { EngineState, SettleOptions, SettleResult } from '../game/engine/types';
@@ -31,13 +32,16 @@ export function useDayRunner(opts: UseDayRunnerOpts) {
   const [lastServe, setLastServe] = useState<{ condomUsed: number; condomShort: boolean } | null>(null);
   const [lastNight, setLastNight] = useState<NightSettleResult | null>(null);
   const [forcedLeaveToday, setForcedLeaveToday] = useState(false);
+  const [forcedSeize, setForcedSeize] = useState<ForcedEvent | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   const allocate = useCallback((dayCount: number, nightCount: number) => {
     const r = allocateFn(day, { dayCount, nightCount });
     if (!r.ok) { setError(r.error!); return false; }
-    setError(null); setDay(r.state!); return true;
-  }, [day]);
+    // 分配后扫描强占类强制事件（地盘骚扰/火并防守）：命中则锁定一格
+    const seized = applyForcedSeizes(r.state!, engine, opts.settleOptions.forcedPool);
+    setError(null); setDay(seized.day); setForcedSeize(seized.fired); return true;
+  }, [day, engine, opts.settleOptions.forcedPool]);
 
   const setChoice = useCallback((period: SlotPeriod, index: number, choice: SlotChoice) => {
     try { setDay(setChoiceFn(day, period, index, choice)); setError(null); }
@@ -103,6 +107,7 @@ export function useDayRunner(opts: UseDayRunnerOpts) {
     setEngine(r.engine);
     setDay(r.day);
     setForcedLeaveToday(r.forcedLeave);
+    setForcedSeize(null);
     setLastSettle(null); setLastServe(null); setLastNight(null); setError(null);
   }, [engine, day.dayNumber, opts.totalSlots, opts.forcedLeaveChoice]);
 
@@ -110,14 +115,14 @@ export function useDayRunner(opts: UseDayRunnerOpts) {
   const loadState = useCallback((state: RunnerState, ff: boolean) => {
     setDay(state.day); setEngine(state.engine); setFastForward(ff);
     setLastSettle(null); setLastServe(null); setLastNight(null);
-    setForcedLeaveToday(false); setError(null);
+    setForcedLeaveToday(false); setForcedSeize(null); setError(null);
   }, []);
 
   /** 当前完整状态（供存档） */
   const runnerState: RunnerState = { day, engine };
 
   return {
-    day, engine, fastForward, busy, lastSettle, lastServe, lastNight, forcedLeaveToday, error,
+    day, engine, fastForward, busy, lastSettle, lastServe, lastNight, forcedLeaveToday, forcedSeize, error,
     canRunCurrent, runnerState,
     setFastForward,
     allocate, setChoice, clearChoice, fillEmpty, beginDay, beginNight, runCurrent, nextDay, loadState,

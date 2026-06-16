@@ -40,6 +40,11 @@ export const demoEventOptions: Record<string, EventOption> = {
     nsfw: { worldbookKey: 'wb_condom_zero' },
     first: { ledgerKey: 'condom_zero_first', paradigm: { worldbookKey: 'wb_condom_zero_first' }, corruptionWeight: 5 },
   },
+  // —— 强制·地盘骚扰防守（强占白天一格，非玩家主动选）——
+  defend_turf: {
+    id: 'defend_turf', label: '地盘骚扰·驱逐', period: 'day', shape: 'born_sfw',
+    sfw: { worldbookKey: 'wb_defend_turf' },
+  },
 };
 
 /** 示例强制事件池（统一机制：优先级+已触发标签）。条件占位，真实信号待地盘/经济系统驱动。 */
@@ -49,6 +54,12 @@ export const demoForcedPool: ForcedEvent[] = [
     id: 'condom_zero', ledgerKey: 'condom_zero_1', priority: 1, once: true,
     intensity: 'insert_slot', optionId: 'condom_zero', label: '避孕套归零·裸体买套',
     condition: c => (c.condomStock ?? 1) <= 0,
+  },
+  // 地盘骚扰 → 强占白天一格（高频，非一次性）
+  {
+    id: 'harass', priority: 5,
+    intensity: 'seize_slot', optionId: 'defend_turf', label: '地盘骚扰',
+    condition: c => (c.threatLevel ?? 0) >= 1,
   },
 ];
 

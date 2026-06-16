@@ -3,7 +3,7 @@
 // 把行动格的 DayState 与引擎的 EngineState 两份状态一起推进。纯逻辑(AI经AiPort)，可测。
 
 import {
-  markRunning, completeCurrent, currentSlot, startDay, buildForcedLeaveDay, insertEventSlot,
+  markRunning, completeCurrent, currentSlot, startDay, buildForcedLeaveDay, insertEventSlot, lockSlot,
 } from '../action-grid/machine';
 import { settleSlot } from './machine';
 import { settleServe, settleDaily } from './settlement';
@@ -45,6 +45,25 @@ export function applyForcedInserts(
     ? { ...engine, triggeredSpecials: { ...engine.triggeredSpecials, [ev.ledgerKey]: true } }
     : engine;
   return { day: day2, engine: engine2, fired: ev };
+}
+
+/**
+ * 扫描并应用"强占"强制事件（seize_slot，如地盘骚扰/火并防守）。
+ * 分配后调用：命中则锁定一格（白天优先，无白天格则夜晚），玩家不可改派。
+ * 返回新 day + 触发的事件（null=未触发）。强占类一般非一次性（骚扰高频）。
+ */
+export function applyForcedSeizes(
+  day: DayState, engine: EngineState, pool: ForcedEvent[] | undefined,
+): { day: DayState; fired: ForcedEvent | null } {
+  if (!pool || pool.length === 0) return { day, fired: null };
+  const seizes = pool.filter(e => e.intensity === 'seize_slot');
+  const ev = scanForced(seizes, forcedContextOf(engine));
+  if (!ev) return { day, fired: null };
+  const period: SlotPeriod = day.dayCount > 0 ? 'day' : 'night';
+  const slots = period === 'day' ? day.daySlots : day.nightSlots;
+  if (slots.length === 0) return { day, fired: null }; // 该时段无格可强占
+  const day2 = lockSlot(day, period, 0, ev.label, { optionId: ev.optionId, label: ev.label });
+  return { day: day2, fired: ev };
 }
 
 /** 一天 + 引擎 的合并状态（前端持有的总状态切片） */

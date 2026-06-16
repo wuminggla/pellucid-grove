@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from 'vitest';
-import { runCurrentSlot, advanceToNextDay } from './day-runner';
+import { runCurrentSlot, advanceToNextDay, applyForcedSeizes } from './day-runner';
 import type { RunnerState } from './day-runner';
 import { startDay, allocate, setChoice, beginDay, beginNight } from '../action-grid/machine';
 import type { SlotChoice } from '../action-grid/types';
@@ -128,6 +128,39 @@ describe('强制临时格(避孕套归零)', () => {
     const r = await runCurrentSlot({ day, engine: eng }, o);
     expect(r.forcedInsert).toBeNull();
     expect(r.state.day.nightSlots.some(s => s.inserted)).toBe(false);
+  });
+});
+
+describe('强占(地盘骚扰)', () => {
+  function allocated() {
+    let d = startDay(1, 8);
+    d = allocate(d, { dayCount: 4, nightCount: 4 }).state!;
+    return d;
+  }
+
+  it('威胁≥1→骚扰强占白天第一格,玩家不可改派', () => {
+    const eng: EngineState = { ...engineState(), threatLevel: 1 };
+    const r = applyForcedSeizes(allocated(), eng, demoForcedPool);
+    expect(r.fired!.id).toBe('harass');
+    expect(r.day.daySlots[0].locked).toBe(true);
+    expect(r.day.daySlots[0].choice!.optionId).toBe('defend_turf');
+    expect(r.day.daySlots[0].lockedBy).toBe('地盘骚扰');
+  });
+
+  it('无威胁→不强占', () => {
+    const eng: EngineState = { ...engineState(), threatLevel: 0 };
+    const r = applyForcedSeizes(allocated(), eng, demoForcedPool);
+    expect(r.fired).toBeNull();
+    expect(r.day.daySlots[0].locked).toBeFalsy();
+  });
+
+  it('白天0格(请假)→强占夜晚第一格', () => {
+    let d = startDay(1, 8);
+    d = allocate(d, { dayCount: 0, nightCount: 8 }).state!;
+    const eng: EngineState = { ...engineState(), threatLevel: 1 };
+    const r = applyForcedSeizes(d, eng, demoForcedPool);
+    expect(r.fired!.id).toBe('harass');
+    expect(r.day.nightSlots[0].locked).toBe(true);
   });
 });
 
