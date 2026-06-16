@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from 'vitest';
-import { settleSlot, sanitizeExtract } from './machine';
+import { settleSlot, sanitizeExtract, fastSummaryText } from './machine';
 import type { EngineState, AiPort, SettleOptions } from './types';
 import type { EventOption } from '../events/types';
 
@@ -58,6 +58,16 @@ describe('sanitizeExtract 防胡诌', () => {
   it('无bounds时只过滤非数值,不卡范围(宽松)', () => {
     const r = sanitizeExtract({ x: 50000 });
     expect(r.clean.x).toBe(50000);
+  });
+});
+
+describe('fastSummaryText 快进总结词填充', () => {
+  it('占位替换', () => {
+    expect(fastSummaryText('大小姐被{n}人插入了', { n: 36 })).toBe('大小姐被36人插入了');
+    expect(fastSummaryText('大小姐给{n}人侍奉了', { n: 18 })).toBe('大小姐给18人侍奉了');
+  });
+  it('缺失占位保留{key}', () => {
+    expect(fastSummaryText('在场{n}人,{missing}', { n: 5 })).toBe('在场5人,{missing}');
   });
 });
 

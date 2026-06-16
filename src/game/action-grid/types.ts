@@ -23,7 +23,7 @@ export type SlotStatus =
 
 /**
  * 行动格里玩家选择的"选项" = 一个事件引用。
- * 这里只存"选了什么"，具体范式筛选/扩写在 paradigm/events 模块做。
+ * 这里只存"选了什么"，具体范式筛选/扩写在 events 模块做。
  * optionId 指向某个可选行动（如 'recruit' / 'buy_condoms' / 'serve' / 'attack_stronghold'）。
  */
 export interface SlotChoice {

@@ -3,12 +3,19 @@
 // 纯逻辑（AI 经 AiPort 注入），可用 mock 单测。
 
 import { resolveEvent, markMilestone } from '../events/machine';
-import { fastSummaryText } from '../paradigm/machine';
 import { gainCorruption, attitudeForStage } from '../corruption/machine';
 import type {
   EngineState, SlotInput, SettleOptions, SettleResult, AiPort, ExtractRequest,
 } from './types';
 import type { EventContext } from '../events/types';
+
+/**
+ * 快进总结词模板填充（不调AI）。例："大小姐被{n}人插入了" + {n:36} → "大小姐被36人插入了"。
+ * 占位 {key} 用 vars[key] 替换；缺失则保留 {key} 便于发现。
+ */
+export function fastSummaryText(template: string, vars: Record<string, string | number>): string {
+  return template.replace(/\{(\w+)\}/g, (_m, k) => String(vars[k] ?? `{${k}}`));
+}
 
 /**
  * 防胡诌：清洗 AI2 抓的数值。
