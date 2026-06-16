@@ -6,9 +6,10 @@ import { CharacterPane } from './CharacterPane';
 import { ApiConfigPanel, loadApiSettings } from './ApiConfigPanel';
 import { SavePanel } from './SavePanel';
 import { autosave } from '../../game/save/store';
-import { availableParadigms } from '../../game/paradigm/machine';
+import { buildMenu } from '../../game/events/machine';
+import type { EventContext } from '../../game/events/types';
 import {
-  demoRegistry, demoSummaryTemplates, demoExtractBounds, createMockAi,
+  demoEventOptions, demoSummaryTemplates, demoExtractBounds, createMockAi,
 } from '../../game/engine/mock-ai';
 import { createRealAi } from '../../game/engine/real-ai';
 import { buildExpandMessages, buildExtractMessages } from '../../game/engine/prompt';
@@ -22,6 +23,7 @@ const INITIAL_ENGINE: EngineState = {
   corruption: 0, cognition: '死撑', claimedGates: {},
   money: 8000, thugTotal: 30, garrison: 0, loyalty: 60,
   condomStock: 480, desire: 0, desireCapacity: 60, perSlotThroughput: 6,
+  infamy: 0, martialPrestige: 0,
   recruitQuota: 0, presentCount: 18, isDangerousPeriod: false,
   servedThisNight: 0,
 };
@@ -32,21 +34,19 @@ const C = {
   text: '#e8dde0', dim: '#8a6b73', gold: '#e8c87a', rose: '#d96a8f', danger: '#e06666', green: '#7aa37a',
 };
 
-/** 白天可选行动（经营类） vs 夜晚可选行动（供奉类）。按 optionId 归类。 */
-const DAY_OPTIONS = new Set(['recruit', 'buy_condoms', 'attack', 'rest']);
-const NIGHT_OPTIONS = new Set(['serve', 'oral', 'anal', 'rest']);
+/** 从 EngineState 构造 events 上下文 */
+function eventCtx(engine: EngineState): EventContext {
+  return {
+    corruption: engine.corruption, cognition: engine.cognition,
+    infamy: engine.infamy, thugs: engine.thugTotal,
+    triggeredLedger: engine.triggeredSpecials, unlocked: engine.unlocked,
+  };
+}
 
+/** 某时段菜单（统一模型 buildMenu：已解锁/♥标记/置顶排序）。 */
 function optionsForPeriod(engine: EngineState, period: SlotPeriod) {
-  const ctx = { triggeredSpecials: engine.triggeredSpecials, unlocked: engine.unlocked };
-  const allow = period === 'day' ? DAY_OPTIONS : NIGHT_OPTIONS;
-  const list: Array<{ optionId: string; paradigmId: string; label: string; special: boolean }> = [];
-  for (const optionId of Object.keys(demoRegistry)) {
-    if (!allow.has(optionId)) continue;
-    for (const def of availableParadigms(demoRegistry, optionId, ctx)) {
-      list.push({ optionId, paradigmId: def.paradigmId, label: def.label, special: def.isSpecial });
-    }
-  }
-  return list;
+  return buildMenu(Object.values(demoEventOptions), eventCtx(engine), period)
+    .map(e => ({ optionId: e.option.id, label: e.label, isNsfw: e.isNsfw }));
 }
 
 function btn(primary = false, small = false): React.CSSProperties {
@@ -114,7 +114,7 @@ function SlotCard({
           >
             <option value="">— 选择{period === 'day' ? '经营' : '供奉'}行动 —</option>
             {options.map(o => (
-              <option key={o.paradigmId} value={o.optionId}>{o.label}{o.special ? ' ★' : ''}</option>
+              <option key={o.optionId} value={o.optionId}>{o.label}</option>
             ))}
           </select>
           {slot.choice && <button onClick={onClear} style={btn(false, true)}>清</button>}
@@ -153,8 +153,8 @@ export function GameScreen() {
   const r = useDayRunner({
     initialEngine: INITIAL_ENGINE, totalSlots: 8,
     settleOptions: {
-      registry: demoRegistry, ai, summaryTemplates: demoSummaryTemplates,
-      extractBounds: demoExtractBounds, serveOptionIds: ['serve', 'oral', 'anal'],
+      eventOptions: demoEventOptions, ai, summaryTemplates: demoSummaryTemplates,
+      extractBounds: demoExtractBounds,
     },
   });
 

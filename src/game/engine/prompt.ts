@@ -8,19 +8,40 @@ const BASE_SYSTEM =
   '你是色情文字游戏《九条会》的叙事AI。主角九条凛：成年(18+)，娇小童颜清纯的极道千金。'
   + '风格：直白、感官、色情而轻松，不沉重不说教。所有角色均成年。';
 
-/** AI1：按范式扩写正文。要求只产出 <maintext>。 */
+/** 认知防线态度层（判定二）：按当前堕落态度给凛的表现要求 */
+const ATTITUDE_LAYER: Record<string, string> = {
+  堕落前: '【凛的态度·堕落前】抗拒、嘴硬、屈辱；努力维持极道千金的尊严与体面，身体被迫反应但意志不服。',
+  堕落后: '【凛的态度·堕落后(崩溃)】假面开裂、身体诚实地背叛意志、开始主动沉溺；屈辱感与快感交织。',
+  母猪化: '【凛的态度·母猪化】平静接受甚至主动求欢，认同肉便器/生育容器身份，不再有抵抗，沉浸在被使用中。',
+};
+
+/** 扩写规格（按 renderMode） */
+const SPEC_BY_MODE: Record<string, string> = {
+  ai_full: '这是【首次里程碑·堕落节点】，重点扩写，着墨细节，按范式骨架演足这"第一次"的落差冲击。',
+  ai_normal: '这是NSFW场景的常规体验，正常生成完整色情内容（非略写），贴合范式，保持鲜活。',
+  ai_brief: '这是日常SFW行动，略写，简短交代结果+少量氛围，推进数值即可。',
+};
+
+/**
+ * AI1：双判定拼接 —— 范式骨架(判定一) + 认知防线态度层(判定二) + 场景上下文。
+ * 要求只产出 <maintext>。
+ */
 export function buildExpandMessages(req: ExpandRequest): Array<{ role: string; content: string }> {
-  const { pick, mode, state } = req;
-  const focus = pick.kind === 'special_first'
-    ? '这是【首次特殊事件·堕落里程碑】，重点扩写，着墨细节，按范式骨架演足。'
-    : (mode === 'ai_brief' ? '这是日常/重复行动，略写，简短交代结果+少量氛围，推进即可。' : '正常扩写。');
+  const { resolution, attitude, state } = req;
+  const { option, paradigm, renderMode, isNsfw } = resolution;
 
   const sys = `${BASE_SYSTEM}\n\n[输出格式]\n只输出 <maintext>正文</maintext>，不要其它标签或解释。`;
+  // 范式来源：动态范式(AV定制)直接用 inlinePrompt；否则注入世界书 worldbookKey
+  const paradigmLine = paradigm.inlinePrompt
+    ? `[定制范式]\n${paradigm.inlinePrompt}`
+    : `[范式条目] ${paradigm.worldbookKey}（将注入世界书范式骨架：场景/必含节拍/打手态度/爽点轴/禁忌）`;
+
   const user =
-    `[本格行动] ${pick.paradigm.label}\n`
-    + `[范式条目] ${pick.worldbookKey}（此处将来注入世界书范式骨架：场景/必含节拍/打手态度/爽点轴/禁忌）\n`
+    `[本格行动] ${option.label}${isNsfw ? '（NSFW）' : ''}\n`
+    + `${paradigmLine}\n`
+    + `${ATTITUDE_LAYER[attitude] ?? ''}\n`
     + `[当前场景] 在场约 ${state.presentCount} 人；${state.isDangerousPeriod ? '危险期' : '安全期'}；认知防线「${state.cognition}」；堕落度 ${state.corruption}。\n`
-    + `[扩写规格] ${focus}\n`
+    + `[扩写规格] ${SPEC_BY_MODE[renderMode] ?? '正常扩写。'}\n`
     + `请生成本格正文。`;
 
   return [{ role: 'system', content: sys }, { role: 'user', content: user }];

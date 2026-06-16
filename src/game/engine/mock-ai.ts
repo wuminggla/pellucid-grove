@@ -1,34 +1,51 @@
 // Mock AI + 示例数据 —— 供 UI 在无真实API时跑通游戏循环（开发/演示用）。
-// 真实游戏内容(范式注册表/世界书)后续填；这里是结构占位 + 可玩的假数据。
+// 用统一事件模型(EventOption)。真实游戏内容(范式/世界书)后续填；这里是结构占位 + 可玩假数据。
 
 import type { AiPort } from './types';
-import type { ParadigmRegistry } from '../paradigm/machine';
+import type { EventOption } from '../events/types';
 
-/** 示例范式注册表（少量选项，验证日常/特殊/解锁三类） */
-export const demoRegistry: ParadigmRegistry = {
-  // —— 日常（无门槛常驻）——
-  serve:   [{ paradigmId: 'serve_daily', optionId: 'serve', kind: 'daily', isSpecial: false, worldbookKey: 'wb_serve', label: '供奉打手' }],
-  recruit: [{ paradigmId: 'recruit_daily', optionId: 'recruit', kind: 'daily', isSpecial: false, worldbookKey: 'wb_recruit', label: '招募打手' }],
-  buy_condoms: [{ paradigmId: 'buy_daily', optionId: 'buy_condoms', kind: 'daily', isSpecial: false, worldbookKey: 'wb_buy', label: '采购避孕套' }],
-  attack:  [{ paradigmId: 'attack_daily', optionId: 'attack', kind: 'daily', isSpecial: false, worldbookKey: 'wb_attack', label: '攻打据点' }],
-  rest:    [{ paradigmId: 'rest_daily', optionId: 'rest', kind: 'daily', isSpecial: false, worldbookKey: 'wb_rest', label: '休息' }],
-  // —— 特殊（首次加堕落度）——
-  oral:    [{ paradigmId: 'oral_first', optionId: 'oral', kind: 'special_first', isSpecial: true, corruptionWeight: 6, worldbookKey: 'wb_oral', label: '口交侍奉' }],
-  // —— 需解锁 ——
-  anal:    [{ paradigmId: 'anal_first', optionId: 'anal', kind: 'special_first', isSpecial: true, corruptionWeight: 8, worldbookKey: 'wb_anal', label: '肛交开发', unlockRequires: ['anal_unlocked'] }],
+/** 示例事件选项注册表（统一模型：双面型/天生NSFW/解锁/侵蚀闸门）。占位堕落度阈值50。 */
+export const demoEventOptions: Record<string, EventOption> = {
+  // —— 白天·天生SFW经营 ——
+  recruit: { id: 'recruit', label: '招募打手', period: 'day', shape: 'born_sfw', sfw: { worldbookKey: 'wb_recruit' } },
+  attack:  { id: 'attack', label: '攻打据点', period: 'day', shape: 'born_sfw', sfw: { worldbookKey: 'wb_attack' } },
+  // —— 白天·双面型（堕落侵蚀）——
+  bribe: {
+    id: 'bribe', label: '贿赂敌人', period: 'day', shape: 'dual',
+    sfw: { worldbookKey: 'wb_bribe_money' }, nsfw: { worldbookKey: 'wb_bribe_body' },
+    erosionGate: { corruptionAtLeast: 50 }, irreversibleAfterErosion: true,
+    first: { ledgerKey: 'bribe_first_body', paradigm: { worldbookKey: 'wb_bribe_first' }, corruptionWeight: 10 },
+  },
+  protection: {
+    id: 'protection', label: '收保护费', period: 'day', shape: 'dual',
+    sfw: { worldbookKey: 'wb_protect_sfw' }, nsfw: { worldbookKey: 'wb_protect_nsfw' },
+    erosionGate: { corruptionAtLeast: 50 },
+    first: { ledgerKey: 'protect_first', paradigm: { worldbookKey: 'wb_protect_first' }, corruptionWeight: 8 },
+  },
+  buy_condoms: { id: 'buy_condoms', label: '采购避孕套', period: 'day', shape: 'born_nsfw', nsfw: { worldbookKey: 'wb_buy' },
+    first: { ledgerKey: 'buy_first', paradigm: { worldbookKey: 'wb_buy_first' }, corruptionWeight: 5 } },
+  // —— 夜晚·天生NSFW供奉 ——
+  serve: { id: 'serve', label: '供奉打手', period: 'night', shape: 'born_nsfw', isServe: true, nsfw: { worldbookKey: 'wb_serve' },
+    first: { ledgerKey: 'serve_first', paradigm: { worldbookKey: 'wb_serve_first' }, corruptionWeight: 5 } },
+  oral: { id: 'oral', label: '口交侍奉', period: 'night', shape: 'born_nsfw', isServe: true, nsfw: { worldbookKey: 'wb_oral' },
+    first: { ledgerKey: 'oral_first', paradigm: { worldbookKey: 'wb_oral_first' }, corruptionWeight: 5 } },
+  anal: { id: 'anal', label: '肛交开发', period: 'night', shape: 'born_nsfw', isServe: true, unlockRequires: ['anal_unlocked'],
+    nsfw: { worldbookKey: 'wb_anal' }, first: { ledgerKey: 'anal_first', paradigm: { worldbookKey: 'wb_anal_first' }, corruptionWeight: 8 } },
+  // —— 通用·休息 ——
+  rest: { id: 'rest', label: '休息', period: 'night', shape: 'born_sfw', sfw: { worldbookKey: 'wb_rest' } },
 };
 
 /** 快进总结词模板 */
 export const demoSummaryTemplates: Record<string, string> = {
-  // 供奉类：带在场人数
   serve: '大小姐给{n}人侍奉了',
   oral: '大小姐为{n}人口交了',
   anal: '大小姐被{n}人开发了后穴',
-  // 非供奉类：不套用"{n}人"供奉文案（修UI待办#4）
   rest: '凛回房歇下，养精蓄锐。',
   recruit: '招募事宜处理完毕。',
   buy_condoms: '采购了一批避孕套。',
   attack: '据点战事已了结。',
+  bribe: '贿赂之事已办妥。',
+  protection: '保护费已收讫。',
 };
 
 /** extract 防胡诌范围 */
@@ -36,17 +53,22 @@ export const demoExtractBounds: Record<string, [number, number]> = {
   presentCount: [0, 2000],
 };
 
+/** 供奉类 optionId（从 demoEventOptions.isServe 推导，供 day-runner 用） */
+export const demoServeOptionIds = Object.values(demoEventOptions).filter(o => o.isServe).map(o => o.id);
+
 /** 假 AI：本地生成占位正文 + 固定数值，不联网。供 UI 跑通循环。 */
 export function createMockAi(): AiPort {
   return {
     async expand(req) {
-      const label = req.pick.paradigm.label;
-      const kind = req.pick.kind === 'special_first' ? '【首次·重点扩写】' : (req.mode === 'ai_brief' ? '【略写】' : '');
-      return `${kind}（mock 正文）凛执行了「${label}」。在场约 ${req.state.presentCount} 人。`
-        + `这里将来是 AI1 按范式 ${req.pick.worldbookKey} 扩写的正文。`;
+      const { resolution, attitude, state } = req;
+      const tag = resolution.renderMode === 'ai_full' ? '【首次·重点扩写】'
+        : resolution.renderMode === 'ai_normal' ? '【NSFW常规】'
+        : '【略写】';
+      const wb = resolution.paradigm.inlinePrompt ? '定制范式' : resolution.paradigm.worldbookKey;
+      return `${tag}（mock 正文·态度:${attitude}）凛执行了「${resolution.option.label}」。`
+        + `在场约 ${state.presentCount} 人。这里将来是 AI1 按范式 ${wb} 扩写的正文。`;
     },
     async extract(req) {
-      // 假装从正文抓到在场人数（轻微波动）
       const base = req.state.presentCount || 18;
       return { presentCount: base };
     },

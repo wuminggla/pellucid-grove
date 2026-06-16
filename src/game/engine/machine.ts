@@ -2,12 +2,13 @@
 // 把 paradigm → AI/快进 → extract防胡诌 → economy/corruption 串成一条结算流水线。
 // 纯逻辑（AI 经 AiPort 注入），可用 mock 单测。
 
-import { pickParadigm, recordTriggered, renderModeFor, fastSummaryText } from '../paradigm/machine';
-import { gainCorruption } from '../corruption/machine';
+import { resolveEvent, markMilestone } from '../events/machine';
+import { fastSummaryText } from '../paradigm/machine';
+import { gainCorruption, attitudeForStage } from '../corruption/machine';
 import type {
   EngineState, SlotInput, SettleOptions, SettleResult, AiPort, ExtractRequest,
 } from './types';
-import type { ParadigmContext } from '../paradigm/types';
+import type { EventContext } from '../events/types';
 
 /**
  * 防胡诌：清洗 AI2 抓的数值。
@@ -30,32 +31,42 @@ export function sanitizeExtract(
   return { clean, rejected };
 }
 
-/** 构造 paradigm 上下文 */
-function ctxOf(state: EngineState): ParadigmContext {
-  return { triggeredSpecials: state.triggeredSpecials, unlocked: state.unlocked };
+/** 从 EngineState 构造 events 上下文 */
+function eventCtxOf(state: EngineState): EventContext {
+  return {
+    corruption: state.corruption,
+    cognition: state.cognition,
+    infamy: state.infamy,
+    thugs: state.thugTotal,
+    triggeredLedger: state.triggeredSpecials,
+    unlocked: state.unlocked,
+  };
 }
 
 /**
- * 结算一个行动格。完整流水线：
- *  1. pickParadigm：选范式 + 判首次特殊。
- *  2. renderModeFor：决定 ai_full / ai_brief / fast_summary（快进）。
+ * 结算一个行动格。完整流水线（统一事件模型 + 双判定）：
+ *  1. resolveEvent：判定一 —— 该选项当前用 SFW/NSFW/首次特殊范式 + renderMode。
+ *  2. attitudeForStage：判定二 —— 当前认知防线态度层。
  *  3. 出正文：
- *     - fast_summary：不调AI，用 summaryTemplates[optionId] 填在场人数等。
- *     - ai_full/ai_brief：调 AI1 expand。
- *  4. extract：调 AI2 抓叙事数值（快进模式跳过，用场景上下文兜底）→ sanitizeExtract 防胡诌。
- *  5. corruption：若首次特殊，gainCorruption（堕落度+认知防线+奖励闸门），并写账本。
+ *     - fast_summary：不调AI，用 summaryTemplates[optionId] 填在场人数。
+ *     - 否则：调 AI1 expand（带 resolution + attitude 双判定）。
+ *  4. extract：调 AI2 抓叙事数值（快进跳过）→ sanitizeExtract 防胡诌。
+ *  5. corruption：若首次里程碑，gainCorruption + 奖励闸门 + 写账本。
  *  6. 返回新 state + 正文 + 事件。
  *
- * 注：硬经营数值（资金/避孕套/威望）不在此函数直接结算——它们由 economy 公式在
- *     时段/每日结算时算（防胡诌）。本函数只处理"单格叙事数值 + 堕落 + 奖励闸门资源"。
+ * 注：硬经营数值（资金/避孕套/威望）不在此函数结算——由 economy 公式在时段/每日结算（防胡诌）。
  */
 export async function settleSlot(
   state: EngineState,
   choice: SlotInput,
   opts: SettleOptions,
 ): Promise<SettleResult> {
-  const pick = pickParadigm(opts.registry, choice.optionId, ctxOf(state), choice.paradigmId);
-  const mode = renderModeFor(pick, opts.fastForward);
+  const option = opts.eventOptions[choice.optionId];
+  if (!option) throw new Error(`未注册的事件选项: ${choice.optionId}`);
+
+  const resolution = resolveEvent(option, eventCtxOf(state), opts.fastForward);
+  const mode = resolution.renderMode;
+  const attitude = attitudeForStage(state.cognition);
 
   // —— 出正文 ——
   let resultText: string;
@@ -68,7 +79,7 @@ export async function settleSlot(
     // 快进不调AI：叙事数值用场景上下文兜底（在场人数已知）
   } else {
     const ai: AiPort = opts.ai;
-    resultText = await ai.expand({ pick, mode, choice, state });
+    resultText = await ai.expand({ resolution, attitude, choice, state });
     const req: ExtractRequest = { narrative: resultText, choice, state };
     const raw = await ai.extract(req);
     const s = sanitizeExtract(raw, opts.extractBounds);
@@ -82,13 +93,13 @@ export async function settleSlot(
     next.presentCount = extracted.presentCount;
   }
 
-  // —— 堕落结算（仅首次特殊事件）——
+  // —— 堕落结算（仅首次里程碑）——
   let cognitionAdvancedTo = null as SettleResult['events']['cognitionAdvancedTo'];
   let firedGateIds: string[] = [];
-  if (pick.isFirstSpecial) {
+  if (resolution.isFirstMilestone) {
     const cr = gainCorruption(
       { corruption: next.corruption, cognition: next.cognition, claimedGates: next.claimedGates },
-      pick.corruptionGain,
+      resolution.corruptionGain,
     );
     next.corruption = cr.corruption;
     next.cognition = cr.cognition;
@@ -100,8 +111,8 @@ export async function settleSlot(
       next.money += g.reward.money ?? 0;
       next.thugTotal += g.reward.thugs ?? 0;
     }
-    // 写首发账本 → 下次该范式退化略写
-    next.triggeredSpecials = recordTriggered(next.triggeredSpecials, pick.paradigm.paradigmId);
+    // 写首发账本（用 first.ledgerKey）→ 下次该选项落 NSFW 常规态
+    if (option.first) next.triggeredSpecials = markMilestone(next.triggeredSpecials, option.first.ledgerKey);
   }
 
   return {
@@ -109,10 +120,11 @@ export async function settleSlot(
     resultText,
     events: {
       renderMode: mode,
-      isFirstSpecial: pick.isFirstSpecial,
-      corruptionGain: pick.isFirstSpecial ? pick.corruptionGain : 0,
+      isFirstSpecial: resolution.isFirstMilestone,
+      corruptionGain: resolution.corruptionGain,
       cognitionAdvancedTo,
       firedGateIds,
+      isNsfw: resolution.isNsfw,
       rejectedFields: rejected,
     },
   };

@@ -3,11 +3,16 @@ import { runCurrentSlot } from './day-runner';
 import type { RunnerState } from './day-runner';
 import { startDay, allocate, setChoice, beginDay } from '../action-grid/machine';
 import type { EngineState, AiPort, SettleOptions } from './types';
-import type { ParadigmRegistry } from '../paradigm/machine';
+import type { EventOption } from '../events/types';
 
-const registry: ParadigmRegistry = {
-  serve: [{ paradigmId: 'serve_daily', optionId: 'serve', kind: 'daily', isSpecial: false, worldbookKey: 'wb_serve', label: '供奉' }],
-  oral: [{ paradigmId: 'oral_first', optionId: 'oral', kind: 'special_first', isSpecial: true, corruptionWeight: 10, worldbookKey: 'wb_oral', label: '口交' }],
+// 统一事件模型 fixture：oral=天生NSFW+首次里程碑(权重10)；serve=天生NSFW无里程碑(日常态)
+const eventOptions: Record<string, EventOption> = {
+  serve: { id: 'serve', label: '供奉', period: 'night', shape: 'born_nsfw', nsfw: { worldbookKey: 'wb_serve' } },
+  oral: {
+    id: 'oral', label: '口交', period: 'night', shape: 'born_nsfw',
+    nsfw: { worldbookKey: 'wb_oral' },
+    first: { ledgerKey: 'oral_first', paradigm: { worldbookKey: 'wb_oral_first' }, corruptionWeight: 10 },
+  },
 };
 
 function engineState(): EngineState {
@@ -16,6 +21,7 @@ function engineState(): EngineState {
     corruption: 0, cognition: '死撑', claimedGates: {},
     money: 8000, thugTotal: 30, garrison: 0, loyalty: 60,
     condomStock: 480, desire: 0, desireCapacity: 60, perSlotThroughput: 6,
+    infamy: 0, martialPrestige: 0,
     recruitQuota: 0, presentCount: 18, isDangerousPeriod: false, servedThisNight: 0,
   };
 }
@@ -25,7 +31,7 @@ function mockAi(): AiPort {
 }
 
 function opts(ai: AiPort, fastForward = false): SettleOptions {
-  return { registry, fastForward, ai, summaryTemplates: { serve: '大小姐给{n}人侍奉了' }, extractBounds: { presentCount: [0, 2000] } };
+  return { eventOptions, fastForward, ai, summaryTemplates: { serve: '大小姐给{n}人侍奉了' }, extractBounds: { presentCount: [0, 2000] } };
 }
 
 function freshRunner(): RunnerState {

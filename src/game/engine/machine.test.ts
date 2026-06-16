@@ -1,11 +1,16 @@
 import { describe, it, expect, vi } from 'vitest';
 import { settleSlot, sanitizeExtract } from './machine';
 import type { EngineState, AiPort, SettleOptions } from './types';
-import type { ParadigmRegistry } from '../paradigm/machine';
+import type { EventOption } from '../events/types';
 
-const registry: ParadigmRegistry = {
-  serve: [{ paradigmId: 'serve_daily', optionId: 'serve', kind: 'daily', isSpecial: false, worldbookKey: 'wb_serve', label: '供奉' }],
-  oral: [{ paradigmId: 'oral_first', optionId: 'oral', kind: 'special_first', isSpecial: true, corruptionWeight: 10, worldbookKey: 'wb_oral', label: '口交' }],
+// 统一事件模型 fixture：oral=天生NSFW+首次里程碑(权重10)；serve=天生NSFW无里程碑(日常态)
+const eventOptions: Record<string, EventOption> = {
+  serve: { id: 'serve', label: '供奉', period: 'night', shape: 'born_nsfw', nsfw: { worldbookKey: 'wb_serve' } },
+  oral: {
+    id: 'oral', label: '口交', period: 'night', shape: 'born_nsfw',
+    nsfw: { worldbookKey: 'wb_oral' },
+    first: { ledgerKey: 'oral_first', paradigm: { worldbookKey: 'wb_oral_first' }, corruptionWeight: 10 },
+  },
 };
 
 function baseState(): EngineState {
@@ -14,6 +19,7 @@ function baseState(): EngineState {
     corruption: 0, cognition: '死撑', claimedGates: {},
     money: 8000, thugTotal: 30, garrison: 0, loyalty: 60,
     condomStock: 480, desire: 0, desireCapacity: 60, perSlotThroughput: 6,
+    infamy: 0, martialPrestige: 0,
     recruitQuota: 0, presentCount: 18, isDangerousPeriod: false, servedThisNight: 0,
   };
 }
@@ -27,7 +33,7 @@ function mockAi(prose = 'AI扩写的正文', extract: Record<string, unknown> = 
 
 function opts(ai: AiPort, over: Partial<SettleOptions> = {}): SettleOptions {
   return {
-    registry, fastForward: false, ai,
+    eventOptions, fastForward: false, ai,
     summaryTemplates: { serve: '大小姐给{n}人侍奉了', oral: '大小姐给{n}人口交了' },
     extractBounds: { presentCount: [0, 2000] },
     ...over,
@@ -80,7 +86,7 @@ describe('settleSlot 首次特殊事件', () => {
     const s1 = await settleSlot(baseState(), { optionId: 'oral' }, opts(ai));
     const s2 = await settleSlot(s1.state, { optionId: 'oral' }, opts(ai));
     expect(s2.events.isFirstSpecial).toBe(false);
-    expect(s2.events.renderMode).toBe('ai_brief'); // 非快进的重复=略写
+    expect(s2.events.renderMode).toBe('ai_normal'); // NSFW非首次=正常生成(不略写)
     expect(s2.state.corruption).toBe(10); // 没再加
     expect(s2.events.firedGateIds).toEqual([]);
   });

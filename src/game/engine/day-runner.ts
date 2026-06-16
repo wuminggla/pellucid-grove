@@ -40,14 +40,13 @@ export async function runCurrentSlot(
 
   const settle = await settleSlot(state.engine, {
     optionId: slot.choice.optionId,
-    paradigmId: (slot.choice.params?.paradigmId as string) ?? undefined,
     params: slot.choice.params,
   }, opts);
 
-  // 供奉类格子：执行后扣避孕套 + 计入被供奉人数
+  // 供奉类格子：执行后扣避孕套 + 计入被供奉人数（由 EventOption.isServe 判定）
   let engine = settle.state;
   let serve: RunSlotResult['serve'] = null;
-  if (opts.serveOptionIds?.includes(slot.choice.optionId)) {
+  if (opts.eventOptions[slot.choice.optionId]?.isServe) {
     const sr = settleServe(engine);
     engine = sr.state;
     serve = { condomUsed: sr.condomUsed, condomShort: sr.condomShort };
