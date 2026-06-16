@@ -183,20 +183,18 @@ describe('advanceToNextDay 进入次日', () => {
   const serveChoice: SlotChoice = { optionId: 'serve', label: '供奉' };
 
   it('正常→startDay进玩家分配', () => {
-    const r = advanceToNextDay(engineState(), 1, 8, 0, 0, serveChoice);
+    const r = advanceToNextDay(engineState(), 1, 8, serveChoice);
     expect(r.forcedLeave).toBe(false);
     expect(r.day.dayNumber).toBe(2);
     expect(r.day.phase).toBe('allocating');
   });
 
   it('pendingForcedLeave→构造强制请假轮奸日+清除标记', () => {
-    const r = advanceToNextDay(
-      engineState(), 3, 8, 0, 0, serveChoice,
-    );
+    const r = advanceToNextDay(engineState(), 3, 8, serveChoice);
     expect(r.forcedLeave).toBe(false); // 默认无溢出
 
     const r2 = advanceToNextDay(
-      { ...engineState(), pendingForcedLeave: true }, 3, 8, 0, 0, serveChoice,
+      { ...engineState(), pendingForcedLeave: true }, 3, 8, serveChoice,
     );
     expect(r2.forcedLeave).toBe(true);
     expect(r2.day.dayNumber).toBe(4);
@@ -207,7 +205,7 @@ describe('advanceToNextDay 进入次日', () => {
   });
 
   it('记录今日请假进滑动窗口', () => {
-    const r = advanceToNextDay(engineState(), 1, 8, 0, 0, serveChoice, true);
+    const r = advanceToNextDay(engineState(), 1, 8, serveChoice, true);
     expect(r.engine.leaveHistory).toEqual([true]);
     expect(r.reliefCleared).toBe(false);
   });
@@ -215,7 +213,7 @@ describe('advanceToNextDay 进入次日', () => {
   it('滑动窗口保底触发→清空欲望', () => {
     // 已有9天请假 + 今天请假 = 短窗10天10请假; 欲望500<1000 → 清空
     const eng: EngineState = { ...engineState(), desire: 500, leaveHistory: Array.from({ length: 9 }, () => true) };
-    const r = advanceToNextDay(eng, 5, 8, 0, 0, serveChoice, true);
+    const r = advanceToNextDay(eng, 5, 8, serveChoice, true);
     expect(r.reliefCleared).toBe(true);
     expect(r.engine.desire).toBe(0);
   });

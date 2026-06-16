@@ -102,9 +102,8 @@ export function useDayRunner(opts: UseDayRunnerOpts) {
   const nextDay = useCallback(() => {
     const r = advanceToNextDay(
       engine, day.dayNumber, opts.totalSlots,
-      0, 0, // 威望系统后续接,暂传0
       opts.forcedLeaveChoice ?? DEFAULT_FORCED_LEAVE_CHOICE,
-      day.dayCount === 0, // 刚结束的这天是否请假(白天0格)
+      day.dayCount === 0, // 刚结束的这天是否请假(白天0格)。威望从engine内部读
     );
     setEngine(r.engine);
     setDay(r.day);

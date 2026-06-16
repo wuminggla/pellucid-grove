@@ -8,6 +8,7 @@ function base(over: Partial<EngineState> = {}): EngineState {
     corruption: 0, cognition: '死撑', claimedGates: {},
     money: 8000, thugTotal: 100, garrison: 0, loyalty: 60,
     condomStock: 480, desire: 0, desireCapacity: 60, perSlotThroughput: 18,
+    infamy: 0, martialPrestige: 0,
     recruitQuota: 0, presentCount: 18, isDangerousPeriod: false,
     servedThisNight: 0,
     ...over,
@@ -72,26 +73,30 @@ describe('夜晚收尾结算', () => {
 });
 
 describe('每日收尾结算', () => {
-  it('第1天刷新招募额度(威望决定)', () => {
-    const r = settleDaily(base(), 1, 20, 10); // 总威望30
+  it('第1天刷新招募额度·AV未解锁只算极道威望', () => {
+    const r = settleDaily(base({ martialPrestige: 20, infamy: 10 }), 1); // 淫名不计→威望20
     expect(r.recruitRefreshed).toBe(true);
+    expect(r.state.recruitQuota).toBe(5 + 20 * 0.5); // 15
+  });
+  it('AV解锁后招募额度计入淫名', () => {
+    const r = settleDaily(base({ martialPrestige: 20, infamy: 10, unlocked: { av: true } }), 1); // 威望30
     expect(r.state.recruitQuota).toBe(5 + 30 * 0.5); // 20
   });
   it('第2天不刷新', () => {
-    const r = settleDaily(base({ recruitQuota: 7 }), 2, 20, 10);
+    const r = settleDaily(base({ recruitQuota: 7 }), 2);
     expect(r.recruitRefreshed).toBe(false);
     expect(r.state.recruitQuota).toBe(7);
   });
   it('第8天(每周)再刷新', () => {
-    const r = settleDaily(base(), 8, 0, 0);
+    const r = settleDaily(base(), 8);
     expect(r.recruitRefreshed).toBe(true);
   });
   it('计算武力(可用×忠诚)', () => {
-    const r = settleDaily(base({ thugTotal: 100, garrison: 20, loyalty: 60 }), 2, 0, 0);
+    const r = settleDaily(base({ thugTotal: 100, garrison: 20, loyalty: 60 }), 2);
     expect(r.combatPower).toBe(Math.round(80 * 0.6)); // 48
   });
   it('资金为负→硬失败信号', () => {
-    const r = settleDaily(base({ money: -100 }), 2, 0, 0);
+    const r = settleDaily(base({ money: -100 }), 2);
     expect(r.hardFail).toBe(true);
   });
 });

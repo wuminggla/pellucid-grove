@@ -132,9 +132,12 @@ export function weeklyRecruitQuota(totalPrestige: number): number {
   return Math.floor(base + Math.max(0, totalPrestige) * perPrestige);
 }
 
-/** 总威望 = 极道威望 + 淫名 */
-export function totalPrestige(martial: number, infamy: number): number {
-  return Math.max(0, martial) + Math.max(0, infamy);
+/**
+ * 总威望 = 极道威望 +（淫名，仅 AV 解锁后计入）。
+ * 用户定：淫名是 AV 解锁后才引入的机制；解锁前威望只等于极道威望。
+ */
+export function totalPrestige(martial: number, infamy: number, avUnlocked = false): number {
+  return Math.max(0, martial) + (avUnlocked ? Math.max(0, infamy) : 0);
 }
 
 /** 据点战胜率(0~1) = f(己方武力,敌方武力,威望差,情报完备度0~1)。起调逻辑式。 */

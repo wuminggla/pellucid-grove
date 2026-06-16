@@ -152,12 +152,10 @@ export function advanceToNextDay(
   engine: EngineState,
   currentDayNumber: number,
   totalSlots: number,
-  martialPrestige: number,
-  infamy: number,
   serveChoice: SlotChoice,
   wasLeaveDay = false,
 ): NextDayResult {
-  const daily = settleDaily(engine, currentDayNumber, martialPrestige, infamy);
+  const daily = settleDaily(engine, currentDayNumber);
   // 滑动窗口保底：记录今日请假→评估是否清空欲望
   const history = [...(daily.state.leaveHistory ?? []), wasLeaveDay].slice(-CONST.保底窗口长);
   const relief = slidingWindowRelief(history, daily.state.desire);

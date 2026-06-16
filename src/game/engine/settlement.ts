@@ -5,6 +5,7 @@ import {
   condomCost, condomStatus, desireGain, desireOverflow,
   availableThugs, combatPower, weeklyRecruitQuota, totalPrestige,
 } from '../economy/machine';
+import { isAvUnlocked } from '../prestige/machine';
 import type { EngineState } from './types';
 
 /** 单个供奉格结算：扣避孕套 + 记录被供奉人数。仅"供奉类"行动触发(serve/oral/anal等)。 */
@@ -70,22 +71,19 @@ export interface DailySettleResult {
 }
 
 /**
- * 每日收尾。
+ * 每日收尾。威望从 state 读（极道威望+淫名，淫名仅 AV 解锁后计入）。
  * @param dayNumber 当前天数（用于每周招募额度刷新：每7天）
- * @param martialPrestige 极道威望
- * @param infamy 淫名
  */
-export function settleDaily(
-  state: EngineState, dayNumber: number, martialPrestige: number, infamy: number,
-): DailySettleResult {
+export function settleDaily(state: EngineState, dayNumber: number): DailySettleResult {
   let next = { ...state };
-  // 每周刷新招募额度（第1天及每隔7天）
+  // 每周刷新招募额度（第1天及每隔7天）。招募难易由总威望决定。
   const recruitRefreshed = dayNumber % 7 === 1;
   if (recruitRefreshed) {
-    next.recruitQuota = weeklyRecruitQuota(totalPrestige(martialPrestige, infamy));
+    const prestige = totalPrestige(state.martialPrestige, state.infamy, isAvUnlocked(state.unlocked));
+    next.recruitQuota = weeklyRecruitQuota(prestige);
   }
   const power = combatPower(availableThugs(next.thugTotal, next.garrison), next.loyalty);
-  const hardFail = next.money < 0; // 占位硬失败条件
+  const hardFail = next.money < 0; // 占位硬失败条件（C2 改为极道威望连2次审核为0）
   return { state: next, recruitRefreshed, combatPower: power, hardFail };
 }
 
