@@ -170,6 +170,7 @@ describe('buildForcedLeaveDay 强制请假轮奸日', () => {
     expect(d.phase).toBe('day_settled'); // 白天已无格
     expect(d.dayCount).toBe(0);
     expect(d.nightCount).toBe(8);
+    expect(d.forcedLeave).toBe(true);
     expect(d.nightSlots.length).toBe(8);
     expect(d.nightSlots.every(s => s.locked && s.choice!.optionId === 'serve')).toBe(true);
     // 玩家不可改派

@@ -32,6 +32,11 @@ describe('单格供奉结算', () => {
     expect(r.state.condomStock).toBe(0);
     expect(r.condomUsed).toBe(50);
   });
+  it('吞吐×1.5(请假轮奸日):服务人数与扣套同步放大', () => {
+    const r = settleServe(base({ presentCount: 18 }), 1.5);
+    expect(r.state.servedThisNight).toBe(27); // round(18×1.5)
+    expect(r.condomUsed).toBe(81);            // 27×3
+  });
 });
 
 describe('夜晚收尾结算', () => {

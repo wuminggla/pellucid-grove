@@ -7,6 +7,7 @@ import {
 } from '../action-grid/machine';
 import { settleSlot } from './machine';
 import { settleServe, settleDaily } from './settlement';
+import { CONST } from '../economy/machine';
 import { scanForced } from '../events/machine';
 import type { ForcedEvent } from '../events/machine';
 import type { ForcedContext } from '../events/types';
@@ -107,7 +108,9 @@ export async function runCurrentSlot(
   let engine = settle.state;
   let serve: RunSlotResult['serve'] = null;
   if (opts.eventOptions[slot.choice.optionId]?.isServe) {
-    const sr = settleServe(engine);
+    // 强制请假轮奸日：吞吐×1.5（多服务人数，帮运营失败玩家清欲望）
+    const mult = state.day.forcedLeave ? CONST.请假轮奸吞吐倍率 : 1;
+    const sr = settleServe(engine, mult);
     engine = sr.state;
     serve = { condomUsed: sr.condomUsed, condomShort: sr.condomShort };
   }

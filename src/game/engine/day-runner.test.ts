@@ -1,7 +1,7 @@
 import { describe, it, expect, vi } from 'vitest';
 import { runCurrentSlot, advanceToNextDay, applyForcedSeizes } from './day-runner';
 import type { RunnerState } from './day-runner';
-import { startDay, allocate, setChoice, beginDay, beginNight } from '../action-grid/machine';
+import { startDay, allocate, setChoice, beginDay, beginNight, buildForcedLeaveDay } from '../action-grid/machine';
 import type { SlotChoice } from '../action-grid/types';
 import {
   demoEventOptions, demoSummaryTemplates, demoExtractBounds, demoForcedPool, createMockAi,
@@ -128,6 +128,21 @@ describe('强制临时格(避孕套归零)', () => {
     const r = await runCurrentSlot({ day, engine: eng }, o);
     expect(r.forcedInsert).toBeNull();
     expect(r.state.day.nightSlots.some(s => s.inserted)).toBe(false);
+  });
+});
+
+describe('强制请假轮奸日·吞吐×1.5', () => {
+  it('请假日供奉格服务人数×1.5(扣套同步)', async () => {
+    let day = buildForcedLeaveDay(2, 1, { optionId: 'serve', label: '供奉' });
+    day = beginNight(day); // day_settled → night_running
+    const eng: EngineState = { ...engineState(), presentCount: 18, condomStock: 480 };
+    const o: SettleOptions = {
+      eventOptions: demoEventOptions, fastForward: false, ai: createMockAi(),
+      summaryTemplates: demoSummaryTemplates, extractBounds: demoExtractBounds,
+    };
+    const r = await runCurrentSlot({ day, engine: eng }, o);
+    expect(r.serve!.condomUsed).toBe(81);            // round(18×1.5)×3
+    expect(r.state.engine.servedThisNight).toBe(27); // 18×1.5
   });
 });
 

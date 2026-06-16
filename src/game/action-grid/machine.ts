@@ -58,6 +58,7 @@ export function buildForcedLeaveDay(
     daySlots: [],
     nightSlots,
     cursor: null,
+    forcedLeave: true,
   };
 }
 

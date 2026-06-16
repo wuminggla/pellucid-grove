@@ -18,16 +18,18 @@ export interface ServeSettleResult {
  * 供奉格结算。presentCount = 本场在场人数（已由 settleSlot 的 extract/上下文确定）。
  * 扣避孕套；不足则标记 condomShort（内射/怀孕判定链由 endings 处理）。
  * 被供奉的人计入 servedThisNight（夜晚结算时这些人欲望被清）。
+ * @param throughputMultiplier 吞吐倍率（强制请假轮奸日=1.5，多服务人数同步放大扣套与被供奉计数）
  */
-export function settleServe(state: EngineState): ServeSettleResult {
-  const need = condomCost(state.presentCount, state.isDangerousPeriod);
+export function settleServe(state: EngineState, throughputMultiplier = 1): ServeSettleResult {
+  const served = Math.round(state.presentCount * throughputMultiplier);
+  const need = condomCost(served, state.isDangerousPeriod);
   const used = Math.min(need, state.condomStock);
   const condomShort = need > state.condomStock;
   return {
     state: {
       ...state,
       condomStock: Math.max(0, state.condomStock - used),
-      servedThisNight: state.servedThisNight + state.presentCount,
+      servedThisNight: state.servedThisNight + served,
     },
     condomUsed: used,
     condomShort,

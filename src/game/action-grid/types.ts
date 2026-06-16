@@ -60,6 +60,8 @@ export interface DayState {
   nightSlots: ActionSlot[];
   /** 当前正在执行的格（period+index）；null=未在执行 */
   cursor: { period: SlotPeriod; index: number } | null;
+  /** 是否强制请假轮奸日（霸全）：供奉吞吐×1.5，全格被锁 */
+  forcedLeave?: boolean;
 }
 
 /** 分配请求 */
