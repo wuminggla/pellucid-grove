@@ -31,6 +31,8 @@ export interface EngineState {
   martialPrestige: number;    // 极道威望（累计）
   martialGainToday?: number;  // 今日极道威望进账（流量，每日审核后重置）
   martialZeroStreak?: number; // 连续零进账次数（连续2次=硬失败）
+  // —— 升级（群体升级账本：升级项id→等级） ——
+  upgrades?: Record<string, number>;
   // —— 招募 ——
   recruitQuota: number;       // 本周剩余招募额度
   // —— 场景上下文 ——

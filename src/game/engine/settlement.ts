@@ -6,6 +6,7 @@ import {
   availableThugs, combatPower, weeklyRecruitQuota, totalPrestige,
 } from '../economy/machine';
 import { isAvUnlocked, auditMartial } from '../prestige/machine';
+import { combatBonus } from '../upgrade/machine';
 import type { EngineState } from './types';
 
 /** 单个供奉格结算：扣避孕套 + 记录被供奉人数。仅"供奉类"行动触发(serve/oral/anal等)。 */
@@ -82,7 +83,7 @@ export function settleDaily(state: EngineState, dayNumber: number): DailySettleR
     const prestige = totalPrestige(state.martialPrestige, state.infamy, isAvUnlocked(state.unlocked));
     next.recruitQuota = weeklyRecruitQuota(prestige);
   }
-  const power = combatPower(availableThugs(next.thugTotal, next.garrison), next.loyalty);
+  const power = combatPower(availableThugs(next.thugTotal, next.garrison), next.loyalty, combatBonus(next.upgrades));
   // 硬失败审核：极道威望连续2次进账为0（纯摆烂者/A面崩盘者）。审核后重置今日流量。
   const audit = auditMartial(next.martialGainToday ?? 0, next.martialZeroStreak ?? 0);
   next.martialZeroStreak = audit.martialZeroStreak;

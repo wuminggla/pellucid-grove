@@ -111,9 +111,10 @@ export function slidingWindowRelief(
 // 武力
 // ───────────────────────────────────────
 
-/** 武力 = 可用打手 × (忠诚度 / 基准)。忠诚低则武力打折。 */
-export function combatPower(availableThugs: number, loyalty: number): number {
-  return Math.round(availableThugs * (Math.max(0, loyalty) / CONST.忠诚武力系数基准));
+/** 武力 = 可用打手 × (忠诚度 / 基准) × (1 + 打手升级战力加成)。忠诚低则武力打折。 */
+export function combatPower(availableThugs: number, loyalty: number, upgradeBonus = 0): number {
+  const base = availableThugs * (Math.max(0, loyalty) / CONST.忠诚武力系数基准);
+  return Math.round(base * (1 + Math.max(0, upgradeBonus)));
 }
 
 /** 可用打手 = 总数 - 驻守占用 */

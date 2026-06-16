@@ -101,6 +101,10 @@ describe('武力与招募', () => {
     expect(combatPower(100, 100)).toBe(100); // 满忠诚
     expect(combatPower(100, 60)).toBe(60);   // 忠诚60→武力打6折
   });
+  it('打手升级战力加成×(1+bonus)', () => {
+    expect(combatPower(100, 100, 0.2)).toBe(120); // +20%
+    expect(combatPower(100, 60, 0.5)).toBe(90);   // 60×1.5
+  });
   it('总威望:AV未解锁=极道威望;解锁后才+淫名', () => {
     expect(totalPrestige(10, 5)).toBe(10);       // AV未解锁,淫名不计
     expect(totalPrestige(10, 5, true)).toBe(15); // 解锁后极道+淫名
