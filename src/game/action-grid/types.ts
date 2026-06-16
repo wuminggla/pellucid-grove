@@ -45,6 +45,8 @@ export interface ActionSlot {
   locked?: boolean;
   /** 强占来源事件名（locked 时有值），供 UI 显示"⚠本格被XX事件占用" */
   lockedBy?: string;
+  /** 是否为事件专属临时格（insertEventSlot 插入，不计入当日预算 dayCount/nightCount） */
+  inserted?: boolean;
 }
 
 /** 一天的完整行动格状态 */

@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest';
 import {
   startDay, allocate, setChoice, clearChoice, lockSlot,
   checkSubmit, beginDay, markRunning, completeCurrent, beginNight, currentSlot, fillEmpty,
+  insertEventSlot,
 } from './machine';
 import type { SlotChoice } from './types';
 
@@ -107,6 +108,58 @@ describe('完整一天流转', () => {
     s = beginDay(s); // 不抛错
     expect(s.phase).toBe('day_running');
     expect(s.cursor!.index).toBe(0);
+  });
+});
+
+describe('insertEventSlot 事件专属临时格', () => {
+  const zeroEvent: SlotChoice = { optionId: 'condom_zero', label: '避孕套归零·裸体买套' };
+
+  it('执行中插入→插在cursor后,成为下一格,不改预算计数', () => {
+    let s = freshAllocated(0, 2);
+    s = setChoice(s, 'night', 0, serve);
+    s = setChoice(s, 'night', 1, serve);
+    s = beginDay(s);             // 白天0格→day_settled
+    s = beginNight(s);            // cursor=night#0
+    s = markRunning(s);
+    // 第0格供奉后避孕套归零→插入临时格
+    s = insertEventSlot(s, 'night', '归零', zeroEvent);
+    // 预算不变
+    expect(s.nightCount).toBe(2);
+    expect(s.totalSlots).toBe(2);
+    // 临时格插在#1(cursor#0之后)
+    expect(s.nightSlots.length).toBe(3);
+    expect(s.nightSlots[1].inserted).toBe(true);
+    expect(s.nightSlots[1].locked).toBe(true);
+    expect(s.nightSlots[1].choice!.optionId).toBe('condom_zero');
+    // index 连续重排
+    expect(s.nightSlots.map(x => x.index)).toEqual([0, 1, 2]);
+    // 完成当前格→cursor推进到临时格,而非原#1
+    s = completeCurrent(s, '供奉一批后套没了');
+    expect(s.cursor!.index).toBe(1);
+    expect(currentSlot(s)!.choice!.optionId).toBe('condom_zero');
+  });
+
+  it('临时格使本时段延后结算(多跑一格才settle)', () => {
+    let s = freshAllocated(0, 1);
+    s = setChoice(s, 'night', 0, serve);
+    s = beginDay(s);             // 白天0格→day_settled
+    s = beginNight(s);
+    s = markRunning(s);
+    s = insertEventSlot(s, 'night', '归零', zeroEvent); // 现在2格
+    s = completeCurrent(s, '第0格done'); // 推进到临时格,不结算
+    expect(s.phase).toBe('night_running');
+    expect(s.cursor!.index).toBe(1);
+    s = markRunning(s);
+    s = completeCurrent(s, '临时格done'); // 最后一格→结算
+    expect(s.phase).toBe('night_settled');
+  });
+
+  it('未在该时段执行时→追加到末尾', () => {
+    let s = freshAllocated(2, 2); // allocating, cursor=null
+    s = insertEventSlot(s, 'day', '骚扰', { optionId: 'harass', label: '地盘骚扰' });
+    expect(s.daySlots.length).toBe(3);
+    expect(s.daySlots[2].inserted).toBe(true);
+    expect(s.dayCount).toBe(2); // 预算不变
   });
 });
 

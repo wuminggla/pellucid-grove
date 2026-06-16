@@ -122,6 +122,29 @@ export function lockSlot(
   return withSlots(state, period, next);
 }
 
+/**
+ * 插入事件专属临时格（v3 §10）。用于强制事件无空格可强占时（如避孕套归零）。
+ * - 不占当日预算：dayCount/nightCount/totalSlots 不变（临时格是预算外的额外格）。
+ * - 插入位置：若该时段正在执行（cursor 指向本时段），插在当前 cursor 之后→下一格即执行；
+ *   否则追加到末尾。插入后重排 index 保持连续，使 cursor/结算逻辑一致。
+ * - 临时格 locked+inserted+planned，玩家不可改派。
+ */
+export function insertEventSlot(
+  state: DayState, period: SlotPeriod, eventName: string, choice: SlotChoice,
+): DayState {
+  const slots = slotsOf(state, period);
+  const at = (state.cursor && state.cursor.period === period)
+    ? state.cursor.index + 1
+    : slots.length;
+  const newSlot: ActionSlot = {
+    index: at, period, status: 'planned', choice,
+    locked: true, lockedBy: eventName, inserted: true,
+  };
+  const merged = [...slots.slice(0, at), newSlot, ...slots.slice(at)];
+  const renumbered = merged.map((s, i) => ({ ...s, index: i }));
+  return withSlots(state, period, renumbered);
+}
+
 // ───────────────────────────────────────
 // 提交校验（空格不能提交）
 // ───────────────────────────────────────
