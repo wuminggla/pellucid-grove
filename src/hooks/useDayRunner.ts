@@ -6,7 +6,7 @@ import {
   startDay, allocate as allocateFn, setChoice as setChoiceFn, clearChoice as clearChoiceFn,
   beginDay as beginDayFn, beginNight as beginNightFn, fillEmpty as fillEmptyFn, currentSlot,
 } from '../game/action-grid/machine';
-import { runCurrentSlot, settleNight, settleDaily } from '../game/engine/day-runner';
+import { runCurrentSlot, settleNight, advanceToNextDay } from '../game/engine/day-runner';
 import type { RunnerState } from '../game/engine/day-runner';
 import type { NightSettleResult } from '../game/engine/settlement';
 import type { DayState, SlotChoice, SlotPeriod, ActionSlot } from '../game/action-grid/types';
@@ -16,7 +16,11 @@ export interface UseDayRunnerOpts {
   initialEngine: EngineState;
   totalSlots: number;
   settleOptions: Omit<SettleOptions, 'fastForward'>;
+  /** 强制请假轮奸日每格用的供奉选项（默认 serve） */
+  forcedLeaveChoice?: SlotChoice;
 }
+
+const DEFAULT_FORCED_LEAVE_CHOICE: SlotChoice = { optionId: 'serve', label: '供奉（强制请假轮奸）' };
 
 export function useDayRunner(opts: UseDayRunnerOpts) {
   const [day, setDay] = useState<DayState>(() => startDay(1, opts.totalSlots));
@@ -26,6 +30,7 @@ export function useDayRunner(opts: UseDayRunnerOpts) {
   const [lastSettle, setLastSettle] = useState<SettleResult | null>(null);
   const [lastServe, setLastServe] = useState<{ condomUsed: number; condomShort: boolean } | null>(null);
   const [lastNight, setLastNight] = useState<NightSettleResult | null>(null);
+  const [forcedLeaveToday, setForcedLeaveToday] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const allocate = useCallback((dayCount: number, nightCount: number) => {
@@ -88,25 +93,31 @@ export function useDayRunner(opts: UseDayRunnerOpts) {
     }
   }, [busy, day, engine, fastForward, opts.settleOptions]);
 
-  /** 进入下一天：先做每日收尾结算（招募刷新/武力/硬失败），再开新一天 */
+  /** 进入下一天：每日收尾结算 + 若昨晚欲望溢出则次日强制请假轮奸（霸全） */
   const nextDay = useCallback(() => {
-    const ds = settleDaily(engine, day.dayNumber, 0, 0); // 威望系统后续接,暂传0
-    setEngine(ds.state);
-    setDay(startDay(day.dayNumber + 1, opts.totalSlots));
+    const r = advanceToNextDay(
+      engine, day.dayNumber, opts.totalSlots,
+      0, 0, // 威望系统后续接,暂传0
+      opts.forcedLeaveChoice ?? DEFAULT_FORCED_LEAVE_CHOICE,
+    );
+    setEngine(r.engine);
+    setDay(r.day);
+    setForcedLeaveToday(r.forcedLeave);
     setLastSettle(null); setLastServe(null); setLastNight(null); setError(null);
-  }, [engine, day.dayNumber, opts.totalSlots]);
+  }, [engine, day.dayNumber, opts.totalSlots, opts.forcedLeaveChoice]);
 
   /** 读档：用存档快照恢复完整状态 */
   const loadState = useCallback((state: RunnerState, ff: boolean) => {
     setDay(state.day); setEngine(state.engine); setFastForward(ff);
-    setLastSettle(null); setLastServe(null); setLastNight(null); setError(null);
+    setLastSettle(null); setLastServe(null); setLastNight(null);
+    setForcedLeaveToday(false); setError(null);
   }, []);
 
   /** 当前完整状态（供存档） */
   const runnerState: RunnerState = { day, engine };
 
   return {
-    day, engine, fastForward, busy, lastSettle, lastServe, lastNight, error,
+    day, engine, fastForward, busy, lastSettle, lastServe, lastNight, forcedLeaveToday, error,
     canRunCurrent, runnerState,
     setFastForward,
     allocate, setChoice, clearChoice, fillEmpty, beginDay, beginNight, runCurrent, nextDay, loadState,

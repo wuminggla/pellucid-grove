@@ -53,7 +53,8 @@ export function settleNight(state: EngineState): NightSettleResult {
   const desire = state.desire + gained;
   const overflow = desireOverflow(desire, state.desireCapacity);
   return {
-    state: { ...state, desire, servedThisNight: 0 },
+    // 溢出 → 置 pendingForcedLeave，由 nextDay 构造次日强制请假轮奸日（霸全）
+    state: { ...state, desire, servedThisNight: 0, pendingForcedLeave: overflow || state.pendingForcedLeave },
     unserved, desireGained: gained, overflow,
   };
 }

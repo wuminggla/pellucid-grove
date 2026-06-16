@@ -2,10 +2,13 @@
 // 职责：执行"当前 cursor 格" = markRunning → settleSlot(引擎结算) → completeCurrent(写正文+推进)。
 // 把行动格的 DayState 与引擎的 EngineState 两份状态一起推进。纯逻辑(AI经AiPort)，可测。
 
-import { markRunning, completeCurrent, currentSlot } from '../action-grid/machine';
+import {
+  markRunning, completeCurrent, currentSlot, startDay, buildForcedLeaveDay,
+} from '../action-grid/machine';
 import { settleSlot } from './machine';
-import { settleServe } from './settlement';
-import type { DayState } from '../action-grid/types';
+import { settleServe, settleDaily } from './settlement';
+import type { DailySettleResult } from './settlement';
+import type { DayState, SlotChoice } from '../action-grid/types';
 import type { EngineState, SettleOptions, SettleResult } from './types';
 
 /** 一天 + 引擎 的合并状态（前端持有的总状态切片） */
@@ -57,6 +60,47 @@ export async function runCurrentSlot(
   return {
     state: { day: dayDone, engine },
     settle, serve,
+  };
+}
+
+/** 进入次日的结果 */
+export interface NextDayResult {
+  engine: EngineState;
+  day: DayState;
+  daily: DailySettleResult;
+  forcedLeave: boolean;   // 次日是否被强制请假轮奸霸全
+}
+
+/**
+ * 推进到次日（纯函数，便于单测）。
+ *  1. settleDaily：每日收尾（招募刷新/武力/硬失败）。
+ *  2. 若 engine.pendingForcedLeave（昨晚欲望溢出）→ 构造强制请假轮奸日（霸全），并清除标记。
+ *     否则 → 正常 startDay 进玩家分配。
+ */
+export function advanceToNextDay(
+  engine: EngineState,
+  currentDayNumber: number,
+  totalSlots: number,
+  martialPrestige: number,
+  infamy: number,
+  serveChoice: SlotChoice,
+): NextDayResult {
+  const daily = settleDaily(engine, currentDayNumber, martialPrestige, infamy);
+  const newDayNumber = currentDayNumber + 1;
+  if (daily.state.pendingForcedLeave) {
+    const engineCleared: EngineState = { ...daily.state, pendingForcedLeave: false };
+    return {
+      engine: engineCleared,
+      day: buildForcedLeaveDay(newDayNumber, totalSlots, serveChoice),
+      daily,
+      forcedLeave: true,
+    };
+  }
+  return {
+    engine: daily.state,
+    day: startDay(newDayNumber, totalSlots),
+    daily,
+    forcedLeave: false,
   };
 }
 

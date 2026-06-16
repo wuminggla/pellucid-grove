@@ -32,6 +32,35 @@ export function startDay(dayNumber: number, totalSlots: number): DayState {
   };
 }
 
+/**
+ * 构造"强制请假轮奸日"（v3 §6.4·霸全）。夜晚欲望溢出后次日不进玩家分配：
+ * - 白天0格（放弃白天），全部 totalSlots 给夜晚，每格=供奉，locked（玩家不可改派）。
+ * - 直接进 day_settled（白天已无格），调用方 beginNight 即开始逐格供奉。
+ */
+export function buildForcedLeaveDay(
+  dayNumber: number, totalSlots: number, serveChoice: SlotChoice,
+  eventName = '强制请假轮奸',
+): DayState {
+  const nightSlots: ActionSlot[] = Array.from({ length: totalSlots }, (_, i) => ({
+    index: i,
+    period: 'night' as const,
+    status: 'planned' as const,
+    choice: serveChoice,
+    locked: true,
+    lockedBy: eventName,
+  }));
+  return {
+    dayNumber,
+    phase: 'day_settled',
+    totalSlots,
+    dayCount: 0,
+    nightCount: totalSlots,
+    daySlots: [],
+    nightSlots,
+    cursor: null,
+  };
+}
+
 // ───────────────────────────────────────
 // 分配（allocating 阶段）
 // ───────────────────────────────────────

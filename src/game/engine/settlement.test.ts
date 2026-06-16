@@ -43,10 +43,16 @@ describe('夜晚收尾结算', () => {
     expect(r.state.desire).toBe(128);
     expect(r.state.servedThisNight).toBe(0); // 重置
   });
-  it('欲望溢出判定', () => {
+  it('欲望溢出判定→置 pendingForcedLeave', () => {
     const r = settleNight(base({ thugTotal: 50, servedThisNight: 0, desire: 0, desireCapacity: 60 }));
     // 50未供奉×2=100 ≥60 → overflow
     expect(r.overflow).toBe(true);
+    expect(r.state.pendingForcedLeave).toBe(true);
+  });
+  it('未溢出不置 pendingForcedLeave', () => {
+    const r = settleNight(base({ thugTotal: 30, servedThisNight: 30, desire: 0, desireCapacity: 60 }));
+    expect(r.overflow).toBe(false);
+    expect(r.state.pendingForcedLeave).toBeFalsy();
   });
   it('全供奉则无未供奉,欲望不涨', () => {
     const r = settleNight(base({ thugTotal: 30, servedThisNight: 30 }));

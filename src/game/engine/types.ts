@@ -35,6 +35,8 @@ export interface EngineState {
   isDangerousPeriod: boolean;  // 危险期
   // —— 派生/统计（结算更新，供UI/失败判定）——
   servedThisNight: number;     // 本晚已被供奉人数（夜晚结算用）
+  // —— 强制事件信号（跨天，随存档持久化）——
+  pendingForcedLeave?: boolean; // 夜晚欲望溢出 → 次日强制请假轮奸（霸全）。nextDay 消费后清除
 }
 
 /** 玩家在某格选的内容（来自 action-grid 的 SlotChoice，精简引用） */

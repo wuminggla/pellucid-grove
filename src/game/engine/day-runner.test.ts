@@ -1,7 +1,8 @@
 import { describe, it, expect, vi } from 'vitest';
-import { runCurrentSlot } from './day-runner';
+import { runCurrentSlot, advanceToNextDay } from './day-runner';
 import type { RunnerState } from './day-runner';
 import { startDay, allocate, setChoice, beginDay } from '../action-grid/machine';
+import type { SlotChoice } from '../action-grid/types';
 import type { EngineState, AiPort, SettleOptions } from './types';
 import type { EventOption } from '../events/types';
 
@@ -82,5 +83,33 @@ describe('runCurrentSlot 连接两个状态机', () => {
     expect(r.settle.events.renderMode).toBe('fast_summary');
     expect(r.state.day.nightSlots[0].resultText).toBe('大小姐给18人侍奉了');
     expect(ai.expand).not.toHaveBeenCalled();
+  });
+});
+
+describe('advanceToNextDay 进入次日', () => {
+  const serveChoice: SlotChoice = { optionId: 'serve', label: '供奉' };
+
+  it('正常→startDay进玩家分配', () => {
+    const r = advanceToNextDay(engineState(), 1, 8, 0, 0, serveChoice);
+    expect(r.forcedLeave).toBe(false);
+    expect(r.day.dayNumber).toBe(2);
+    expect(r.day.phase).toBe('allocating');
+  });
+
+  it('pendingForcedLeave→构造强制请假轮奸日+清除标记', () => {
+    const r = advanceToNextDay(
+      engineState(), 3, 8, 0, 0, serveChoice,
+    );
+    expect(r.forcedLeave).toBe(false); // 默认无溢出
+
+    const r2 = advanceToNextDay(
+      { ...engineState(), pendingForcedLeave: true }, 3, 8, 0, 0, serveChoice,
+    );
+    expect(r2.forcedLeave).toBe(true);
+    expect(r2.day.dayNumber).toBe(4);
+    expect(r2.day.phase).toBe('day_settled');     // 白天0格
+    expect(r2.day.nightCount).toBe(8);
+    expect(r2.day.nightSlots.every(s => s.locked)).toBe(true);
+    expect(r2.engine.pendingForcedLeave).toBe(false); // 标记已清除
   });
 });

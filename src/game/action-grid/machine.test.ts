@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest';
 import {
   startDay, allocate, setChoice, clearChoice, lockSlot,
   checkSubmit, beginDay, markRunning, completeCurrent, beginNight, currentSlot, fillEmpty,
-  insertEventSlot,
+  insertEventSlot, buildForcedLeaveDay,
 } from './machine';
 import type { SlotChoice } from './types';
 
@@ -160,6 +160,24 @@ describe('insertEventSlot 事件专属临时格', () => {
     expect(s.daySlots.length).toBe(3);
     expect(s.daySlots[2].inserted).toBe(true);
     expect(s.dayCount).toBe(2); // 预算不变
+  });
+});
+
+describe('buildForcedLeaveDay 强制请假轮奸日', () => {
+  it('全格夜晚供奉+locked,白天0格,可直接beginNight', () => {
+    const d = buildForcedLeaveDay(5, 8, serve);
+    expect(d.dayNumber).toBe(5);
+    expect(d.phase).toBe('day_settled'); // 白天已无格
+    expect(d.dayCount).toBe(0);
+    expect(d.nightCount).toBe(8);
+    expect(d.nightSlots.length).toBe(8);
+    expect(d.nightSlots.every(s => s.locked && s.choice!.optionId === 'serve')).toBe(true);
+    // 玩家不可改派
+    expect(() => setChoice(d, 'night', 0, recruit)).toThrow();
+    // 直接进夜晚执行
+    const n = beginNight(d);
+    expect(n.phase).toBe('night_running');
+    expect(n.cursor!.index).toBe(0);
   });
 });
 
