@@ -8,14 +8,23 @@ export const COGNITION_ORDER: CognitionStage[] = ['死撑', '动摇', '崩溃', 
 
 /**
  * 认知防线阈值表：堕落度 ≥ 阈值 即推进到该档（取满足的最高档）。
- * 起调值，可调。门槛递增体现"越深越难推进"。
+ * 用户定稿：认知防线直接和堕落度挂钩，每 25 一档。堕落度是认知防线的数值化细化，
+ * 使特殊事件闸门可挂 15/35 等非整档点，不至于全堆在 25/50/75。
  */
 export const COGNITION_THRESHOLDS: { stage: CognitionStage; atCorruption: number }[] = [
   { stage: '死撑', atCorruption: 0 },
-  { stage: '动摇', atCorruption: 8 },
-  { stage: '崩溃', atCorruption: 20 },
-  { stage: '母猪化', atCorruption: 40 },
+  { stage: '动摇', atCorruption: 25 },
+  { stage: '崩溃', atCorruption: 50 },
+  { stage: '母猪化', atCorruption: 75 },
 ];
+
+/** 认知防线"三态度节点"（双判定模型·态度层）。崩溃及以上态度与堕落前彻底区分。 */
+export type CognitionAttitude = '堕落前' | '堕落后' | '母猪化';
+export function attitudeForStage(stage: CognitionStage): CognitionAttitude {
+  if (stage === '母猪化') return '母猪化';
+  if (stage === '崩溃') return '堕落后';
+  return '堕落前'; // 死撑/动摇
+}
 
 /**
  * 奖励闸门表：堕落度达阈值触发一次性奖励（给钱/打手，鼓励早放纵=堕落易）。
@@ -28,9 +37,9 @@ export interface RewardGate {
   desc: string;
 }
 export const REWARD_GATES: RewardGate[] = [
-  { gateId: 'gate_5',  atCorruption: 5,  reward: { money: 5000, thugs: 20 }, desc: '初尝堕落甜头：金主注资+一批打手投奔' },
-  { gateId: 'gate_15', atCorruption: 15, reward: { money: 20000, thugs: 50 }, desc: '淫名渐起：资源涌入' },
-  { gateId: 'gate_30', atCorruption: 30, reward: { money: 80000, thugs: 150 }, desc: '黑道女王崛起：人潮与金钱碾压而来' },
+  { gateId: 'gate_10', atCorruption: 10, reward: { money: 5000, thugs: 20 }, desc: '初尝堕落甜头：金主注资+一批打手投奔' },
+  { gateId: 'gate_25', atCorruption: 25, reward: { money: 20000, thugs: 50 }, desc: '淫名渐起：资源涌入' },
+  { gateId: 'gate_50', atCorruption: 50, reward: { money: 80000, thugs: 150 }, desc: '黑道女王崛起：人潮与金钱碾压而来' },
 ];
 
 /** 根据堕落度算出当前应处的认知防线档（取满足阈值的最高档） */

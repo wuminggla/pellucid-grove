@@ -5,7 +5,7 @@ import type { ParadigmRegistry } from '../paradigm/machine';
 
 const registry: ParadigmRegistry = {
   serve: [{ paradigmId: 'serve_daily', optionId: 'serve', kind: 'daily', isSpecial: false, worldbookKey: 'wb_serve', label: '供奉' }],
-  oral: [{ paradigmId: 'oral_first', optionId: 'oral', kind: 'special_first', isSpecial: true, corruptionWeight: 6, worldbookKey: 'wb_oral', label: '口交' }],
+  oral: [{ paradigmId: 'oral_first', optionId: 'oral', kind: 'special_first', isSpecial: true, corruptionWeight: 10, worldbookKey: 'wb_oral', label: '口交' }],
 };
 
 function baseState(): EngineState {
@@ -61,10 +61,10 @@ describe('settleSlot 首次特殊事件', () => {
     const r = await settleSlot(baseState(), { optionId: 'oral' }, opts(ai));
     expect(r.events.renderMode).toBe('ai_full');
     expect(r.events.isFirstSpecial).toBe(true);
-    expect(r.events.corruptionGain).toBe(6);
-    expect(r.state.corruption).toBe(6);
-    // 堕落度6→触发 gate_5(给钱5000+打手20)
-    expect(r.events.firedGateIds).toContain('gate_5');
+    expect(r.events.corruptionGain).toBe(10);
+    expect(r.state.corruption).toBe(10);
+    // 堕落度10→触发 gate_10(给钱5000+打手20)
+    expect(r.events.firedGateIds).toContain('gate_10');
     expect(r.state.money).toBe(8000 + 5000);
     expect(r.state.thugTotal).toBe(30 + 20);
     // 账本已记
@@ -81,7 +81,7 @@ describe('settleSlot 首次特殊事件', () => {
     const s2 = await settleSlot(s1.state, { optionId: 'oral' }, opts(ai));
     expect(s2.events.isFirstSpecial).toBe(false);
     expect(s2.events.renderMode).toBe('ai_brief'); // 非快进的重复=略写
-    expect(s2.state.corruption).toBe(6); // 没再加
+    expect(s2.state.corruption).toBe(10); // 没再加
     expect(s2.events.firedGateIds).toEqual([]);
   });
 });
@@ -101,7 +101,7 @@ describe('settleSlot 快进模式', () => {
     const r = await settleSlot(baseState(), { optionId: 'oral' }, opts(ai, { fastForward: true }));
     expect(r.events.renderMode).toBe('ai_full'); // 首次特殊压过快进
     expect(ai.expand).toHaveBeenCalledOnce();
-    expect(r.state.corruption).toBe(6);
+    expect(r.state.corruption).toBe(10);
   });
 });
 

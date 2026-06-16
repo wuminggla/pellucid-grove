@@ -1,52 +1,60 @@
 import { describe, it, expect } from 'vitest';
 import {
-  stageForCorruption, advanceCognition, gainCorruption,
+  stageForCorruption, advanceCognition, gainCorruption, attitudeForStage,
   COGNITION_THRESHOLDS, REWARD_GATES,
 } from './machine';
 
-describe('认知防线阈值推进', () => {
+describe('认知防线阈值推进 (每25一档)', () => {
   it('堕落度映射到正确档位', () => {
     expect(stageForCorruption(0)).toBe('死撑');
-    expect(stageForCorruption(7)).toBe('死撑');
-    expect(stageForCorruption(8)).toBe('动摇');
-    expect(stageForCorruption(20)).toBe('崩溃');
-    expect(stageForCorruption(40)).toBe('母猪化');
+    expect(stageForCorruption(24)).toBe('死撑');
+    expect(stageForCorruption(25)).toBe('动摇');
+    expect(stageForCorruption(50)).toBe('崩溃');
+    expect(stageForCorruption(75)).toBe('母猪化');
     expect(stageForCorruption(999)).toBe('母猪化');
   });
   it('单向不回退', () => {
-    // 当前已崩溃，即使堕落度算出来是动摇(不该发生,但防御性)，也不回退
-    expect(advanceCognition('崩溃', 8)).toBe('崩溃');
-    expect(advanceCognition('死撑', 20)).toBe('崩溃');
+    expect(advanceCognition('崩溃', 25)).toBe('崩溃');
+    expect(advanceCognition('死撑', 50)).toBe('崩溃');
+  });
+});
+
+describe('三态度节点 (双判定·态度层)', () => {
+  it('死撑/动摇=堕落前, 崩溃=堕落后, 母猪化=母猪化', () => {
+    expect(attitudeForStage('死撑')).toBe('堕落前');
+    expect(attitudeForStage('动摇')).toBe('堕落前');
+    expect(attitudeForStage('崩溃')).toBe('堕落后');
+    expect(attitudeForStage('母猪化')).toBe('母猪化');
   });
 });
 
 describe('堕落度增加与连带结算', () => {
   it('加堕落度推进认知防线', () => {
-    const r = gainCorruption({ corruption: 6, cognition: '死撑', claimedGates: {} }, 3); // 6+3=9≥8
-    expect(r.corruption).toBe(9);
+    const r = gainCorruption({ corruption: 20, cognition: '死撑', claimedGates: {} }, 8); // 28≥25
+    expect(r.corruption).toBe(28);
     expect(r.cognition).toBe('动摇');
     expect(r.cognitionAdvancedTo).toBe('动摇');
   });
   it('未跨阈值不推进', () => {
-    const r = gainCorruption({ corruption: 2, cognition: '死撑', claimedGates: {} }, 3); // 5<8
+    const r = gainCorruption({ corruption: 10, cognition: '死撑', claimedGates: {} }, 5); // 15<25
     expect(r.cognition).toBe('死撑');
     expect(r.cognitionAdvancedTo).toBeNull();
   });
   it('达阈值触发奖励闸门(一次性)', () => {
-    const r = gainCorruption({ corruption: 4, cognition: '死撑', claimedGates: {} }, 2); // 6≥5
-    expect(r.firedGates.map(g => g.gateId)).toContain('gate_5');
-    expect(r.claimedGates['gate_5']).toBe(true);
+    const r = gainCorruption({ corruption: 8, cognition: '死撑', claimedGates: {} }, 3); // 11≥10
+    expect(r.firedGates.map(g => g.gateId)).toContain('gate_10');
+    expect(r.claimedGates['gate_10']).toBe(true);
   });
   it('已领闸门不重复触发', () => {
-    const r = gainCorruption({ corruption: 10, cognition: '动摇', claimedGates: { gate_5: true } }, 1);
-    expect(r.firedGates.map(g => g.gateId)).not.toContain('gate_5');
+    const r = gainCorruption({ corruption: 12, cognition: '死撑', claimedGates: { gate_10: true } }, 1);
+    expect(r.firedGates.map(g => g.gateId)).not.toContain('gate_10');
   });
   it('一次大增可同时跨多个闸门', () => {
-    const r = gainCorruption({ corruption: 0, cognition: '死撑', claimedGates: {} }, 16); // 16≥5且≥15
+    const r = gainCorruption({ corruption: 0, cognition: '死撑', claimedGates: {} }, 26); // 26≥10且≥25
     const ids = r.firedGates.map(g => g.gateId);
-    expect(ids).toContain('gate_5');
-    expect(ids).toContain('gate_15');
-    expect(r.cognition).toBe('动摇'); // 16≥8
+    expect(ids).toContain('gate_10');
+    expect(ids).toContain('gate_25');
+    expect(r.cognition).toBe('动摇'); // 26≥25
   });
 });
 

@@ -7,7 +7,7 @@ import type { ParadigmRegistry } from '../paradigm/machine';
 
 const registry: ParadigmRegistry = {
   serve: [{ paradigmId: 'serve_daily', optionId: 'serve', kind: 'daily', isSpecial: false, worldbookKey: 'wb_serve', label: '供奉' }],
-  oral: [{ paradigmId: 'oral_first', optionId: 'oral', kind: 'special_first', isSpecial: true, corruptionWeight: 6, worldbookKey: 'wb_oral', label: '口交' }],
+  oral: [{ paradigmId: 'oral_first', optionId: 'oral', kind: 'special_first', isSpecial: true, corruptionWeight: 10, worldbookKey: 'wb_oral', label: '口交' }],
 };
 
 function engineState(): EngineState {
@@ -46,9 +46,9 @@ describe('runCurrentSlot 连接两个状态机', () => {
     expect(r.state.day.daySlots[0].resultText).toBe('AI正文');
     expect(r.state.day.cursor!.index).toBe(1); // 推进到第二格
     // 引擎侧
-    expect(r.state.engine.corruption).toBe(6); // 首次口交加堕落度
+    expect(r.state.engine.corruption).toBe(10); // 首次口交加堕落度
     expect(r.state.engine.triggeredSpecials['oral_first']).toBe(true);
-    expect(r.settle.events.firedGateIds).toContain('gate_5'); // 堕落6触发奖励
+    expect(r.settle.events.firedGateIds).toContain('gate_10'); // 堕落10触发奖励
     expect(r.state.engine.presentCount).toBe(20); // extract应用
   });
 
