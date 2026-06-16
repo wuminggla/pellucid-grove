@@ -5,7 +5,7 @@
 import { COGNITION_ORDER } from '../corruption/machine';
 import type { CognitionStage } from '../corruption/machine';
 import type {
-  EventOption, ErosionGate, EventContext, EventResolution, RenderMode, ParadigmRef,
+  EventOption, ErosionGate, EventContext, ForcedContext, EventResolution, RenderMode, ParadigmRef,
 } from './types';
 
 // ───────────────────────────────────────
@@ -124,13 +124,21 @@ export function buildMenu(
 // 强制/特殊事件候选池（优先级 + 已触发标签）
 // ───────────────────────────────────────
 
-/** 强制事件条目（强占/霸全，由系统扫描触发，非玩家主动选） */
+/** 强制事件插入强度 */
+export type ForcedIntensity =
+  | 'seize_slot'   // 强占：锁定一个已有行动格（玩家不可改派）。骚扰/火并防守。
+  | 'insert_slot'; // 临时格：插入预算外的事件专属格。避孕套归零等无空格时。
+
+/** 强制事件条目（强占/霸全/临时格，由系统扫描触发，非玩家主动选） */
 export interface ForcedEvent {
   id: string;
   ledgerKey?: string;          // 一次性事件的账本键（触发后打标签，不再触发）
   priority: number;            // 数字小先触发
+  intensity: ForcedIntensity;  // 插入强度（强占/临时格）
+  optionId: string;            // 强占/插入的格要跑哪个事件选项
+  label: string;               // 该格显示名（含来源事件）
   /** 触发条件 */
-  condition: (ctx: EventContext) => boolean;
+  condition: (ctx: ForcedContext) => boolean;
   /** 是否一次性（触发后标记，永不再触发） */
   once?: boolean;
 }
@@ -140,7 +148,7 @@ export interface ForcedEvent {
  * 机制（v3 §4）：过滤(已触发标签 + 条件不满足) → 按优先级取最高。
  * 覆盖避孕套三连：三条目同条件(库存=0)，靠优先级+once标签依次触发。
  */
-export function scanForced(pool: ForcedEvent[], ctx: EventContext): ForcedEvent | null {
+export function scanForced(pool: ForcedEvent[], ctx: ForcedContext): ForcedEvent | null {
   const candidates = pool.filter(e => {
     if (e.once && e.ledgerKey && ctx.triggeredLedger[e.ledgerKey]) return false; // 已触发跳过
     return e.condition(ctx);

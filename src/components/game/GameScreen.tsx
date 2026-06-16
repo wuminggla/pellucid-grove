@@ -9,7 +9,7 @@ import { autosave } from '../../game/save/store';
 import { buildMenu } from '../../game/events/machine';
 import type { EventContext } from '../../game/events/types';
 import {
-  demoEventOptions, demoSummaryTemplates, demoExtractBounds, createMockAi,
+  demoEventOptions, demoSummaryTemplates, demoExtractBounds, demoForcedPool, createMockAi,
 } from '../../game/engine/mock-ai';
 import { createRealAi } from '../../game/engine/real-ai';
 import { buildExpandMessages, buildExtractMessages } from '../../game/engine/prompt';
@@ -154,7 +154,7 @@ export function GameScreen() {
     initialEngine: INITIAL_ENGINE, totalSlots: 8,
     settleOptions: {
       eventOptions: demoEventOptions, ai, summaryTemplates: demoSummaryTemplates,
-      extractBounds: demoExtractBounds,
+      extractBounds: demoExtractBounds, forcedPool: demoForcedPool,
     },
   });
 

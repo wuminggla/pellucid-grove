@@ -74,6 +74,15 @@ export interface EventContext {
   unlocked: Record<string, boolean>;          // 已解锁集（扩张）
 }
 
+/**
+ * 强制事件扫描上下文 = EventContext + 强制事件关心的额外信号。
+ * 额外字段可选：地盘系统等未做时缺省，条件函数自行兜底。
+ */
+export interface ForcedContext extends EventContext {
+  condomStock?: number;   // 避孕套库存（归零链触发）
+  threatLevel?: number;   // 地盘威胁等级（骚扰/火并防守触发；0=无。地盘系统未做先占位）
+}
+
 /** 渲染方式（v3 §3 四档） */
 export type RenderMode =
   | 'ai_full'      // 首次里程碑特殊事件：重点扩写

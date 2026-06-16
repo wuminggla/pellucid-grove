@@ -3,6 +3,7 @@
 
 import type { AiPort } from './types';
 import type { EventOption } from '../events/types';
+import type { ForcedEvent } from '../events/machine';
 
 /** 示例事件选项注册表（统一模型：双面型/天生NSFW/解锁/侵蚀闸门）。占位堕落度阈值50。 */
 export const demoEventOptions: Record<string, EventOption> = {
@@ -33,7 +34,23 @@ export const demoEventOptions: Record<string, EventOption> = {
     nsfw: { worldbookKey: 'wb_anal' }, first: { ledgerKey: 'anal_first', paradigm: { worldbookKey: 'wb_anal_first' }, corruptionWeight: 8 } },
   // —— 通用·休息 ——
   rest: { id: 'rest', label: '休息', period: 'night', shape: 'born_sfw', sfw: { worldbookKey: 'wb_rest' } },
+  // —— 强制·避孕套归零（临时格插入，非玩家主动选）——
+  condom_zero: {
+    id: 'condom_zero', label: '避孕套归零·裸体买套', period: 'any', shape: 'born_nsfw',
+    nsfw: { worldbookKey: 'wb_condom_zero' },
+    first: { ledgerKey: 'condom_zero_first', paradigm: { worldbookKey: 'wb_condom_zero_first' }, corruptionWeight: 5 },
+  },
 };
+
+/** 示例强制事件池（统一机制：优先级+已触发标签）。条件占位，真实信号待地盘/经济系统驱动。 */
+export const demoForcedPool: ForcedEvent[] = [
+  // 避孕套归零 → 临时格（不占预算），无空格也能强行插入
+  {
+    id: 'condom_zero', ledgerKey: 'condom_zero_1', priority: 1, once: true,
+    intensity: 'insert_slot', optionId: 'condom_zero', label: '避孕套归零·裸体买套',
+    condition: c => (c.condomStock ?? 1) <= 0,
+  },
+];
 
 /** 快进总结词模板 */
 export const demoSummaryTemplates: Record<string, string> = {

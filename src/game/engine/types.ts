@@ -4,6 +4,7 @@
 
 import type { CognitionStage, CognitionAttitude } from '../corruption/machine';
 import type { EventOption, EventResolution, RenderMode } from '../events/types';
+import type { ForcedEvent } from '../events/machine';
 
 export type { RenderMode };
 
@@ -37,6 +38,8 @@ export interface EngineState {
   servedThisNight: number;     // 本晚已被供奉人数（夜晚结算用）
   // —— 强制事件信号（跨天，随存档持久化）——
   pendingForcedLeave?: boolean; // 夜晚欲望溢出 → 次日强制请假轮奸（霸全）。nextDay 消费后清除
+  // —— 地盘信号（地盘系统未做，先占位供强制事件扫描）——
+  threatLevel?: number;         // 地盘威胁等级（骚扰/火并防守强占触发；0=无）
 }
 
 /** 玩家在某格选的内容（来自 action-grid 的 SlotChoice，精简引用） */
@@ -81,6 +84,8 @@ export interface SettleOptions {
   summaryTemplates?: Record<string, string>;
   /** extract 数值的合法范围（防胡诌），如 { presentCount: [0, 2000] } */
   extractBounds?: Record<string, [number, number]>;
+  /** 强制事件池（强占/临时格，结算时按条件扫描触发） */
+  forcedPool?: ForcedEvent[];
 }
 
 /** 本次结算产生的事件（供 UI 提示/叙事钩子） */

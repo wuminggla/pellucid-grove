@@ -3,13 +3,49 @@
 // 把行动格的 DayState 与引擎的 EngineState 两份状态一起推进。纯逻辑(AI经AiPort)，可测。
 
 import {
-  markRunning, completeCurrent, currentSlot, startDay, buildForcedLeaveDay,
+  markRunning, completeCurrent, currentSlot, startDay, buildForcedLeaveDay, insertEventSlot,
 } from '../action-grid/machine';
 import { settleSlot } from './machine';
 import { settleServe, settleDaily } from './settlement';
+import { scanForced } from '../events/machine';
+import type { ForcedEvent } from '../events/machine';
+import type { ForcedContext } from '../events/types';
 import type { DailySettleResult } from './settlement';
-import type { DayState, SlotChoice } from '../action-grid/types';
+import type { DayState, SlotPeriod, SlotChoice } from '../action-grid/types';
 import type { EngineState, SettleOptions, SettleResult } from './types';
+
+/** 从 EngineState 构造强制事件扫描上下文 */
+export function forcedContextOf(engine: EngineState): ForcedContext {
+  return {
+    corruption: engine.corruption,
+    cognition: engine.cognition,
+    infamy: engine.infamy,
+    thugs: engine.thugTotal,
+    triggeredLedger: engine.triggeredSpecials,
+    unlocked: engine.unlocked,
+    condomStock: engine.condomStock,
+    threatLevel: engine.threatLevel ?? 0,
+  };
+}
+
+/**
+ * 扫描并应用"临时格"强制事件（insert_slot，如避孕套归零）。
+ * 在某时段执行中调用：命中则在 cursor 后插入事件专属临时格，并标记 once 账本。
+ * 返回新 day/engine + 触发的事件（null=未触发）。
+ */
+export function applyForcedInserts(
+  day: DayState, engine: EngineState, pool: ForcedEvent[] | undefined, period: SlotPeriod,
+): { day: DayState; engine: EngineState; fired: ForcedEvent | null } {
+  if (!pool || pool.length === 0) return { day, engine, fired: null };
+  const inserts = pool.filter(e => e.intensity === 'insert_slot');
+  const ev = scanForced(inserts, forcedContextOf(engine));
+  if (!ev) return { day, engine, fired: null };
+  const day2 = insertEventSlot(day, period, ev.label, { optionId: ev.optionId, label: ev.label });
+  const engine2 = (ev.once && ev.ledgerKey)
+    ? { ...engine, triggeredSpecials: { ...engine.triggeredSpecials, [ev.ledgerKey]: true } }
+    : engine;
+  return { day: day2, engine: engine2, fired: ev };
+}
 
 /** 一天 + 引擎 的合并状态（前端持有的总状态切片） */
 export interface RunnerState {
@@ -22,6 +58,8 @@ export interface RunSlotResult {
   settle: SettleResult;
   /** 供奉类格子的避孕套结算（非供奉格为 null） */
   serve?: { condomUsed: number; condomShort: boolean } | null;
+  /** 本格触发的临时格强制事件（如避孕套归零），null=无 */
+  forcedInsert?: ForcedEvent | null;
 }
 
 /**
@@ -55,11 +93,19 @@ export async function runCurrentSlot(
     serve = { condomUsed: sr.condomUsed, condomShort: sr.condomShort };
   }
 
-  const dayDone = completeCurrent(dayRunning, settle.resultText);
+  // 强制临时格扫描（如避孕套归零）：在完成当前格【前】插入，使其成为下一格立即执行。
+  let dayForInsert = dayRunning;
+  let forcedInsert: ForcedEvent | null = null;
+  {
+    const fi = applyForcedInserts(dayForInsert, engine, opts.forcedPool, slot.period);
+    dayForInsert = fi.day; engine = fi.engine; forcedInsert = fi.fired;
+  }
+
+  const dayDone = completeCurrent(dayForInsert, settle.resultText);
 
   return {
     state: { day: dayDone, engine },
-    settle, serve,
+    settle, serve, forcedInsert,
   };
 }
 

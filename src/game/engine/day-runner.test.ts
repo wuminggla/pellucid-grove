@@ -1,8 +1,11 @@
 import { describe, it, expect, vi } from 'vitest';
 import { runCurrentSlot, advanceToNextDay } from './day-runner';
 import type { RunnerState } from './day-runner';
-import { startDay, allocate, setChoice, beginDay } from '../action-grid/machine';
+import { startDay, allocate, setChoice, beginDay, beginNight } from '../action-grid/machine';
 import type { SlotChoice } from '../action-grid/types';
+import {
+  demoEventOptions, demoSummaryTemplates, demoExtractBounds, demoForcedPool, createMockAi,
+} from './mock-ai';
 import type { EngineState, AiPort, SettleOptions } from './types';
 import type { EventOption } from '../events/types';
 
@@ -83,6 +86,48 @@ describe('runCurrentSlot 连接两个状态机', () => {
     expect(r.settle.events.renderMode).toBe('fast_summary');
     expect(r.state.day.nightSlots[0].resultText).toBe('大小姐给18人侍奉了');
     expect(ai.expand).not.toHaveBeenCalled();
+  });
+});
+
+describe('强制临时格(避孕套归零)', () => {
+  it('供奉后库存归零→插入condom_zero临时格,不占预算,标记once账本', async () => {
+    // 库存54,一场18人供奉(18×3=54)正好扣到0
+    const eng: EngineState = { ...engineState(), condomStock: 54, presentCount: 18 };
+    let day = startDay(1, 1);
+    day = allocate(day, { dayCount: 0, nightCount: 1 }).state!;
+    day = setChoice(day, 'night', 0, { optionId: 'serve', label: '供奉' });
+    day = beginDay(day);     // 白天0格→day_settled
+    day = beginNight(day);   // cursor=night#0
+    const o: SettleOptions = {
+      eventOptions: demoEventOptions, fastForward: false, ai: createMockAi(),
+      summaryTemplates: demoSummaryTemplates, extractBounds: demoExtractBounds,
+      forcedPool: demoForcedPool,
+    };
+    const r = await runCurrentSlot({ day, engine: eng }, o);
+    expect(r.state.engine.condomStock).toBe(0);
+    expect(r.forcedInsert!.id).toBe('condom_zero');
+    // 临时格已插入夜晚(预算外)
+    const inserted = r.state.day.nightSlots.find(s => s.inserted);
+    expect(inserted!.choice!.optionId).toBe('condom_zero');
+    expect(r.state.day.nightCount).toBe(1);            // 预算不变
+    expect(r.state.engine.triggeredSpecials['condom_zero_1']).toBe(true); // once账本
+  });
+
+  it('库存未归零→不触发临时格', async () => {
+    const eng: EngineState = { ...engineState(), condomStock: 480, presentCount: 18 };
+    let day = startDay(1, 1);
+    day = allocate(day, { dayCount: 0, nightCount: 1 }).state!;
+    day = setChoice(day, 'night', 0, { optionId: 'serve', label: '供奉' });
+    day = beginDay(day);
+    day = beginNight(day);
+    const o: SettleOptions = {
+      eventOptions: demoEventOptions, fastForward: false, ai: createMockAi(),
+      summaryTemplates: demoSummaryTemplates, extractBounds: demoExtractBounds,
+      forcedPool: demoForcedPool,
+    };
+    const r = await runCurrentSlot({ day, engine: eng }, o);
+    expect(r.forcedInsert).toBeNull();
+    expect(r.state.day.nightSlots.some(s => s.inserted)).toBe(false);
   });
 });
 
