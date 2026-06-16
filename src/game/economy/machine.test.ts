@@ -4,6 +4,7 @@ import {
   condomCost, purchaseCap, condomStatus,
   desireGain, desireOverflow, combatPower, availableThugs,
   weeklyRecruitQuota, totalPrestige, siegeWinChance, CONST,
+  leaveCount, slidingWindowRelief,
 } from './machine';
 
 describe('供奉吞吐与覆盖', () => {
@@ -61,6 +62,34 @@ describe('欲望滚雪球', () => {
   it('溢出判定', () => {
     expect(desireOverflow(60, 60)).toBe(true);
     expect(desireOverflow(59, 60)).toBe(false);
+  });
+});
+
+describe('请假滑动窗口保底', () => {
+  it('leaveCount数窗口内请假天数', () => {
+    const h = [true, false, true, true];
+    expect(leaveCount(h, 10)).toBe(3);
+    expect(leaveCount(h, 2)).toBe(2); // 最后2天[true,true]
+  });
+  it('短窗:10天≥7请假+欲望<1000→清空', () => {
+    const h = Array.from({ length: 10 }, (_, i) => i < 7); // 7请假
+    const r = slidingWindowRelief(h, 500);
+    expect(r.cleared).toBe(true);
+    expect(r.desire).toBe(0);
+  });
+  it('欲望≥1000时短窗不清(需长窗)', () => {
+    const h = Array.from({ length: 10 }, () => true); // 10请假但只在短窗
+    const r = slidingWindowRelief(h, 1500);
+    expect(r.cleared).toBe(false); // 短窗欲望超阈值,长窗请假数不足(需15)
+    expect(r.desire).toBe(1500);
+  });
+  it('长窗:20天≥15请假+欲望<10000→清空', () => {
+    const h = Array.from({ length: 20 }, (_, i) => i < 15);
+    expect(slidingWindowRelief(h, 5000).cleared).toBe(true);
+  });
+  it('请假不够→不清', () => {
+    const h = Array.from({ length: 10 }, (_, i) => i < 3);
+    expect(slidingWindowRelief(h, 100).cleared).toBe(false);
   });
 });
 

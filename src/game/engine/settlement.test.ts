@@ -64,6 +64,11 @@ describe('夜晚收尾结算', () => {
     expect(r.unserved).toBe(0);
     expect(r.desireGained).toBe(0);
   });
+  it('欲望可超承载上限继续计数(无clamp,数值奇观永动)', () => {
+    const r = settleNight(base({ thugTotal: 200, servedThisNight: 0, desire: 500, desireCapacity: 60 }));
+    expect(r.state.desire).toBe(900); // 500 + 200未供奉×2,远超上限60
+    expect(r.overflow).toBe(true);
+  });
 });
 
 describe('每日收尾结算', () => {

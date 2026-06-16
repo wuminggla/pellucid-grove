@@ -38,6 +38,7 @@ export interface EngineState {
   servedThisNight: number;     // 本晚已被供奉人数（夜晚结算用）
   // —— 强制事件信号（跨天，随存档持久化）——
   pendingForcedLeave?: boolean; // 夜晚欲望溢出 → 次日强制请假轮奸（霸全）。nextDay 消费后清除
+  leaveHistory?: boolean[];     // 近期每日是否请假（滑动窗口保底用，保留最近20天）
   // —— 地盘信号（地盘系统未做，先占位供强制事件扫描）——
   threatLevel?: number;         // 地盘威胁等级（骚扰/火并防守强占触发；0=无）
 }

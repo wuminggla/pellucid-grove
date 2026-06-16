@@ -205,4 +205,18 @@ describe('advanceToNextDay 进入次日', () => {
     expect(r2.day.nightSlots.every(s => s.locked)).toBe(true);
     expect(r2.engine.pendingForcedLeave).toBe(false); // 标记已清除
   });
+
+  it('记录今日请假进滑动窗口', () => {
+    const r = advanceToNextDay(engineState(), 1, 8, 0, 0, serveChoice, true);
+    expect(r.engine.leaveHistory).toEqual([true]);
+    expect(r.reliefCleared).toBe(false);
+  });
+
+  it('滑动窗口保底触发→清空欲望', () => {
+    // 已有9天请假 + 今天请假 = 短窗10天10请假; 欲望500<1000 → 清空
+    const eng: EngineState = { ...engineState(), desire: 500, leaveHistory: Array.from({ length: 9 }, () => true) };
+    const r = advanceToNextDay(eng, 5, 8, 0, 0, serveChoice, true);
+    expect(r.reliefCleared).toBe(true);
+    expect(r.engine.desire).toBe(0);
+  });
 });

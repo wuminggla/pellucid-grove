@@ -7,7 +7,7 @@ import {
 } from '../action-grid/machine';
 import { settleSlot } from './machine';
 import { settleServe, settleDaily } from './settlement';
-import { CONST } from '../economy/machine';
+import { CONST, slidingWindowRelief } from '../economy/machine';
 import { scanForced } from '../events/machine';
 import type { ForcedEvent } from '../events/machine';
 import type { ForcedContext } from '../events/types';
@@ -137,13 +137,16 @@ export interface NextDayResult {
   day: DayState;
   daily: DailySettleResult;
   forcedLeave: boolean;   // 次日是否被强制请假轮奸霸全
+  reliefCleared: boolean; // 本次是否触发滑动窗口保底清空欲望
 }
 
 /**
  * 推进到次日（纯函数，便于单测）。
  *  1. settleDaily：每日收尾（招募刷新/武力/硬失败）。
- *  2. 若 engine.pendingForcedLeave（昨晚欲望溢出）→ 构造强制请假轮奸日（霸全），并清除标记。
+ *  2. 记录今日请假状态进滑动窗口，评估保底：近期请假够多且欲望未到天文数字→清空欲望（软卡死出口）。
+ *  3. 若 engine.pendingForcedLeave（昨晚欲望溢出）→ 构造强制请假轮奸日（霸全），并清除标记。
  *     否则 → 正常 startDay 进玩家分配。
+ * @param wasLeaveDay 刚结束的这天是否为请假日（白天0格）。计入滑动窗口。
  */
 export function advanceToNextDay(
   engine: EngineState,
@@ -152,23 +155,27 @@ export function advanceToNextDay(
   martialPrestige: number,
   infamy: number,
   serveChoice: SlotChoice,
+  wasLeaveDay = false,
 ): NextDayResult {
   const daily = settleDaily(engine, currentDayNumber, martialPrestige, infamy);
+  // 滑动窗口保底：记录今日请假→评估是否清空欲望
+  const history = [...(daily.state.leaveHistory ?? []), wasLeaveDay].slice(-CONST.保底窗口长);
+  const relief = slidingWindowRelief(history, daily.state.desire);
+  let next: EngineState = { ...daily.state, leaveHistory: history, desire: relief.desire };
+
   const newDayNumber = currentDayNumber + 1;
-  if (daily.state.pendingForcedLeave) {
-    const engineCleared: EngineState = { ...daily.state, pendingForcedLeave: false };
+  if (next.pendingForcedLeave) {
+    next = { ...next, pendingForcedLeave: false };
     return {
-      engine: engineCleared,
+      engine: next,
       day: buildForcedLeaveDay(newDayNumber, totalSlots, serveChoice),
-      daily,
-      forcedLeave: true,
+      daily, forcedLeave: true, reliefCleared: relief.cleared,
     };
   }
   return {
-    engine: daily.state,
+    engine: next,
     day: startDay(newDayNumber, totalSlots),
-    daily,
-    forcedLeave: false,
+    daily, forcedLeave: false, reliefCleared: relief.cleared,
   };
 }
 

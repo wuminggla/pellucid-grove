@@ -33,6 +33,7 @@ export function useDayRunner(opts: UseDayRunnerOpts) {
   const [lastNight, setLastNight] = useState<NightSettleResult | null>(null);
   const [forcedLeaveToday, setForcedLeaveToday] = useState(false);
   const [forcedSeize, setForcedSeize] = useState<ForcedEvent | null>(null);
+  const [reliefCleared, setReliefCleared] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const allocate = useCallback((dayCount: number, nightCount: number) => {
@@ -103,26 +104,28 @@ export function useDayRunner(opts: UseDayRunnerOpts) {
       engine, day.dayNumber, opts.totalSlots,
       0, 0, // 威望系统后续接,暂传0
       opts.forcedLeaveChoice ?? DEFAULT_FORCED_LEAVE_CHOICE,
+      day.dayCount === 0, // 刚结束的这天是否请假(白天0格)
     );
     setEngine(r.engine);
     setDay(r.day);
     setForcedLeaveToday(r.forcedLeave);
+    setReliefCleared(r.reliefCleared);
     setForcedSeize(null);
     setLastSettle(null); setLastServe(null); setLastNight(null); setError(null);
-  }, [engine, day.dayNumber, opts.totalSlots, opts.forcedLeaveChoice]);
+  }, [engine, day.dayNumber, day.dayCount, opts.totalSlots, opts.forcedLeaveChoice]);
 
   /** 读档：用存档快照恢复完整状态 */
   const loadState = useCallback((state: RunnerState, ff: boolean) => {
     setDay(state.day); setEngine(state.engine); setFastForward(ff);
     setLastSettle(null); setLastServe(null); setLastNight(null);
-    setForcedLeaveToday(false); setForcedSeize(null); setError(null);
+    setForcedLeaveToday(false); setForcedSeize(null); setReliefCleared(false); setError(null);
   }, []);
 
   /** 当前完整状态（供存档） */
   const runnerState: RunnerState = { day, engine };
 
   return {
-    day, engine, fastForward, busy, lastSettle, lastServe, lastNight, forcedLeaveToday, forcedSeize, error,
+    day, engine, fastForward, busy, lastSettle, lastServe, lastNight, forcedLeaveToday, forcedSeize, reliefCleared, error,
     canRunCurrent, runnerState,
     setFastForward,
     allocate, setChoice, clearChoice, fillEmpty, beginDay, beginNight, runCurrent, nextDay, loadState,

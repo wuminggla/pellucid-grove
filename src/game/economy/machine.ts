@@ -14,6 +14,9 @@ export const CONST = {
   欲望连续阈值天数: 3,
   采购单格基础上限: 360,      // 单次采购(占1白天格)基础上限,个
   请假轮奸吞吐倍率: 1.5,      // 强制请假轮奸日：每供奉格多服务1.5×人(帮运营失败玩家清欲望)
+  // 滑动窗口保底（软卡死非真卡死，给运营失败玩家出口）
+  保底窗口短: 10, 保底请假数短: 7, 保底欲望阈值短: 1000,    // 10天内请假≥7且欲望<1000→清空
+  保底窗口长: 20, 保底请假数长: 15, 保底欲望阈值长: 10000,  // 20天内请假≥15且欲望<10000→清空
 } as const;
 
 // ───────────────────────────────────────
@@ -76,9 +79,32 @@ export function desireGain(unserved: number, longUnservedCount: number): number 
   return Math.max(0, Math.round(normal + doubled));
 }
 
-/** 欲望是否溢出(≥承载上限) → 触发强制请假轮奸 */
+/** 欲望是否溢出(≥承载上限) → 触发强制请假轮奸。注：欲望不 clamp，可超上限继续计数(数值奇观永动)。 */
 export function desireOverflow(desire: number, capacity: number): boolean {
   return desire >= capacity;
+}
+
+/** 滑动窗口内的请假天数 */
+export function leaveCount(history: boolean[], window: number): number {
+  return history.slice(-window).filter(Boolean).length;
+}
+
+/**
+ * 请假轮奸滑动窗口保底（v3 §6.4，软卡死非真卡死）。
+ * 近期请假够频繁且欲望未到天文数字 → 清空欲望，给运营失败玩家出口。
+ *  - 短窗：10天内请假≥7 且 欲望<1000 → 清0
+ *  - 长窗：20天内请假≥15 且 欲望<10000 → 清0（高欲望需更多请假才解）
+ */
+export function slidingWindowRelief(
+  history: boolean[], desire: number,
+): { cleared: boolean; desire: number } {
+  if (leaveCount(history, CONST.保底窗口短) >= CONST.保底请假数短 && desire < CONST.保底欲望阈值短) {
+    return { cleared: true, desire: 0 };
+  }
+  if (leaveCount(history, CONST.保底窗口长) >= CONST.保底请假数长 && desire < CONST.保底欲望阈值长) {
+    return { cleared: true, desire: 0 };
+  }
+  return { cleared: false, desire };
 }
 
 // ───────────────────────────────────────
