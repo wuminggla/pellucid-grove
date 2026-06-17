@@ -7,6 +7,7 @@ import {
 } from '../economy/machine';
 import { isAvUnlocked, auditMartial } from '../prestige/machine';
 import { combatBonus } from '../upgrade/machine';
+import { dailyYields, threatLevelFrom } from '../turf/machine';
 import type { EngineState } from './types';
 
 /** 单个供奉格结算：扣避孕套 + 记录被供奉人数。仅"供奉类"行动触发(serve/oral/anal等)。 */
@@ -69,6 +70,7 @@ export interface DailySettleResult {
   recruitRefreshed: boolean;
   combatPower: number;
   hardFail: boolean;        // 硬失败信号（极道威望连续2次每日审核进账为0，或资金<0兜底）
+  yields: { condom: number; money: number; martial: number }; // 据点每日产出
 }
 
 /**
@@ -77,10 +79,18 @@ export interface DailySettleResult {
  */
 export function settleDaily(state: EngineState, dayNumber: number): DailySettleResult {
   let next = { ...state };
+  // 据点产出（faucet：已解锁区域每日给避孕套/资金/极道威望）
+  const y = dailyYields(next.regions);
+  next.condomStock = next.condomStock + y.condom;
+  next.money = next.money + y.money;
+  if (y.martial > 0) {
+    next.martialPrestige = next.martialPrestige + y.martial;
+    next.martialGainToday = (next.martialGainToday ?? 0) + y.martial; // 据点产出也算极道威望进账(防硬失败误杀有地盘玩家)
+  }
   // 每周刷新招募额度（第1天及每隔7天）。招募难易由总威望决定。
   const recruitRefreshed = dayNumber % 7 === 1;
   if (recruitRefreshed) {
-    const prestige = totalPrestige(state.martialPrestige, state.infamy, isAvUnlocked(state.unlocked));
+    const prestige = totalPrestige(next.martialPrestige, next.infamy, isAvUnlocked(next.unlocked));
     next.recruitQuota = weeklyRecruitQuota(prestige);
   }
   const power = combatPower(availableThugs(next.thugTotal, next.garrison), next.loyalty, combatBonus(next.upgrades));
@@ -89,7 +99,9 @@ export function settleDaily(state: EngineState, dayNumber: number): DailySettleR
   next.martialZeroStreak = audit.martialZeroStreak;
   next.martialGainToday = 0;
   const hardFail = audit.hardFail || next.money < 0; // 资金为负兜底
-  return { state: next, recruitRefreshed, combatPower: power, hardFail };
+  // 由稳定度派生威胁等级（驱动 forced events 骚扰强占）
+  next.threatLevel = threatLevelFrom(next.stability ?? 100, next.turfFortifyBonus ?? 0);
+  return { state: next, recruitRefreshed, combatPower: power, hardFail, yields: y };
 }
 
 /** 便捷：避孕套库存状态标签（UI 用） */

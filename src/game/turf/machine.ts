@@ -117,3 +117,67 @@ export function threatLevelFrom(stability: number, fortifyBonus = 0): number {
   if (eff >= 40) return 1;
   return 2;
 }
+
+// ───────────────────────────────────────
+// 骚扰 / 进攻 结算（变量蓝图：骚扰高频不减员/进攻低概率减员丢地盘）
+// ───────────────────────────────────────
+
+/** 骚扰结算结果 */
+export interface HarassResult {
+  stability: number;   // 新稳定度
+  money: number;       // 新资金
+  repelled: boolean;   // 是否击退
+  loot: number;        // 击退抢得资金
+}
+
+/**
+ * 骚扰事件结算（高频·一般不减员）。判定驻守战力 vs 骚扰强度：
+ *  - 击退(驻守战力≥强度)→ 抢得资金,稳定度不降。
+ *  - 未击退→ 稳定度下降,无收益。
+ * @param garrisonPower 驻守战力(可用打手×忠诚等,调用方算好传入)
+ * @param harassPower 骚扰强度
+ */
+export function settleHarass(
+  state: TurfState, stability: number, garrisonPower: number, harassPower: number,
+): HarassResult {
+  const repelled = garrisonPower >= harassPower;
+  const fortify = state.turfFortifyBonus ?? 0;
+  if (repelled) {
+    const loot = Math.round(harassPower * 5); // 抢得资金∝骚扰规模
+    return { stability, money: state.money + loot, repelled: true, loot };
+  }
+  const drop = Math.max(0, 8 - fortify); // 加固减缓稳定下降
+  return { stability: Math.max(0, stability - drop), money: state.money, repelled: false, loot: 0 };
+}
+
+/** 进攻结算结果 */
+export interface RaidResult {
+  thugLost: number;       // 减员
+  stability: number;      // 新稳定度
+  regionLost: string | null; // 丢失的区域(null=守住)
+  regions: Record<string, RegionState>;
+  defended: boolean;
+}
+
+/**
+ * 进攻事件结算（低概率·减员·失败丢地盘）。判定驻守战力 vs 进攻强度：
+ *  - 守住(战力≥强度)→ 减员较少,保住区域。
+ *  - 失败→ 减员较多 + 丢失目标区域(变回未解锁)。
+ * @param targetRegionId 被进攻的区域(失败则丢失)
+ */
+export function settleRaid(
+  state: TurfState, stability: number, garrisonPower: number, raidPower: number, targetRegionId: string,
+): RaidResult {
+  const defended = garrisonPower >= raidPower;
+  const fortify = state.turfFortifyBonus ?? 0;
+  if (defended) {
+    const thugLost = Math.max(0, Math.round(raidPower * 0.05) - fortify);
+    return { thugLost, stability, regionLost: null, regions: state.regions ?? {}, defended: true };
+  }
+  const thugLost = Math.round(raidPower * 0.15);
+  // 丢失区域：defeated 回 false（需重新打）
+  const st = regionState(state.regions, targetRegionId);
+  const regions = { ...(state.regions ?? {}), [targetRegionId]: { ...st, defeated: false } };
+  return { thugLost, stability: Math.max(0, stability - 15), regionLost: targetRegionId, regions, defended: false };
+}
+

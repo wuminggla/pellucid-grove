@@ -3,8 +3,10 @@ import {
   REGIONS, REGIONS_BY_ID, HOME_REGION_ID,
   regionState, isRegionUnlocked, effectiveThreshold, canDefeat, defeatRegion,
   reduceThreshold, dailyYields, totalShops, threatLevelFrom,
+  settleHarass, settleRaid,
 } from './machine';
 import type { RegionState } from './types';
+import type { TurfState } from './machine';
 
 describe('catalog', () => {
   it('区域id唯一,requiresRegion串成链', () => {
@@ -91,5 +93,47 @@ describe('threatLevelFrom 威胁派生', () => {
   });
   it('据点加固抬升等效稳定', () => {
     expect(threatLevelFrom(35, 2)).toBe(1); // 35+10=45→骚扰而非进攻
+  });
+});
+
+describe('骚扰结算(高频不减员)', () => {
+  const ts = (over: Partial<TurfState> = {}): TurfState => ({ money: 8000, regions: {}, ...over });
+
+  it('击退→抢资金,稳定不降', () => {
+    const r = settleHarass(ts(), 60, 100, 80); // 驻守100≥骚扰80
+    expect(r.repelled).toBe(true);
+    expect(r.loot).toBe(400); // 80×5
+    expect(r.money).toBe(8400);
+    expect(r.stability).toBe(60);
+  });
+  it('未击退→稳定下降,无收益', () => {
+    const r = settleHarass(ts(), 60, 50, 80); // 驻守50<骚扰80
+    expect(r.repelled).toBe(false);
+    expect(r.stability).toBe(52); // -8
+    expect(r.money).toBe(8000);
+  });
+  it('据点加固减缓稳定下降', () => {
+    const r = settleHarass(ts({ turfFortifyBonus: 3 }), 60, 50, 80);
+    expect(r.stability).toBe(60 - 5); // 8-3=5
+  });
+});
+
+describe('进攻结算(低概率减员丢地盘)', () => {
+  const ts = (over: Partial<TurfState> = {}): TurfState =>
+    ({ money: 8000, regions: { street: { defeated: true, thresholdReduced: 0, garrison: 0 } }, ...over });
+
+  it('守住→减员少,保住区域', () => {
+    const r = settleRaid(ts(), 60, 200, 100, 'street'); // 驻守200≥进攻100
+    expect(r.defended).toBe(true);
+    expect(r.regionLost).toBeNull();
+    expect(r.regions['street'].defeated).toBe(true); // 保住
+  });
+  it('失败→减员多+丢区域', () => {
+    const r = settleRaid(ts(), 60, 50, 100, 'street'); // 驻守50<进攻100
+    expect(r.defended).toBe(false);
+    expect(r.thugLost).toBe(15); // 100×0.15
+    expect(r.regionLost).toBe('street');
+    expect(r.regions['street'].defeated).toBe(false); // 丢失,需重打
+    expect(r.stability).toBe(45); // 60-15
   });
 });

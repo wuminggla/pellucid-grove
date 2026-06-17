@@ -96,8 +96,25 @@ describe('每日收尾结算', () => {
     expect(r.combatPower).toBe(Math.round(80 * 0.6)); // 48
   });
   it('资金为负→硬失败信号(兜底)', () => {
-    const r = settleDaily(base({ money: -100, martialGainToday: 5 }), 2);
+    const r = settleDaily(base({ money: -2000, martialGainToday: 5 }), 2); // 据点产出+500后仍负
     expect(r.hardFail).toBe(true);
+  });
+  it('据点产出:已解锁区域每日给避孕套/资金(老宅默认)', () => {
+    const r = settleDaily(base({ money: 8000, condomStock: 480 }), 2);
+    expect(r.yields.condom).toBe(120); // 老宅
+    expect(r.yields.money).toBe(500);
+    expect(r.state.money).toBe(8000 + 500);
+    expect(r.state.condomStock).toBe(480 + 120);
+  });
+  it('据点产出极道威望→计入今日进账(防硬失败误杀有地盘玩家)', () => {
+    const r = settleDaily(base({ regions: { street: { defeated: true, thresholdReduced: 0, garrison: 0 }, home: { defeated: true, thresholdReduced: 0, garrison: 0 } } }), 2);
+    expect(r.yields.martial).toBe(3); // street产出
+    expect(r.state.martialZeroStreak).toBe(0); // 有进账→不累积
+  });
+  it('threatLevel由稳定度派生', () => {
+    expect(settleDaily(base({ stability: 80 }), 2).state.threatLevel).toBe(0);
+    expect(settleDaily(base({ stability: 50 }), 2).state.threatLevel).toBe(1);
+    expect(settleDaily(base({ stability: 20 }), 2).state.threatLevel).toBe(2);
   });
   it('极道威望连续2次进账0→硬失败,审核后重置今日流量', () => {
     const r1 = settleDaily(base({ martialGainToday: 0, martialZeroStreak: 0 }), 2);
