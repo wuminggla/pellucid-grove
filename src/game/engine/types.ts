@@ -48,7 +48,10 @@ export interface EngineState {
   pendingForcedLeave?: boolean; // 夜晚欲望溢出 → 次日强制请假轮奸（霸全）。nextDay 消费后清除
   leaveHistory?: boolean[];     // 近期每日是否请假（滑动窗口保底用，保留最近20天）
   // —— 地盘信号（地盘系统未做，先占位供强制事件扫描）——
-  threatLevel?: number;         // 地盘威胁等级（骚扰/火并防守强占触发；0=无）
+  threatLevel?: number;         // 地盘威胁等级（骚扰/火并防守强占触发；0=无。由 stability 派生）
+  // —— 地盘（区域/据点·turf 模块）——
+  regions?: Record<string, import('../turf/types').RegionState>; // 各区域运行时状态(boss击败/降门槛/驻守)
+  stability?: number;           // 地盘稳定系数 0~100(骚扰↓/派驻↑)
 }
 
 /** 玩家在某格选的内容（来自 action-grid 的 SlotChoice，精简引用） */
