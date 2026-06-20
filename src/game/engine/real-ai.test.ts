@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from 'vitest';
-import { extractMaintext, extractVarsJson, createRealAi } from './real-ai';
+import { extractMaintext, extractVarsJson, extractContinuity, createRealAi } from './real-ai';
 import type { ApiRouter } from '../../sillytavern/api-router';
 
 describe('响应解析', () => {
@@ -9,6 +9,12 @@ describe('响应解析', () => {
   });
   it('无标签返回全文', () => {
     expect(extractMaintext('裸文本')).toBe('裸文本');
+  });
+  it('提取 continuity 延续摘要;maintext剥掉continuity段', () => {
+    const raw = '<maintext>正文</maintext><continuity>对弥生道首次屈辱</continuity>';
+    expect(extractMaintext(raw)).toBe('正文');
+    expect(extractContinuity(raw)).toBe('对弥生道首次屈辱');
+    expect(extractContinuity('<maintext>仅正文</maintext>')).toBeUndefined();
   });
   it('提取 vars JSON', () => {
     expect(extractVarsJson('<vars>{"presentCount": 36}</vars>')).toEqual({ presentCount: 36 });
@@ -32,8 +38,8 @@ describe('createRealAi 走 router', () => {
       buildExpandMessages: () => [{ role: 'user', content: 'x' }],
       buildExtractMessages: () => [{ role: 'user', content: 'y' }],
     });
-    const prose = await ai.expand({ pick: {} as any, mode: 'ai_full', choice: { optionId: 'oral' }, state: {} as any });
-    expect(prose).toBe('扩写');
+    const ex = await ai.expand({ resolution: {} as any, attitude: '堕落前' as any, choice: { optionId: 'oral' }, state: {} as any });
+    expect(ex.text).toBe('扩写');
     expect(call).toHaveBeenCalledWith('story', expect.anything());
   });
 

@@ -16,6 +16,7 @@ export const demoEventOptions: Record<string, EventOption> = {
     sfw: { worldbookKey: 'wb_bribe_money' }, nsfw: { worldbookKey: 'wb_bribe_body' },
     erosionGate: { corruptionAtLeast: 50 }, irreversibleAfterErosion: true,
     first: { ledgerKey: 'bribe_first_body', paradigm: { worldbookKey: 'wb_bribe_first' }, corruptionWeight: 10 },
+    needsContinuity: true, // 首次身体贿赂引入"对某敌方的独特屈辱"=桶4
   },
   protection: {
     id: 'protection', label: '收保护费', period: 'day', shape: 'dual',
@@ -93,8 +94,13 @@ export function createMockAi(): AiPort {
         : resolution.renderMode === 'ai_normal' ? '【NSFW常规】'
         : '【略写】';
       const wb = resolution.paradigm.inlinePrompt ? '定制范式' : resolution.paradigm.worldbookKey;
-      return `${tag}（mock 正文·态度:${attitude}）凛执行了「${resolution.option.label}」。`
+      const text = `${tag}（mock 正文·态度:${attitude}）凛执行了「${resolution.option.label}」。`
         + `在场约 ${state.presentCount} 人。这里将来是 AI1 按范式 ${wb} 扩写的正文。`;
+      // needsContinuity 事件才吐桶4延续摘要(mock)
+      const continuity = resolution.option.needsContinuity
+        ? `（mock延续摘要）「${resolution.option.label}」发生了需后续回调的独特事实。`
+        : undefined;
+      return { text, continuity };
     },
     async extract(req) {
       const base = req.state.presentCount || 18;

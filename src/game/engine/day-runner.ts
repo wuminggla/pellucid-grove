@@ -137,9 +137,16 @@ export async function runCurrentSlot(
       tags: settle.events.isFirstSpecial ? ['首次'] : undefined,
     }),
   };
+  // 认知防线跨档:代码 turning 笔记(总记,影响后续基调)
   if (settle.events.cognitionAdvancedTo) {
     engine = { ...engine, continuityNotes: appendContinuity(engine.continuityNotes, {
       day: dayNo, kind: 'turning', text: `认知防线→${settle.events.cognitionAdvancedTo}`,
+    }) };
+  }
+  // 桶4延续摘要:AI 吐了一句(needsContinuity事件)→entity 笔记(富);否则首次特殊→代码 milestone 笔记(兜底)
+  if (settle.events.continuity) {
+    engine = { ...engine, continuityNotes: appendContinuity(engine.continuityNotes, {
+      day: dayNo, kind: 'entity', text: settle.events.continuity,
     }) };
   } else if (settle.events.isFirstSpecial) {
     engine = { ...engine, continuityNotes: appendContinuity(engine.continuityNotes, {

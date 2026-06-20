@@ -78,16 +78,19 @@ export async function settleSlot(
 
   // —— 出正文 ——
   let resultText: string;
+  let continuity: string | undefined;
   let extracted: Record<string, number> = {};
   let rejected: string[] = [];
 
   if (mode === 'fast_summary') {
     const tpl = opts.summaryTemplates?.[choice.optionId] ?? '（已结算）';
     resultText = fastSummaryText(tpl, { n: state.presentCount });
-    // 快进不调AI：叙事数值用场景上下文兜底（在场人数已知）
+    // 快进不调AI：叙事数值用场景上下文兜底（在场人数已知）；快进无延续摘要
   } else {
     const ai: AiPort = opts.ai;
-    resultText = await ai.expand({ resolution, attitude, choice, state });
+    const ex = await ai.expand({ resolution, attitude, choice, state });
+    resultText = ex.text;
+    continuity = ex.continuity;
     const req: ExtractRequest = { narrative: resultText, choice, state };
     const raw = await ai.extract(req);
     const s = sanitizeExtract(raw, opts.extractBounds);
@@ -152,6 +155,7 @@ export async function settleSlot(
       isNsfw: resolution.isNsfw,
       martialGain,
       infamyGain,
+      continuity,
       rejectedFields: rejected,
     },
   };

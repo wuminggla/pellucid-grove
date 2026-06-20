@@ -31,7 +31,7 @@ function engineState(): EngineState {
 }
 
 function mockAi(): AiPort {
-  return { expand: vi.fn(async () => 'AI正文'), extract: vi.fn(async () => ({ presentCount: 20 })) };
+  return { expand: vi.fn(async () => ({ text: 'AI正文' })), extract: vi.fn(async () => ({ presentCount: 20 })) };
 }
 
 function opts(ai: AiPort, fastForward = false): SettleOptions {
@@ -70,6 +70,14 @@ describe('runCurrentSlot 连接两个状态机', () => {
     expect(log[0].eventId).toBe('oral');
     expect(log[0].tags).toContain('首次');
     expect(r.state.engine.continuityNotes!.some(n => n.text.includes('首次·口交'))).toBe(true);
+  });
+
+  it('记忆层:AI吐continuity→写entity笔记(优先于首次兜底)', async () => {
+    const aiC: AiPort = { expand: vi.fn(async () => ({ text: 'AI正文', continuity: '头目阿组首次点名' })), extract: vi.fn(async () => ({})) };
+    const r = await runCurrentSlot(freshRunner(), opts(aiC)); // 首格oral
+    const notes = r.state.engine.continuityNotes!;
+    expect(notes.some(n => n.kind === 'entity' && n.text === '头目阿组首次点名')).toBe(true);
+    expect(notes.some(n => n.text.includes('首次·口交'))).toBe(false); // entity优先,不再加兜底milestone
   });
 
   it('连续执行两格到白天结算', async () => {

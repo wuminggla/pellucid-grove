@@ -26,9 +26,9 @@ function baseState(): EngineState {
   };
 }
 
-function mockAi(prose = 'AI扩写的正文', extract: Record<string, unknown> = {}): AiPort {
+function mockAi(prose = 'AI扩写的正文', extract: Record<string, unknown> = {}, continuity?: string): AiPort {
   return {
-    expand: vi.fn(async () => prose),
+    expand: vi.fn(async () => ({ text: prose, continuity })),
     extract: vi.fn(async () => extract),
   };
 }
@@ -142,6 +142,17 @@ describe('settleSlot 威望进账', () => {
     const r = await settleSlot({ ...baseState(), unlocked: { av: true } }, { optionId: 'av_shoot' }, opts(ai));
     expect(r.events.infamyGain).toBe(8);
     expect(r.state.infamy).toBe(8);
+  });
+});
+
+describe('settleSlot 延续摘要透传', () => {
+  it('AI吐的continuity进events;无则undefined', async () => {
+    const withC = mockAi('正文', { presentCount: 18 }, '对弥生道首次屈辱');
+    const r1 = await settleSlot(baseState(), { optionId: 'serve' }, opts(withC));
+    expect(r1.events.continuity).toBe('对弥生道首次屈辱');
+    const noC = mockAi('正文', { presentCount: 18 });
+    const r2 = await settleSlot(baseState(), { optionId: 'serve' }, opts(noC));
+    expect(r2.events.continuity).toBeUndefined();
   });
 });
 

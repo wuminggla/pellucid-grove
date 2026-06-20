@@ -84,8 +84,14 @@ export interface ExtractRequest {
  * - extract：AI2，从正文抓"叙事性数值"（在场人数/次数等），返回原始数值表（未校验）。
  *   注意：硬经营数值(资金/避孕套/威望/打手)不由 AI 抓，由 economy 公式算（防胡诌）。
  */
+/** AI1 扩写返回:正文 + 可选延续摘要(桶4·needsContinuity 时 AI 额外吐的一句) */
+export interface ExpandResult {
+  text: string;          // <maintext> 给玩家看的正文
+  continuity?: string;   // <continuity> 一句话延续摘要(记忆层桶4),无则 undefined
+}
+
 export interface AiPort {
-  expand(req: ExpandRequest): Promise<string>;
+  expand(req: ExpandRequest): Promise<ExpandResult>;
   extract(req: ExtractRequest): Promise<Record<string, unknown>>;
 }
 
@@ -115,6 +121,8 @@ export interface SettleEvents {
   martialGain: number;
   /** 本格淫名进账（仅 AV 解锁后非0） */
   infamyGain: number;
+  /** AI 吐的桶4延续摘要（needsContinuity 时有；day-runner 据此写 continuityNote） */
+  continuity?: string;
   /** 被防胡诌拒掉的离谱字段（调试用） */
   rejectedFields: string[];
 }
