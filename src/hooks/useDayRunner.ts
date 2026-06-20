@@ -9,6 +9,7 @@ import {
 import { runCurrentSlot, settleNight, advanceToNextDay, applyForcedSeizes } from '../game/engine/day-runner';
 import type { RunnerState } from '../game/engine/day-runner';
 import type { ForcedEvent } from '../game/events/machine';
+import { archiveTranscript } from '../game/transcript/store';
 import type { NightSettleResult } from '../game/engine/settlement';
 import type { DayState, SlotChoice, SlotPeriod, ActionSlot } from '../game/action-grid/types';
 import type { EngineState, SettleOptions, SettleResult } from '../game/engine/types';
@@ -92,6 +93,15 @@ export function useDayRunner(opts: UseDayRunnerOpts) {
       setDay(r.state.day); setEngine(nextEngine); setLastSettle(r.settle);
       setLastServe(r.serve ?? null);
       setLastNight(nightInfo);
+      // 正文留档(桶3·全自动·失败不阻塞游戏)
+      archiveTranscript({
+        day: r.logEntry.day, period: r.logEntry.period, slot: r.logEntry.slot,
+        eventId: r.logEntry.eventId, eventLabel: r.logEntry.label,
+        presentCount: r.logEntry.presentCount,
+        cognition: nextEngine.cognition, corruption: nextEngine.corruption,
+        renderMode: r.settle.events.renderMode, isNsfw: r.settle.events.isNsfw,
+        text: r.settle.resultText,
+      }, Date.now()).catch(() => {});
     } catch (e) {
       setError((e as Error).message);
     } finally {

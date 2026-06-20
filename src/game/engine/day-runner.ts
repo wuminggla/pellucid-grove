@@ -10,6 +10,7 @@ import { settleServe, settleDaily } from './settlement';
 import { CONST, slidingWindowRelief } from '../economy/machine';
 import { scanForced } from '../events/machine';
 import { appendLog, appendContinuity } from '../memory/machine';
+import type { LogEntry } from '../memory/machine';
 import type { ForcedEvent } from '../events/machine';
 import type { ForcedContext } from '../events/types';
 import type { DailySettleResult } from './settlement';
@@ -81,6 +82,8 @@ export interface RunSlotResult {
   serve?: { condomUsed: number; condomShort: boolean } | null;
   /** 本格触发的临时格强制事件（如避孕套归零），null=无 */
   forcedInsert?: ForcedEvent | null;
+  /** 本格的结构化日志条目（供正文留档/UI 复用） */
+  logEntry: LogEntry;
 }
 
 /**
@@ -126,17 +129,15 @@ export async function runCurrentSlot(
 
   // 记忆层:每格写结构化日志(代码·覆盖所有格) + 代码可知的延续摘要(认知跨档/首次)
   const dayNo = state.day.dayNumber;
-  engine = {
-    ...engine,
-    narrativeLog: appendLog(engine.narrativeLog, {
-      day: dayNo, period: slot.period, slot: slot.index,
-      eventId: slot.choice.optionId, label: slot.choice.label,
-      presentCount: engine.presentCount,
-      corruptionDelta: settle.events.corruptionGain || undefined,
-      renderMode: settle.events.renderMode,
-      tags: settle.events.isFirstSpecial ? ['首次'] : undefined,
-    }),
+  const logEntry = {
+    day: dayNo, period: slot.period, slot: slot.index,
+    eventId: slot.choice.optionId, label: slot.choice.label,
+    presentCount: engine.presentCount,
+    corruptionDelta: settle.events.corruptionGain || undefined,
+    renderMode: settle.events.renderMode,
+    tags: settle.events.isFirstSpecial ? ['首次'] : undefined,
   };
+  engine = { ...engine, narrativeLog: appendLog(engine.narrativeLog, logEntry) };
   // 认知防线跨档:代码 turning 笔记(总记,影响后续基调)
   if (settle.events.cognitionAdvancedTo) {
     engine = { ...engine, continuityNotes: appendContinuity(engine.continuityNotes, {
@@ -158,7 +159,7 @@ export async function runCurrentSlot(
 
   return {
     state: { day: dayDone, engine },
-    settle, serve, forcedInsert,
+    settle, serve, forcedInsert, logEntry,
   };
 }
 
