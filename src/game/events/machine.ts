@@ -5,8 +5,29 @@
 import { COGNITION_ORDER } from '../corruption/machine';
 import type { CognitionStage } from '../corruption/machine';
 import type {
-  EventOption, ErosionGate, EventContext, ForcedContext, EventResolution, RenderMode, ParadigmRef,
+  EventOption, EventStage, ErosionGate, EventContext, ForcedContext, EventResolution, RenderMode, ParadigmRef,
 } from './types';
+
+/**
+ * 多阶段解析(防跳阶段)。返回当前该用哪个阶段、是否首次、范式。
+ *  - 低于最低阶段门槛 → SFW(stage=null)。
+ *  - 否则取"最低的未触发阶段":若堕落度≥其门槛 → 该阶段首次(强制,不能跳);
+ *    否则用"最高已触发阶段"的常规范式(在门槛间重复体验)。
+ */
+function resolveStages(stages: EventStage[], ctx: EventContext): {
+  stage: EventStage | null; isFirst: boolean;
+} {
+  const sorted = [...stages].sort((a, b) => a.corruptionAtLeast - b.corruptionAtLeast);
+  // 最低未触发阶段
+  const pending = sorted.find(s => ctx.triggeredLedger[s.ledgerKey] !== true);
+  if (pending && ctx.corruption >= pending.corruptionAtLeast) {
+    return { stage: pending, isFirst: true }; // 强制演该阶段首次
+  }
+  // 最高已触发阶段(重复体验);无则 SFW
+  const triggered = sorted.filter(s => ctx.triggeredLedger[s.ledgerKey] === true);
+  const highest = triggered.length ? triggered[triggered.length - 1] : null;
+  return { stage: highest, isFirst: false };
+}
 
 // ───────────────────────────────────────
 // 解锁 & 侵蚀闸门判定
@@ -57,6 +78,26 @@ function pickRenderMode(isFirst: boolean, isNsfw: boolean, fastForward: boolean)
 export function resolveEvent(
   opt: EventOption, ctx: EventContext, fastForward: boolean,
 ): EventResolution {
+  // —— 多阶段事件(防跳阶段):存在 stages 时覆盖单一 first/erosionGate ——
+  if (opt.stages && opt.stages.length) {
+    const { stage, isFirst } = resolveStages(opt.stages, ctx);
+    if (!stage) {
+      // 低于最低阶段门槛 → SFW 态
+      const sfwParadigm = opt.sfw ?? { worldbookKey: `${opt.id}_sfw` };
+      return {
+        option: opt, face: 'sfw', isFirstMilestone: false, corruptionGain: 0,
+        paradigm: sfwParadigm, renderMode: pickRenderMode(false, false, fastForward), isNsfw: false,
+      };
+    }
+    const paradigm = isFirst ? stage.firstParadigm : stage.paradigm;
+    return {
+      option: opt, face: 'nsfw', isFirstMilestone: isFirst,
+      corruptionGain: isFirst ? stage.corruptionWeight : 0,
+      paradigm, renderMode: pickRenderMode(isFirst, true, fastForward), isNsfw: true,
+      milestoneLedgerKey: isFirst ? stage.ledgerKey : undefined,
+    };
+  }
+
   const firstTriggered = opt.first ? ctx.triggeredLedger[opt.first.ledgerKey] === true : true;
 
   // 决定 face
@@ -78,7 +119,10 @@ export function resolveEvent(
   const corruptionGain = isFirstMilestone ? opt.first!.corruptionWeight : 0;
   const renderMode = pickRenderMode(isFirstMilestone, isNsfw, fastForward);
 
-  return { option: opt, face, isFirstMilestone, corruptionGain, paradigm, renderMode, isNsfw };
+  return {
+    option: opt, face, isFirstMilestone, corruptionGain, paradigm, renderMode, isNsfw,
+    milestoneLedgerKey: isFirstMilestone ? opt.first!.ledgerKey : undefined,
+  };
 }
 
 /** 消费首次里程碑后，返回更新后的账本（纯函数） */

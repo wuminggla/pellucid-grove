@@ -153,6 +153,63 @@ describe('强制事件候选池(避孕套三连:同条件优先级+标签)', () 
   });
 });
 
+describe('多阶段事件(防跳阶段)', () => {
+  // 学校:25/50/75三档
+  const school: EventOption = {
+    id: 'school', label: '去大学上课', period: 'day', shape: 'dual',
+    sfw: { worldbookKey: 'wb_school_sfw' },
+    needsContinuity: true,
+    stages: [
+      { corruptionAtLeast: 25, ledgerKey: 'school_25', corruptionWeight: 5, firstParadigm: { worldbookKey: 'wb_school25_first' }, paradigm: { worldbookKey: 'wb_school25' } },
+      { corruptionAtLeast: 50, ledgerKey: 'school_50', corruptionWeight: 5, firstParadigm: { worldbookKey: 'wb_school50_first' }, paradigm: { worldbookKey: 'wb_school50' } },
+      { corruptionAtLeast: 75, ledgerKey: 'school_75', corruptionWeight: 5, firstParadigm: { worldbookKey: 'wb_school75_first' }, paradigm: { worldbookKey: 'wb_school75' } },
+    ],
+  };
+
+  it('低于最低门槛→SFW', () => {
+    const r = resolveEvent(school, ctx({ corruption: 10 }), false);
+    expect(r.face).toBe('sfw');
+    expect(r.paradigm.worldbookKey).toBe('wb_school_sfw');
+  });
+
+  it('堕落≥25且25未触发→25首次(ai_full+加堕落+记账本)', () => {
+    const r = resolveEvent(school, ctx({ corruption: 25 }), false);
+    expect(r.isFirstMilestone).toBe(true);
+    expect(r.renderMode).toBe('ai_full');
+    expect(r.corruptionGain).toBe(5);
+    expect(r.paradigm.worldbookKey).toBe('wb_school25_first');
+    expect(r.milestoneLedgerKey).toBe('school_25');
+  });
+
+  it('防跳阶段:堕落=50但25未触发→强制先演25首次(不是50)', () => {
+    const r = resolveEvent(school, ctx({ corruption: 50 }), false);
+    expect(r.milestoneLedgerKey).toBe('school_25'); // 强制最低未触发
+    expect(r.paradigm.worldbookKey).toBe('wb_school25_first');
+  });
+
+  it('25已触发+堕落50→进50首次', () => {
+    const r = resolveEvent(school, ctx({ corruption: 50, triggeredLedger: { school_25: true } }), false);
+    expect(r.isFirstMilestone).toBe(true);
+    expect(r.milestoneLedgerKey).toBe('school_50');
+    expect(r.paradigm.worldbookKey).toBe('wb_school50_first');
+  });
+
+  it('门槛之间重复体验:25已触发+堕落40(<50)→25常规ai_normal', () => {
+    const r = resolveEvent(school, ctx({ corruption: 40, triggeredLedger: { school_25: true } }), false);
+    expect(r.isFirstMilestone).toBe(false);
+    expect(r.renderMode).toBe('ai_normal');
+    expect(r.paradigm.worldbookKey).toBe('wb_school25');
+    expect(r.corruptionGain).toBe(0);
+  });
+
+  it('快进:阶段首次仍ai_full;常规→fast_summary', () => {
+    const first = resolveEvent(school, ctx({ corruption: 25 }), true);
+    expect(first.renderMode).toBe('ai_full');
+    const repeat = resolveEvent(school, ctx({ corruption: 40, triggeredLedger: { school_25: true } }), true);
+    expect(repeat.renderMode).toBe('fast_summary');
+  });
+});
+
 describe('markMilestone', () => {
   it('打标签不改原对象', () => {
     const ledger = {};

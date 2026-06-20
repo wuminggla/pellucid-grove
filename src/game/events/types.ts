@@ -40,6 +40,18 @@ export interface FirstMilestone {
   priority?: number;
 }
 
+/**
+ * 多阶段事件的一个阶段（如学校 NSFW 按堕落度 25/50/75 分三档）。
+ * 防跳阶段:永远先触发"最低的未触发阶段"首次,不能跳(详见 resolveEvent 多阶段分支)。
+ */
+export interface EventStage {
+  corruptionAtLeast: number; // 进入此阶段的堕落度门槛
+  ledgerKey: string;         // 此阶段首次的账本键（全局唯一）
+  corruptionWeight: number;  // 此阶段首次加的堕落度
+  firstParadigm: ParadigmRef;// 此阶段首次范式（ai_full 重点扩写）
+  paradigm: ParadigmRef;     // 此阶段常规范式（ai_normal 重复体验）
+}
+
 /** 一个事件选项（统一模型核心条目） */
 export interface EventOption {
   id: string;
@@ -56,6 +68,12 @@ export interface EventOption {
   erosionGate?: ErosionGate;
   /** 首次里程碑特殊事件（翻面首次 / 天生NSFW首次） */
   first?: FirstMilestone;
+  /**
+   * 多阶段(按堕落度分档·防跳阶段)。存在时覆盖单一 first/erosionGate 路径:
+   * 低于最低阶段门槛=SFW;否则强制先演最低未触发阶段的首次,逐阶解锁。
+   * 用于学校25/50/75、常识背离逐档、买套分级等。
+   */
+  stages?: EventStage[];
   /** 翻面后不可逆：达闸门并触发首次后，SFW版从菜单消失（如贿赂→只剩贿赂♥） */
   irreversibleAfterErosion?: boolean;
   /** 置顶（AV玩家定制选项排菜单最前） */
@@ -108,4 +126,6 @@ export interface EventResolution {
   paradigm: ParadigmRef;       // 实际要注入AI的范式
   renderMode: RenderMode;
   isNsfw: boolean;             // 是否NSFW（UI加♥）
+  /** 首次里程碑要写的账本键（单一first=first.ledgerKey;多阶段=该阶段ledgerKey）。settleSlot 据此记账+加堕落 */
+  milestoneLedgerKey?: string;
 }
