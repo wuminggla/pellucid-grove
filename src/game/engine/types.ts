@@ -41,7 +41,9 @@ export interface EngineState {
   recruitQuota: number;       // 本周剩余招募额度
   // —— 场景上下文 ——
   presentCount: number;        // 单场在场打手人数
-  isDangerousPeriod: boolean;  // 危险期
+  isDangerousPeriod: boolean;  // 危险期(由经期周期派生·去医学化只分安全/危险)
+  cycleDay?: number;           // 经期周期日(0..length-1·每日推进)
+  pregnant?: boolean;          // 是否已怀孕(生育线判定后置;结局判定用)
   // —— 派生/统计（结算更新，供UI/失败判定）——
   servedThisNight: number;     // 本晚已被供奉人数（夜晚结算用）
   // —— 记忆层（叙事连贯性·随存档持久化）——

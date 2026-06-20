@@ -8,6 +8,7 @@ import {
 import { isAvUnlocked, auditMartial } from '../prestige/machine';
 import { combatBonus } from '../upgrade/machine';
 import { dailyYields, threatLevelFrom } from '../turf/machine';
+import { advanceCycle } from '../cycle/machine';
 import type { EngineState } from './types';
 
 /** 单个供奉格结算：扣避孕套 + 记录被供奉人数。仅"供奉类"行动触发(serve/oral/anal等)。 */
@@ -101,6 +102,10 @@ export function settleDaily(state: EngineState, dayNumber: number): DailySettleR
   const hardFail = audit.hardFail || next.money < 0; // 资金为负兜底
   // 由稳定度派生威胁等级（驱动 forced events 骚扰强占）
   next.threatLevel = threatLevelFrom(next.stability ?? 100, next.turfFortifyBonus ?? 0);
+  // 经期推进(每日一步,翻转危险期→次日套消耗×1.5/受孕率↑)
+  const cyc = advanceCycle(next.cycleDay ?? 0);
+  next.cycleDay = cyc.cycleDay;
+  next.isDangerousPeriod = cyc.isDangerousPeriod;
   return { state: next, recruitRefreshed, combatPower: power, hardFail, yields: y };
 }
 

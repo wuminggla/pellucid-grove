@@ -116,6 +116,11 @@ describe('每日收尾结算', () => {
     expect(settleDaily(base({ stability: 50 }), 2).state.threatLevel).toBe(1);
     expect(settleDaily(base({ stability: 20 }), 2).state.threatLevel).toBe(2);
   });
+  it('经期每日推进+翻转危险期', () => {
+    const r = settleDaily(base({ cycleDay: 5 }), 2); // 5→6=危险期起点
+    expect(r.state.cycleDay).toBe(6);
+    expect(r.state.isDangerousPeriod).toBe(true);
+  });
   it('极道威望连续2次进账0→硬失败,审核后重置今日流量', () => {
     const r1 = settleDaily(base({ martialGainToday: 0, martialZeroStreak: 0 }), 2);
     expect(r1.hardFail).toBe(false);

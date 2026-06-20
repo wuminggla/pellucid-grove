@@ -46,6 +46,14 @@ export function isRegionUnlocked(regions: Record<string, RegionState> | undefine
   return regionState(regions, id).defeated;
 }
 
+/** 最终boss区域id(复仇终点) */
+export const FINAL_REGION_ID = 'city';
+
+/** 复仇是否完成(最终boss区域已击败) */
+export function isRevengeComplete(regions: Record<string, RegionState> | undefined): boolean {
+  return isRegionUnlocked(regions, FINAL_REGION_ID);
+}
+
 /** 有效击败门槛 = 基础门槛 - 已削减(贿赂/调查),下限0 */
 export function effectiveThreshold(def: RegionDef, st: RegionState): number {
   return Math.max(0, def.defeatThreshold - st.thresholdReduced);
