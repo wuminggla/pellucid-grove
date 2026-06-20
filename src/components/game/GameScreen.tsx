@@ -12,7 +12,8 @@ import {
   demoEventOptions, demoSummaryTemplates, demoExtractBounds, demoForcedPool, createMockAi,
 } from '../../game/engine/mock-ai';
 import { createRealAi } from '../../game/engine/real-ai';
-import { buildExpandMessages, buildExtractMessages } from '../../game/engine/prompt';
+import { buildGamePrompt, buildExtractMessages, presetSampling } from '../../game/engine/prompt';
+import { demoLorebook, demoPreset } from '../../game/worldbook/demo';
 import { createApiRouter } from '../../sillytavern/api-router';
 import type { ApiSettings } from '../../sillytavern/types';
 import type { EngineState } from '../../game/engine/types';
@@ -144,7 +145,12 @@ export function GameScreen() {
   const ai = useMemo(() => {
     if (apiSettings?.apiKey) {
       const router = createApiRouter(apiSettings);
-      return createRealAi({ router, buildExpandMessages, buildExtractMessages });
+      return createRealAi({
+        router,
+        buildExpandMessages: (req) => buildGamePrompt(req, { lorebook: demoLorebook, preset: demoPreset }),
+        buildExtractMessages,
+        sampling: presetSampling(demoPreset),
+      });
     }
     return createMockAi();
   }, [apiSettings]);

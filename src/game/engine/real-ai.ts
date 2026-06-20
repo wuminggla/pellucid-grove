@@ -31,10 +31,12 @@ export function extractVarsJson(raw: string): Record<string, unknown> {
 
 export interface RealAiDeps {
   router: ApiRouter;
-  /** 组 AI1 prompt：注入范式 worldbookKey 对应模板 + 上下文。MVP 用简化拼接，后续接 prompt-assembler。 */
+  /** 组 AI1 prompt：通常绑定 buildGamePrompt(注入世界书/预设/记忆)。 */
   buildExpandMessages: (req: ExpandRequest) => Array<{ role: string; content: string }>;
   /** 组 AI2 prompt：要求按 JSON 抓叙事数值。 */
   buildExtractMessages: (req: ExtractRequest) => Array<{ role: string; content: string }>;
+  /** AI1 采样参数(从预设取);透传给 router。 */
+  sampling?: Record<string, unknown>;
 }
 
 /** 构造真实 AiPort。注入 router + prompt 构造器，便于替换/测试。 */
@@ -42,7 +44,7 @@ export function createRealAi(deps: RealAiDeps): AiPort {
   return {
     async expand(req: ExpandRequest): Promise<string> {
       const messages = deps.buildExpandMessages(req);
-      const { response } = await deps.router.call('story', { messages });
+      const { response } = await deps.router.call('story', { messages, ...(deps.sampling ?? {}) });
       if (!response.ok) throw new Error(`AI1(story) HTTP ${response.status}`);
       const raw = await readWholeText(response);
       return extractMaintext(raw);
