@@ -62,6 +62,16 @@ describe('runCurrentSlot 连接两个状态机', () => {
     expect(r.state.engine.presentCount).toBe(20); // extract应用
   });
 
+  it('记忆层:执行一格写结构化日志;首次特殊写延续摘要', async () => {
+    const ai = mockAi();
+    const r = await runCurrentSlot(freshRunner(), opts(ai)); // 首格oral=首次特殊
+    const log = r.state.engine.narrativeLog!;
+    expect(log).toHaveLength(1);
+    expect(log[0].eventId).toBe('oral');
+    expect(log[0].tags).toContain('首次');
+    expect(r.state.engine.continuityNotes!.some(n => n.text.includes('首次·口交'))).toBe(true);
+  });
+
   it('连续执行两格到白天结算', async () => {
     const ai = mockAi();
     let r = await runCurrentSlot(freshRunner(), opts(ai));

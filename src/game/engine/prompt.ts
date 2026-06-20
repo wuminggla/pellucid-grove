@@ -6,6 +6,7 @@
 import type { ExpandRequest, ExtractRequest } from './types';
 import type { Lorebook, ChatPreset } from '../../sillytavern/types';
 import { renderConstantBlock, getParadigmByKey } from '../worldbook/machine';
+import { buildMemoryContext } from '../memory/machine';
 import { replaceMacros } from '../../sillytavern/prompt-assembler';
 
 /** 记忆层注入内容(阶段3-3 填充;现可空) */
@@ -17,8 +18,9 @@ export interface MemoryContext {
 export interface GamePromptCtx {
   lorebook: Lorebook;
   preset: ChatPreset;
+  /** 记忆层覆盖(测试用);缺省从 req.state 计算 */
   memory?: MemoryContext;
-  /** 本格是否需要 AI 额外吐 <continuity> 延续摘要(阶段3-3 由 needsContinuity 决定) */
+  /** 强制 needsContinuity(测试用);缺省取 option.needsContinuity */
   needsContinuity?: boolean;
 }
 
@@ -58,7 +60,10 @@ export function presetSampling(preset: ChatPreset): Record<string, unknown> {
 export function buildGamePrompt(req: ExpandRequest, ctx: GamePromptCtx): Array<{ role: string; content: string }> {
   const { resolution, attitude, state } = req;
   const { option, paradigm, renderMode, isNsfw } = resolution;
-  const { lorebook, preset, memory, needsContinuity } = ctx;
+  const { lorebook, preset } = ctx;
+  // 记忆层:缺省从 state 计算(narrativeLog/continuityNotes);needsContinuity 缺省取 option
+  const memory = ctx.memory ?? buildMemoryContext(state);
+  const needsContinuity = ctx.needsContinuity ?? !!option.needsContinuity;
 
   const macro = { userName: '玩家', characterName: '九条凛', userInput: '', variables: {} as Record<string, string | number> };
   const mc = (t: string) => replaceMacros(t, macro);

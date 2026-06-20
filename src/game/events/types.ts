@@ -66,6 +66,8 @@ export interface EventOption {
   martialReward?: number;
   /** 淫名奖励（每次结算给，仅 AV 解锁后生效；来源=AV/轮奸规模/肉体名气） */
   infamyReward?: number;
+  /** 桶4:本事件是否引入"需后续回调的具体实体/独特事实"→需AI一句延续摘要(记忆层)。认知防线跨档另由代码自动触发。 */
+  needsContinuity?: boolean;
 }
 
 /** 事件解析输入上下文（从游戏状态提取） */

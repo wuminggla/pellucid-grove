@@ -9,6 +9,7 @@ import { settleSlot } from './machine';
 import { settleServe, settleDaily } from './settlement';
 import { CONST, slidingWindowRelief } from '../economy/machine';
 import { scanForced } from '../events/machine';
+import { appendLog, appendContinuity } from '../memory/machine';
 import type { ForcedEvent } from '../events/machine';
 import type { ForcedContext } from '../events/types';
 import type { DailySettleResult } from './settlement';
@@ -121,6 +122,29 @@ export async function runCurrentSlot(
   {
     const fi = applyForcedInserts(dayForInsert, engine, opts.forcedPool, slot.period);
     dayForInsert = fi.day; engine = fi.engine; forcedInsert = fi.fired;
+  }
+
+  // 记忆层:每格写结构化日志(代码·覆盖所有格) + 代码可知的延续摘要(认知跨档/首次)
+  const dayNo = state.day.dayNumber;
+  engine = {
+    ...engine,
+    narrativeLog: appendLog(engine.narrativeLog, {
+      day: dayNo, period: slot.period, slot: slot.index,
+      eventId: slot.choice.optionId, label: slot.choice.label,
+      presentCount: engine.presentCount,
+      corruptionDelta: settle.events.corruptionGain || undefined,
+      renderMode: settle.events.renderMode,
+      tags: settle.events.isFirstSpecial ? ['首次'] : undefined,
+    }),
+  };
+  if (settle.events.cognitionAdvancedTo) {
+    engine = { ...engine, continuityNotes: appendContinuity(engine.continuityNotes, {
+      day: dayNo, kind: 'turning', text: `认知防线→${settle.events.cognitionAdvancedTo}`,
+    }) };
+  } else if (settle.events.isFirstSpecial) {
+    engine = { ...engine, continuityNotes: appendContinuity(engine.continuityNotes, {
+      day: dayNo, kind: 'milestone', text: `首次·${slot.choice.label}`,
+    }) };
   }
 
   const dayDone = completeCurrent(dayForInsert, settle.resultText);
