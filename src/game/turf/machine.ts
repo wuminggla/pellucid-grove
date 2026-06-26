@@ -89,6 +89,27 @@ export function reduceThreshold(
   return { ...(regions ?? {}), [id]: { ...st, thresholdReduced: st.thresholdReduced + Math.max(0, amount) } };
 }
 
+/**
+ * 派生 turf 解锁键(给 EventOption.unlockRequires 用)。
+ * 设计目的: 让扩张日常事件(餐厅/游乐园等)的 unlockRequires 能匹配上 region 击败状态。
+ * 规则: 每个已击败的 region id → `occupy_<id>=true`,其它区域用语义化别名:
+ *   home/street/ward/hill/city → occupy_home/street/district/hill/halfcity
+ * 这层映射避免 EventOption 直接耦合 turf 内部 id,以后 catalog 改 id 只需调本函数。
+ */
+export function deriveTurfUnlocked(regions: Record<string, RegionState> | undefined): Record<string, boolean> {
+  const aliasOf: Record<string, string> = {
+    home: 'occupy_home', street: 'occupy_street', ward: 'occupy_district',
+    hill: 'occupy_hill', city: 'occupy_halfcity',
+  };
+  const out: Record<string, boolean> = {};
+  for (const def of REGIONS) {
+    if (isRegionUnlocked(regions, def.id)) {
+      out[aliasOf[def.id] ?? `occupy_${def.id}`] = true;
+    }
+  }
+  return out;
+}
+
 // ───────────────────────────────────────
 // 据点产出 & 稳定度派生
 // ───────────────────────────────────────

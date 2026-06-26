@@ -5,6 +5,7 @@
 import { resolveEvent, markMilestone } from '../events/machine';
 import { gainCorruption, attitudeForStage } from '../corruption/machine';
 import { gainMartialPrestige, gainInfamy, isAvUnlocked } from '../prestige/machine';
+import { deriveEventUnlocked } from './unlocked';
 import type {
   EngineState, SlotInput, SettleOptions, SettleResult, AiPort, ExtractRequest,
 } from './types';
@@ -47,7 +48,7 @@ function eventCtxOf(state: EngineState): EventContext {
     infamy: state.infamy,
     thugs: state.thugTotal,
     triggeredLedger: state.triggeredSpecials,
-    unlocked: state.unlocked,
+    unlocked: deriveEventUnlocked(state),
   };
 }
 

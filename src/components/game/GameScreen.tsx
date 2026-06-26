@@ -8,6 +8,7 @@ import { SavePanel } from './SavePanel';
 import { autosave } from '../../game/save/store';
 import { buildMenu } from '../../game/events/machine';
 import type { EventContext } from '../../game/events/types';
+import { deriveEventUnlocked } from '../../game/engine/unlocked';
 import {
   demoEventOptions, demoSummaryTemplates, demoExtractBounds, demoForcedPool, createMockAi,
 } from '../../game/engine/mock-ai';
@@ -40,7 +41,7 @@ function eventCtx(engine: EngineState): EventContext {
   return {
     corruption: engine.corruption, cognition: engine.cognition,
     infamy: engine.infamy, thugs: engine.thugTotal,
-    triggeredLedger: engine.triggeredSpecials, unlocked: engine.unlocked,
+    triggeredLedger: engine.triggeredSpecials, unlocked: deriveEventUnlocked(engine),
   };
 }
 

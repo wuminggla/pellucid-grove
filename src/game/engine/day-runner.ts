@@ -10,6 +10,7 @@ import { settleServe, settleDaily } from './settlement';
 import { CONST, slidingWindowRelief } from '../economy/machine';
 import { scanForced } from '../events/machine';
 import { appendLog, appendContinuity } from '../memory/machine';
+import { deriveEventUnlocked } from './unlocked';
 import type { LogEntry } from '../memory/machine';
 import type { ForcedEvent } from '../events/machine';
 import type { ForcedContext } from '../events/types';
@@ -25,7 +26,7 @@ export function forcedContextOf(engine: EngineState): ForcedContext {
     infamy: engine.infamy,
     thugs: engine.thugTotal,
     triggeredLedger: engine.triggeredSpecials,
-    unlocked: engine.unlocked,
+    unlocked: deriveEventUnlocked(engine),
     condomStock: engine.condomStock,
     threatLevel: engine.threatLevel ?? 0,
   };
