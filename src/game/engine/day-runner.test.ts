@@ -9,11 +9,11 @@ import {
 import type { EngineState, AiPort, SettleOptions } from './types';
 import type { EventOption } from '../events/types';
 
-// 统一事件模型 fixture：oral=天生NSFW+首次里程碑(权重10)；serve=天生NSFW无里程碑(日常态)
+// 统一事件模型 fixture：oral=天生NSFW+首次里程碑(权重10)；serve_vaginal=天生NSFW无里程碑(日常态)
 const eventOptions: Record<string, EventOption> = {
-  serve: { id: 'serve', label: '供奉', period: 'night', shape: 'born_nsfw', nsfw: { worldbookKey: 'wb_serve' } },
+  serve_vaginal: { id: 'serve_vaginal', label: '供奉', period: 'night', shape: 'born_nsfw', isServe: true, nsfw: { worldbookKey: 'wb_serve_vaginal' } },
   oral: {
-    id: 'oral', label: '口交', period: 'night', shape: 'born_nsfw',
+    id: 'oral', label: '口交', period: 'night', shape: 'born_nsfw', isServe: true,
     nsfw: { worldbookKey: 'wb_oral' },
     first: { ledgerKey: 'oral_first', paradigm: { worldbookKey: 'wb_oral_first' }, corruptionWeight: 10 },
   },
@@ -35,14 +35,14 @@ function mockAi(): AiPort {
 }
 
 function opts(ai: AiPort, fastForward = false): SettleOptions {
-  return { eventOptions, fastForward, ai, summaryTemplates: { serve: '大小姐给{n}人侍奉了' }, extractBounds: { presentCount: [0, 2000] } };
+  return { eventOptions, fastForward, ai, summaryTemplates: { serve_vaginal: '大小姐给{n}人侍奉了' }, extractBounds: { presentCount: [0, 2000] } };
 }
 
 function freshRunner(): RunnerState {
   let day = startDay(1, 4);
   day = allocate(day, { dayCount: 2, nightCount: 2 }).state!;
   day = setChoice(day, 'day', 0, { optionId: 'oral', label: '口交' });
-  day = setChoice(day, 'day', 1, { optionId: 'serve', label: '供奉' });
+  day = setChoice(day, 'day', 1, { optionId: 'serve_vaginal', label: '供奉' });
   day = beginDay(day);
   return { day, engine: engineState() };
 }
@@ -94,8 +94,8 @@ describe('runCurrentSlot 连接两个状态机', () => {
     // 把首格也设成日常以便测快进
     let day = startDay(1, 2);
     day = allocate(day, { dayCount: 0, nightCount: 2 }).state!;
-    day = setChoice(day, 'night', 0, { optionId: 'serve', label: '供奉' });
-    day = setChoice(day, 'night', 1, { optionId: 'serve', label: '供奉' });
+    day = setChoice(day, 'night', 0, { optionId: 'serve_vaginal', label: '供奉' });
+    day = setChoice(day, 'night', 1, { optionId: 'serve_vaginal', label: '供奉' });
     day = beginDay(day); // 白天0格直接 day_settled
     // 手动进夜晚
     const { beginNight } = await import('../action-grid/machine');
@@ -113,7 +113,7 @@ describe('强制临时格(避孕套归零)', () => {
     const eng: EngineState = { ...engineState(), condomStock: 54, presentCount: 18 };
     let day = startDay(1, 1);
     day = allocate(day, { dayCount: 0, nightCount: 1 }).state!;
-    day = setChoice(day, 'night', 0, { optionId: 'serve', label: '供奉' });
+    day = setChoice(day, 'night', 0, { optionId: 'serve_vaginal', label: '供奉' });
     day = beginDay(day);     // 白天0格→day_settled
     day = beginNight(day);   // cursor=night#0
     const o: SettleOptions = {
@@ -135,7 +135,7 @@ describe('强制临时格(避孕套归零)', () => {
     const eng: EngineState = { ...engineState(), condomStock: 480, presentCount: 18 };
     let day = startDay(1, 1);
     day = allocate(day, { dayCount: 0, nightCount: 1 }).state!;
-    day = setChoice(day, 'night', 0, { optionId: 'serve', label: '供奉' });
+    day = setChoice(day, 'night', 0, { optionId: 'serve_vaginal', label: '供奉' });
     day = beginDay(day);
     day = beginNight(day);
     const o: SettleOptions = {
@@ -151,7 +151,7 @@ describe('强制临时格(避孕套归零)', () => {
 
 describe('强制请假轮奸日·吞吐×1.5', () => {
   it('请假日供奉格服务人数×1.5(扣套同步)', async () => {
-    let day = buildForcedLeaveDay(2, 1, { optionId: 'serve', label: '供奉' });
+    let day = buildForcedLeaveDay(2, 1, { optionId: 'serve_vaginal', label: '供奉' });
     day = beginNight(day); // day_settled → night_running
     const eng: EngineState = { ...engineState(), presentCount: 18, condomStock: 480 };
     const o: SettleOptions = {
