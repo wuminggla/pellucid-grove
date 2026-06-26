@@ -86,6 +86,120 @@ export const demoEventOptions: Record<string, EventOption> = {
   },
 
   // ═══════════════════════════════════════════════════
+  // 扩张日常·SFW↔NSFW侵蚀反转(白日宣淫·占据规模解锁)
+  // 统一结构: 双面型 dual / +忠诚高比率 / needsContinuity 记已玩场所 /
+  //         首次=堕落度+ / SFW根=该活动正常版 / NSFW=该场所白日宣淫
+  // ═══════════════════════════════════════════════════
+
+  amusement: {
+    id: 'amusement', label: '去游乐园', period: 'day', shape: 'dual',
+    unlockRequires: ['occupy_district'],
+    sfw: { worldbookKey: 'wb_amusement_sfw' },
+    nsfw: { worldbookKey: 'wb_amusement' },
+    erosionGate: { corruptionAtLeast: 40 },
+    first: { ledgerKey: 'amusement_first', paradigm: { worldbookKey: 'wb_amusement_first' }, corruptionWeight: 5 },
+    needsContinuity: true,
+  },
+
+  beach: {
+    id: 'beach', label: '去海滩', period: 'day', shape: 'dual',
+    unlockRequires: ['occupy_district'],
+    sfw: { worldbookKey: 'wb_beach_sfw' },
+    nsfw: { worldbookKey: 'wb_beach' },
+    erosionGate: { corruptionAtLeast: 40 },
+    first: { ledgerKey: 'beach_first', paradigm: { worldbookKey: 'wb_beach_first' }, corruptionWeight: 5 },
+    needsContinuity: true,
+  },
+
+  mall: {
+    id: 'mall', label: '去商场', period: 'day', shape: 'dual',
+    unlockRequires: ['occupy_street'],
+    sfw: { worldbookKey: 'wb_mall_sfw' },
+    nsfw: { worldbookKey: 'wb_mall' },
+    erosionGate: { corruptionAtLeast: 35 },
+    first: { ledgerKey: 'mall_first', paradigm: { worldbookKey: 'wb_mall_first' }, corruptionWeight: 5 },
+    needsContinuity: true,
+  },
+
+  camping: {
+    id: 'camping', label: '森林野营', period: 'day', shape: 'dual',
+    unlockRequires: ['occupy_hill'],
+    sfw: { worldbookKey: 'wb_camping_sfw' },
+    nsfw: { worldbookKey: 'wb_camping' },
+    erosionGate: { corruptionAtLeast: 35 },
+    first: { ledgerKey: 'camping_first', paradigm: { worldbookKey: 'wb_camping_first' }, corruptionWeight: 5 },
+    needsContinuity: true,
+  },
+
+  hiking: {
+    id: 'hiking', label: '爬山', period: 'day', shape: 'dual',
+    unlockRequires: ['occupy_hill'],
+    sfw: { worldbookKey: 'wb_hiking_sfw' },
+    nsfw: { worldbookKey: 'wb_hiking' },
+    erosionGate: { corruptionAtLeast: 30 },
+    first: { ledgerKey: 'hiking_first', paradigm: { worldbookKey: 'wb_hiking_first' }, corruptionWeight: 5 },
+    needsContinuity: true,
+  },
+
+  street: {
+    id: 'street', label: '街道散步', period: 'day', shape: 'dual',
+    sfw: { worldbookKey: 'wb_street_sfw' },
+    nsfw: { worldbookKey: 'wb_street' },
+    erosionGate: { corruptionAtLeast: 30 },
+    first: { ledgerKey: 'street_first', paradigm: { worldbookKey: 'wb_street_first' }, corruptionWeight: 5 },
+    needsContinuity: true,
+  },
+
+  festival: {
+    id: 'festival', label: '逛祭典', period: 'day', shape: 'dual',
+    unlockRequires: ['occupy_district'],
+    sfw: { worldbookKey: 'wb_festival_sfw' },
+    nsfw: { worldbookKey: 'wb_festival' },
+    erosionGate: { corruptionAtLeast: 40 },
+    first: { ledgerKey: 'festival_first', paradigm: { worldbookKey: 'wb_festival_first' }, corruptionWeight: 5 },
+    needsContinuity: true,
+  },
+
+  concert: {
+    id: 'concert', label: '看演唱会', period: 'day', shape: 'dual',
+    unlockRequires: ['occupy_halfcity'],
+    sfw: { worldbookKey: 'wb_concert_sfw' },
+    nsfw: { worldbookKey: 'wb_concert' },
+    erosionGate: { corruptionAtLeast: 45 },
+    first: { ledgerKey: 'concert_first', paradigm: { worldbookKey: 'wb_concert_first' }, corruptionWeight: 5 },
+    needsContinuity: true,
+  },
+
+  garden_dog: {
+    id: 'garden_dog', label: '庭院遛母狗', period: 'day', shape: 'dual',
+    unlockRequires: ['courtyard_unlocked'],
+    sfw: { worldbookKey: 'wb_garden_sfw' },
+    nsfw: { worldbookKey: 'wb_garden_dog' },
+    erosionGate: { corruptionAtLeast: 45 },
+    first: { ledgerKey: 'garden_dog_first', paradigm: { worldbookKey: 'wb_garden_dog_first' }, corruptionWeight: 8 },
+    needsContinuity: true,
+  },
+
+  garden_rock: {
+    id: 'garden_rock', label: '假山野战', period: 'day', shape: 'dual',
+    unlockRequires: ['courtyard_unlocked'],
+    sfw: { worldbookKey: 'wb_garden_sfw' },
+    nsfw: { worldbookKey: 'wb_garden_rock' },
+    erosionGate: { corruptionAtLeast: 50 },
+    first: { ledgerKey: 'garden_rock_first', paradigm: { worldbookKey: 'wb_garden_rock_first' }, corruptionWeight: 6 },
+    needsContinuity: true,
+  },
+
+  ancestor: {
+    id: 'ancestor', label: '参拜先祖', period: 'day', shape: 'dual',
+    sfw: { worldbookKey: 'wb_ancestor_sfw' },
+    nsfw: { worldbookKey: 'wb_ancestor' },
+    erosionGate: { corruptionAtLeast: 60 },
+    first: { ledgerKey: 'ancestor_first', paradigm: { worldbookKey: 'wb_ancestor_first' }, corruptionWeight: 12 },
+    needsContinuity: true,
+  },
+
+  // ═══════════════════════════════════════════════════
   // 夜晚供奉事件(isServe=true·抵供奉吞吐)
   // ═══════════════════════════════════════════════════
 
