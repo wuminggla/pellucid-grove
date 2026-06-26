@@ -147,6 +147,29 @@ describe('强制临时格(避孕套归零)', () => {
     expect(r.forcedInsert).toBeNull();
     expect(r.state.day.nightSlots.some(s => s.inserted)).toBe(false);
   });
+
+  it('归零三连·E3真播种(生育线)→ ForcedEvent.onApply 设置 pregnant=true', async () => {
+    // E1+E2 已触发(账本标记),本轮归零应触发 E3,onApply 副作用→pregnant=true
+    const eng: EngineState = {
+      ...engineState(),
+      condomStock: 54, presentCount: 18,
+      triggeredSpecials: { condom_zero_1: true, condom_zero_2: true },
+    };
+    let day = startDay(1, 1);
+    day = allocate(day, { dayCount: 0, nightCount: 1 }).state!;
+    day = setChoice(day, 'night', 0, { optionId: 'serve_vaginal', label: '供奉' });
+    day = beginDay(day);
+    day = beginNight(day);
+    const o: SettleOptions = {
+      eventOptions: demoEventOptions, fastForward: false, ai: createMockAi(),
+      summaryTemplates: demoSummaryTemplates, extractBounds: demoExtractBounds,
+      forcedPool: demoForcedPool,
+    };
+    const r = await runCurrentSlot({ day, engine: eng }, o);
+    expect(r.forcedInsert!.id).toBe('condom_zero_3');
+    expect(r.state.engine.triggeredSpecials['condom_zero_3']).toBe(true);
+    expect(r.state.engine.pregnant).toBe(true); // 副作用钩通
+  });
 });
 
 describe('强制请假轮奸日·吞吐×1.5', () => {

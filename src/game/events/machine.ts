@@ -185,6 +185,12 @@ export interface ForcedEvent {
   condition: (ctx: ForcedContext) => boolean;
   /** 是否一次性（触发后标记，永不再触发） */
   once?: boolean;
+  /**
+   * 触发时的副作用补丁（可选）。返回 EngineState 的局部覆盖。
+   * 用途：E3 真播种触发 → 设置 pregnant=true；其它任何"触发即推进游戏状态"的强制事件。
+   * 仅当被 applyForcedInserts/applyForcedSeizes 实际命中并应用时执行一次。
+   */
+  onApply?: (ctx: ForcedContext) => Record<string, unknown>;
 }
 
 /**

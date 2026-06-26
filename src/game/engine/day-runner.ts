@@ -44,9 +44,15 @@ export function applyForcedInserts(
   const ev = scanForced(inserts, forcedContextOf(engine));
   if (!ev) return { day, engine, fired: null };
   const day2 = insertEventSlot(day, period, ev.label, { optionId: ev.optionId, label: ev.label });
-  const engine2 = (ev.once && ev.ledgerKey)
-    ? { ...engine, triggeredSpecials: { ...engine.triggeredSpecials, [ev.ledgerKey]: true } }
-    : engine;
+  const ctx = forcedContextOf(engine);
+  // 应用 once 标签 + onApply 副作用补丁（如 E3 真播种 → pregnant=true）
+  let engine2: EngineState = engine;
+  if (ev.once && ev.ledgerKey) {
+    engine2 = { ...engine2, triggeredSpecials: { ...engine2.triggeredSpecials, [ev.ledgerKey]: true } };
+  }
+  if (ev.onApply) {
+    engine2 = { ...engine2, ...ev.onApply(ctx) } as EngineState;
+  }
   return { day: day2, engine: engine2, fired: ev };
 }
 

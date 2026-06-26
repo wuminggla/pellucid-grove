@@ -135,6 +135,22 @@ export const demoEventOptions: Record<string, EventOption> = {
     first: { ledgerKey: 'condom_zero_1', paradigm: { worldbookKey: 'wb_condom_zero_1' }, corruptionWeight: 5 },
   },
 
+  /** 生育线 E2: 循环利用废套(口戴套) */
+  condom_zero_2: {
+    id: 'condom_zero_2', label: '避孕套归零·循环利用', period: 'any', shape: 'born_nsfw',
+    nsfw: { worldbookKey: 'wb_condom_zero_2' },
+    first: { ledgerKey: 'condom_zero_2', paradigm: { worldbookKey: 'wb_condom_zero_2' }, corruptionWeight: 8 },
+    needsContinuity: true,
+  },
+
+  /** 生育线 E3: 真播种 = 终极里程碑(触发受孕状态机) */
+  condom_zero_3: {
+    id: 'condom_zero_3', label: '避孕套归零·真播种', period: 'any', shape: 'born_nsfw',
+    nsfw: { worldbookKey: 'wb_condom_zero_3' },
+    first: { ledgerKey: 'condom_zero_3', paradigm: { worldbookKey: 'wb_condom_zero_3' }, corruptionWeight: 20 },
+    needsContinuity: true,
+  },
+
   forced_leave: {
     id: 'forced_leave', label: '强制请假轮奸', period: 'day', shape: 'born_nsfw', isServe: true,
     nsfw: { worldbookKey: 'wb_forced_leave' },
@@ -145,11 +161,25 @@ export const demoEventOptions: Record<string, EventOption> = {
 
 /** 强制事件池 */
 export const demoForcedPool: ForcedEvent[] = [
+  // ─── 生育线三连(避孕套归零·once+ledgerKey 依次触发) ──────────
   {
     id: 'condom_zero', ledgerKey: 'condom_zero_1', priority: 1, once: true,
     intensity: 'insert_slot', optionId: 'condom_zero', label: '避孕套归零·裸体买套',
     condition: c => (c.condomStock ?? 1) <= 0,
   },
+  {
+    id: 'condom_zero_2', ledgerKey: 'condom_zero_2', priority: 2, once: true,
+    intensity: 'insert_slot', optionId: 'condom_zero_2', label: '避孕套归零·口戴废套',
+    condition: c => (c.condomStock ?? 1) <= 0,
+  },
+  {
+    id: 'condom_zero_3', ledgerKey: 'condom_zero_3', priority: 3, once: true,
+    intensity: 'insert_slot', optionId: 'condom_zero_3', label: '避孕套归零·真播种',
+    condition: c => (c.condomStock ?? 1) <= 0,
+    // E3 触发副作用: 设置怀孕状态(钩到 endings.pregnant)
+    onApply: () => ({ pregnant: true }),
+  },
+  // ─── 地盘骚扰(高频强占) ────────────────────────────────
   {
     id: 'harass', priority: 5,
     intensity: 'seize_slot', optionId: 'defend_turf', label: '地盘骚扰',
@@ -173,6 +203,8 @@ export const demoSummaryTemplates: Record<string, string> = {
   school: '大小姐处理了学校事务。',
   dine: '外出用餐完毕。',
   forced_leave: '（已结算请假轮奸）',
+  condom_zero_2: '大小姐在打手的指使下，循环利用了几个用过的避孕套。',
+  condom_zero_3: '——避孕套用完了。打手们对视而笑。',
 };
 
 /** extract 防胡诌范围 */
