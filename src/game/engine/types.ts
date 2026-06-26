@@ -53,6 +53,8 @@ export interface EngineState {
     肛门?: number;
     子宫生育?: number;
   };
+  /** AV 系统状态(摄影室解锁后引入·见 av/machine.ts) */
+  av?: import('../av/machine').AvState;
   // —— 派生/统计（结算更新，供UI/失败判定）——
   servedThisNight: number;     // 本晚已被供奉人数（夜晚结算用）
   // —— 记忆层（叙事连贯性·随存档持久化）——
