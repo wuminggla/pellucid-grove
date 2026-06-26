@@ -125,7 +125,10 @@ export function applyA4(state: EngineState, input: A4Input): A4Result {
   const concealed = rollConcealment(input.conceal);
   if (concealed) {
     // 隐瞒成功 → 极道威望进账(martialPrestige + martialGainToday 同步)
-    const next = gainMartialPrestige(state, input.martialBase);
+    const next = gainMartialPrestige({
+      martialPrestige: state.martialPrestige,
+      martialGainToday: state.martialGainToday ?? 0,
+    }, input.martialBase);
     return {
       state: { ...state, ...next },
       concealed: true,
