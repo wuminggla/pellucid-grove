@@ -118,6 +118,11 @@ export interface SettleOptions {
   extractBounds?: Record<string, [number, number]>;
   /** 强制事件池（强占/临时格，结算时按条件扫描触发） */
   forcedPool?: ForcedEvent[];
+  /**
+   * 随机源(0..1)。用于 A4 隐瞒判定等需要随机的结算。注入而非内部 Math.random，
+   * 保证 settleSlot 纯函数性(测试可定值/存档重演确定)。缺省时 A4 用 0.5(中性)。
+   */
+  rng?: () => number;
 }
 
 /** 本次结算产生的事件（供 UI 提示/叙事钩子） */
@@ -136,6 +141,15 @@ export interface SettleEvents {
   continuity?: string;
   /** 被防胡诌拒掉的离谱字段（调试用） */
   rejectedFields: string[];
+  /** A4 日常侵蚀结果(本格事件标 a4 且为 NSFW 态时有)。供 UI 提示隐瞒成功/曝光。 */
+  a4?: {
+    concealed: boolean;          // 隐瞒成功=true
+    martialGained: number;       // 成功的极道威望进账
+    martialTransferred: number;  // 失败转移到淫名的量
+    loyaltyDelta: number;        // 失败的忠诚加成
+    developedPart?: string;      // 推进的身体部位(若有)
+    developedTo?: number;        // 推进后等级
+  };
 }
 
 /** 结算结果 */

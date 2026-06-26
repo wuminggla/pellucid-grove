@@ -6,8 +6,10 @@ import { resolveEvent, markMilestone } from '../events/machine';
 import { gainCorruption, attitudeForStage } from '../corruption/machine';
 import { gainMartialPrestige, gainInfamy, isAvUnlocked } from '../prestige/machine';
 import { deriveEventUnlocked } from './unlocked';
+import { applyA4, advanceBodyDevelopment } from '../intrusion/machine';
+import type { BodyPart } from '../intrusion/machine';
 import type {
-  EngineState, SlotInput, SettleOptions, SettleResult, AiPort, ExtractRequest,
+  EngineState, SlotInput, SettleOptions, SettleResult, SettleEvents, AiPort, ExtractRequest,
 } from './types';
 import type { EventContext } from '../events/types';
 
@@ -145,6 +147,41 @@ export async function settleSlot(
     infamyGain = option.infamyReward;
   }
 
+  // —— A4 日常侵蚀(可选·NSFW 态且事件标 a4 时触发) ——
+  // 设计正典§4: A 面 NSFW 事件结算后掷隐瞒判定,路由威望(成功→极道/失败→部分转淫名+忠诚)。
+  // 同时推进对应身体部位开发度(到阈值后强化 A4 触发概率,目前未在此处用,留给未来扫描器消费)。
+  let a4Report: SettleEvents['a4'] = undefined;
+  if (option.a4 && resolution.isNsfw) {
+    const roll = opts.rng ? opts.rng() : 0.5;
+    const r = applyA4(next, {
+      martialBase: option.a4.martialBase,
+      transferRatio: option.a4.transferRatio,
+      loyaltyOnFail: option.a4.loyaltyOnFail,
+      conceal: { martialPrestige: next.martialPrestige, roll },
+    });
+    next = r.state;
+    a4Report = {
+      concealed: r.concealed,
+      martialGained: r.martialGained,
+      martialTransferred: r.martialTransferred,
+      loyaltyDelta: r.loyaltyDelta,
+    };
+    // 顺手推进身体部位(若事件标了 developsPart)
+    if (option.a4.developsPart) {
+      const part: BodyPart = option.a4.developsPart;
+      const adv = advanceBodyDevelopment(next, part, 1);
+      next = adv.state;
+      if (adv.advanced) {
+        a4Report.developedPart = part;
+        a4Report.developedTo = adv.newLevel;
+      }
+    }
+    // 成功的极道威望计入今日流量(martialGainToday 由 applyA4 内部 gainMartialPrestige 同步)
+    if (r.martialGained > 0) {
+      martialGain += r.martialGained;
+    }
+  }
+
   return {
     state: next,
     resultText,
@@ -159,6 +196,7 @@ export async function settleSlot(
       infamyGain,
       continuity,
       rejectedFields: rejected,
+      a4: a4Report,
     },
   };
 }

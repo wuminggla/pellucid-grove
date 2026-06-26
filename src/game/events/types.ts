@@ -86,6 +86,22 @@ export interface EventOption {
   infamyReward?: number;
   /** 桶4:本事件是否引入"需后续回调的具体实体/独特事实"→需AI一句延续摘要(记忆层)。认知防线跨档另由代码自动触发。 */
   needsContinuity?: boolean;
+  /**
+   * A4 日常侵蚀标记(可选)。当本事件是"A 面公开场合发生 NSFW、有被外人看到的风险"时设置。
+   * settleSlot 结算 NSFW 态后调 applyA4(隐瞒成败→威望路由)。
+   * 典型: 收保护费NSFW/学校NSFW/扩张日常(餐厅/商场等公众场景)/买套等"在外面"的 NSFW 事件。
+   * 纯 B 面事件(夜晚供奉/暴力供奉/请假轮奸)不设(大宅内无外人,无隐瞒问题)。
+   */
+  a4?: {
+    /** 本次事件给的极道威望基数(隐瞒成功全得;失败部分变质淫名) */
+    martialBase: number;
+    /** 失败 transfer 比率(0..1·默认0.4) */
+    transferRatio?: number;
+    /** 失败忠诚加成(默认2) */
+    loyaltyOnFail?: number;
+    /** 本事件推进的身体部位(可选·随结算 advanceBodyDevelopment) */
+    developsPart?: '口腔' | '小穴' | '肛门' | '子宫生育';
+  };
 }
 
 /** 事件解析输入上下文（从游戏状态提取） */

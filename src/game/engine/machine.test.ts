@@ -164,3 +164,56 @@ describe('settleSlot 防胡诌集成', () => {
     expect(r.state.presentCount).toBe(18); // 保留旧值,没被离谱值覆盖
   });
 });
+
+describe('settleSlot A4 日常侵蚀接入', () => {
+  const a4Event: EventOption = {
+    id: 'protection_a4', label: '收保护费', period: 'day', shape: 'born_nsfw',
+    nsfw: { worldbookKey: 'wb_protect_nsfw' },
+    a4: { martialBase: 3, transferRatio: 0.4, loyaltyOnFail: 2, developsPart: '小穴' },
+  };
+
+  it('NSFW 态 + a4 标记 + 隐瞒成功 → 极道威望进账 + 推进部位', async () => {
+    const ai = mockAi();
+    const opt: SettleOptions = {
+      ...opts(ai), eventOptions: { protection_a4: a4Event },
+      rng: () => 0,  // roll=0 → 必成功
+    };
+    const r = await settleSlot(baseState(), { optionId: 'protection_a4' }, opt);
+    expect(r.events.a4?.concealed).toBe(true);
+    expect(r.events.a4?.martialGained).toBe(3);
+    expect(r.state.martialPrestige).toBe(3);
+    expect(r.state.martialGainToday).toBe(3);
+    expect(r.state.bodyDevelopment?.小穴).toBe(2); // 默认1→推进2
+    expect(r.events.a4?.developedPart).toBe('小穴');
+    expect(r.events.a4?.developedTo).toBe(2);
+  });
+
+  it('NSFW 态 + a4 标记 + 隐瞒失败 → 极道 transfer 淫名 + 忠诚 +', async () => {
+    const ai = mockAi();
+    const opt: SettleOptions = {
+      ...opts(ai), eventOptions: { protection_a4: a4Event },
+      rng: () => 1,  // roll=1 → 必失败
+    };
+    const r = await settleSlot({ ...baseState(), martialPrestige: 100, loyalty: 60 }, { optionId: 'protection_a4' }, opt);
+    expect(r.events.a4?.concealed).toBe(false);
+    expect(r.events.a4?.martialTransferred).toBe(1); // round(3 * 0.4) = 1
+    expect(r.state.martialPrestige).toBe(99);
+    expect(r.state.infamy).toBe(1);
+    expect(r.state.loyalty).toBe(62);
+    expect(r.events.a4?.loyaltyDelta).toBe(2);
+  });
+
+  it('未标 a4 的事件 → events.a4 undefined,不触发判定', async () => {
+    const ai = mockAi();
+    const r = await settleSlot(baseState(), { optionId: 'serve' }, opts(ai));
+    expect(r.events.a4).toBeUndefined();
+  });
+
+  it('rng 缺省 → 默认 0.5(中性)', async () => {
+    const ai = mockAi();
+    // martialPrestige=0 → concealProbability=0.5,roll=0.5 → 0.5 < 0.5 false → 失败
+    const opt: SettleOptions = { ...opts(ai), eventOptions: { protection_a4: a4Event } };
+    const r = await settleSlot(baseState(), { optionId: 'protection_a4' }, opt);
+    expect(r.events.a4?.concealed).toBe(false);
+  });
+});

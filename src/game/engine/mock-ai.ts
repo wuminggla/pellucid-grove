@@ -50,6 +50,8 @@ export const demoEventOptions: Record<string, EventOption> = {
     nsfw: { worldbookKey: 'wb_protect_nsfw' },
     erosionGate: { corruptionAtLeast: 25 },
     first: { ledgerKey: 'protect_first', paradigm: { worldbookKey: 'wb_protect_first' }, corruptionWeight: 6 },
+    // A4 日常侵蚀: 在外人(店主)面前 NSFW=有曝光风险
+    a4: { martialBase: 3, transferRatio: 0.4, loyaltyOnFail: 2, developsPart: '小穴' },
   },
 
   // 天生NSFW:买避孕套(四档分级·按人数/堕落度选档·stages)
@@ -57,6 +59,8 @@ export const demoEventOptions: Record<string, EventOption> = {
     id: 'buy_condoms', label: '采购避孕套', period: 'day', shape: 'born_nsfw',
     nsfw: { worldbookKey: 'wb_buy_condom' },
     first: { ledgerKey: 'buy_first', paradigm: { worldbookKey: 'wb_buy_condom_first' }, corruptionWeight: 5 },
+    // A4: 公共便利店采购,有曝光风险
+    a4: { martialBase: 2, transferRatio: 0.5, developsPart: '小穴' },
   },
 
   // 双面型:去大学上课(SFW日常↔NSFW三阶段·防跳阶段)
@@ -72,6 +76,8 @@ export const demoEventOptions: Record<string, EventOption> = {
       { corruptionAtLeast: 75, ledgerKey: 'school_75', corruptionWeight: 5,
         firstParadigm: { worldbookKey: 'wb_school75_first' }, paradigm: { worldbookKey: 'wb_school75' } },
     ],
+    // A4: 校园=公共场所,有同学/讲师曝光风险
+    a4: { martialBase: 4, transferRatio: 0.5, developsPart: '小穴' },
   },
 
   // 双面型:出门吃饭→餐厅
@@ -83,6 +89,8 @@ export const demoEventOptions: Record<string, EventOption> = {
     erosionGate: { corruptionAtLeast: 30 },
     first: { ledgerKey: 'dine_first', paradigm: { worldbookKey: 'wb_dine_first' }, corruptionWeight: 5 },
     infamyReward: 1,
+    // A4: 餐厅=公共场所(虽然包场,仍可能曝光)
+    a4: { martialBase: 3, transferRatio: 0.4, developsPart: '小穴' },
   },
 
   // ═══════════════════════════════════════════════════
