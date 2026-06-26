@@ -11,21 +11,24 @@ describe('世界书接入', () => {
     expect(cs.some(e => e.id === 'p_serve')).toBe(false);
   });
 
-  it('renderConstantBlock 拼成文本', () => {
+  it('renderConstantBlock 拼成文本(3-5b 真实内容)', () => {
     const block = renderConstantBlock(demoLorebook);
-    expect(block).toContain('美学纲领');
+    // 真实内容:C1含"体验内核",C5含"打手态度·B面灵魂"
+    expect(block).toContain('体验内核');
     expect(block).toContain('打手态度');
-    expect(block).not.toContain('范式·供奉'); // 范式条目不进常驻块
+    // 范式条目(非常驻)不进常驻块
+    expect(block).not.toContain('3-5d补全'); // 范式占位文本不应出现在常驻块
   });
 
   it('getParadigmByKey 按key直取(不scan)', () => {
-    expect(getParadigmByKey(demoLorebook, 'wb_serve')).toContain('供奉');
+    // 3-5b 世界书 key 已拆分:wb_serve_oral / wb_serve_vaginal 等
+    expect(getParadigmByKey(demoLorebook, 'wb_serve_oral')).not.toBeNull();
     expect(getParadigmByKey(demoLorebook, 'wb_bribe_first')).toContain('首次身体贿赂');
     expect(getParadigmByKey(demoLorebook, 'wb_不存在')).toBeNull();
   });
 
   it('hasParadigm 判定存在', () => {
-    expect(hasParadigm(demoLorebook, 'wb_oral')).toBe(true);
+    expect(hasParadigm(demoLorebook, 'wb_serve_oral')).toBe(true); // 3-5b 键名
     expect(hasParadigm(demoLorebook, 'wb_nope')).toBe(false);
   });
 });

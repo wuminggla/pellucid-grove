@@ -6,9 +6,9 @@ import type { EventResolution } from '../events/types';
 
 function resolution(over: Partial<EventResolution> = {}): EventResolution {
   return {
-    option: { id: 'serve', label: '供奉', period: 'night', shape: 'born_nsfw', nsfw: { worldbookKey: 'wb_serve' } },
+    option: { id: 'serve_oral', label: '口交侍奉', period: 'night', shape: 'born_nsfw', nsfw: { worldbookKey: 'wb_serve_oral' } },
     face: 'nsfw', isFirstMilestone: false, corruptionGain: 0,
-    paradigm: { worldbookKey: 'wb_serve' }, renderMode: 'ai_normal', isNsfw: true,
+    paradigm: { worldbookKey: 'wb_serve_oral' }, renderMode: 'ai_normal', isNsfw: true,
     ...over,
   };
 }
@@ -33,14 +33,14 @@ describe('buildGamePrompt', () => {
     const [sys] = buildGamePrompt(req(), { lorebook: demoLorebook, preset: demoPreset });
     expect(sys.role).toBe('system');
     expect(sys.content).toContain('叙事AI');      // 预设main
-    expect(sys.content).toContain('JB');          // 预设jailbreak
-    expect(sys.content).toContain('美学纲领');     // 常驻世界书
-    expect(sys.content).toContain('打手态度');     // 常驻世界书
+    expect(sys.content).toContain('直接、露骨');    // 真实JB内容(3-5b)
+    expect(sys.content).toContain('体验内核');     // 真实C1美学纲领(3-5b)
+    expect(sys.content).toContain('打手态度');     // 真实C5打手态度(3-5b)
   });
 
   it('user 按key注入范式正文 + 态度 + 场景 + 规格', () => {
     const [, user] = buildGamePrompt(req(), { lorebook: demoLorebook, preset: demoPreset });
-    expect(user.content).toContain('范式·供奉'); // getParadigmByKey(wb_serve)
+    expect(user.content).toContain('3-5d补全'); // getParadigmByKey(wb_serve_oral) 返回占位内容
     expect(user.content).toContain('死撑档');     // 态度层(四档·3-5a)
     expect(user.content).toContain('在场约 18 人'); // 场景
     expect(user.content).toContain('正常生成');   // ai_normal 规格
