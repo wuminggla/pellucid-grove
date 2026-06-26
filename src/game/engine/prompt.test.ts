@@ -40,7 +40,7 @@ describe('buildGamePrompt', () => {
 
   it('user 按key注入范式正文 + 态度 + 场景 + 规格', () => {
     const [, user] = buildGamePrompt(req(), { lorebook: demoLorebook, preset: demoPreset });
-    expect(user.content).toContain('3-5d补全'); // getParadigmByKey(wb_serve_oral) 返回占位内容
+    expect(user.content).toContain('口交侍奉'); // getParadigmByKey(wb_serve_oral) 真实范式内容(3-5d)
     expect(user.content).toContain('死撑档');     // 态度层(四档·3-5a)
     expect(user.content).toContain('在场约 18 人'); // 场景
     expect(user.content).toContain('正常生成');   // ai_normal 规格
