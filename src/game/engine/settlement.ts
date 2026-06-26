@@ -93,6 +93,10 @@ export function settleDaily(state: EngineState, dayNumber: number): DailySettleR
   if (recruitRefreshed) {
     const prestige = totalPrestige(next.martialPrestige, next.infamy, isAvUnlocked(next.unlocked));
     next.recruitQuota = weeklyRecruitQuota(prestige);
+    // 同步刷新 AV 周编辑次数(若已解锁)
+    if (isAvUnlocked(next.unlocked) && next.av) {
+      next.av = { ...next.av, weeklyQuota: next.av.weeklyQuotaMax };
+    }
   }
   const power = combatPower(availableThugs(next.thugTotal, next.garrison), next.loyalty, combatBonus(next.upgrades));
   // 硬失败审核：极道威望连续2次进账为0（纯摆烂者/A面崩盘者）。审核后重置今日流量。

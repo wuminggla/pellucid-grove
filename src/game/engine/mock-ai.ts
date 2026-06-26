@@ -4,6 +4,7 @@
 import type { AiPort } from './types';
 import type { EventOption } from '../events/types';
 import type { ForcedEvent } from '../events/machine';
+import { initAvOnUnlock } from '../av/machine';
 
 /** 真实事件注册表(统一模型) · 3-5c */
 export const demoEventOptions: Record<string, EventOption> = {
@@ -205,6 +206,32 @@ export const demoEventOptions: Record<string, EventOption> = {
     erosionGate: { corruptionAtLeast: 60 },
     first: { ledgerKey: 'ancestor_first', paradigm: { worldbookKey: 'wb_ancestor_first' }, corruptionWeight: 12 },
     needsContinuity: true,
+  },
+
+  // ─── AV 系统 ────────────────────────────────────
+  // 首次AV: 摄影室升级解锁后强制触发(里程碑·一次性·标 first 走 ai_full 重点扩写)
+  av_first: {
+    id: 'av_first', label: '拍摄第一部AV(里程碑)', period: 'day', shape: 'born_nsfw',
+    unlockRequires: ['studio_unlocked'],
+    nsfw: { worldbookKey: 'wb_av_first' },
+    first: {
+      ledgerKey: 'av_first', paradigm: { worldbookKey: 'wb_av_first' }, corruptionWeight: 15,
+      // 副作用: 解锁淫名机制 + 初始化 AV state
+      onApply: (engine) => initAvOnUnlock(engine),
+    },
+    infamyReward: 5,  // 首次AV直接给5淫名(钩到淫名引入)
+    needsContinuity: true,
+    pinned: true,
+  },
+
+  // 玩家定制AV: 解锁 av 后开,paradigm 由 UI 调 buildAvParadigm 动态生成
+  // 此处仅占位 worldbookKey,实际 dispatch 时 UI 用 buildAvParadigm 注入 inlinePrompt
+  av_custom: {
+    id: 'av_custom', label: '拍 AV', period: 'day', shape: 'born_nsfw',
+    unlockRequires: ['av'],
+    nsfw: { worldbookKey: 'wb_av_custom' },
+    infamyReward: 3,
+    pinned: true,
   },
 
   // ═══════════════════════════════════════════════════

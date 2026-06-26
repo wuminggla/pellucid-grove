@@ -128,6 +128,10 @@ export async function settleSlot(
     // 写首发账本（单一first=first.ledgerKey;多阶段=该阶段ledgerKey）→ 下次该选项/阶段落常规态
     const ledgerKey = resolution.milestoneLedgerKey ?? option.first?.ledgerKey;
     if (ledgerKey) next.triggeredSpecials = markMilestone(next.triggeredSpecials, ledgerKey);
+    // 首次里程碑副作用钩子(如首次AV → initAvOnUnlock 设 unlocked.av)
+    if (option.first?.onApply) {
+      next = { ...next, ...option.first.onApply(next) } as EngineState;
+    }
   }
 
   // —— 威望进账（每次结算都给）：战斗→极道威望 / AV·轮奸规模→淫名(仅AV解锁后) ——

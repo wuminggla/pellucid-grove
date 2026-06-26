@@ -38,6 +38,13 @@ export interface FirstMilestone {
   corruptionWeight: number;  // 首次加的堕落度
   /** 优先级（多个同条件特殊事件依次触发时，数字小先触发）。默认0 */
   priority?: number;
+  /**
+   * 首次触发后的副作用补丁(可选·与 ForcedEvent.onApply 同形)。
+   * 用途: 首次AV → initAvOnUnlock 设 unlocked.av + 初始化 weeklyQuota;
+   *       任何"触发即推进系统状态"的首次事件副作用。
+   * 仅当 settleSlot 实际命中首次里程碑时执行一次。
+   */
+  onApply?: (engine: import('../engine/types').EngineState) => Record<string, unknown>;
 }
 
 /**

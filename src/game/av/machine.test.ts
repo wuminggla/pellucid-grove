@@ -132,9 +132,9 @@ describe('AV 状态更新', () => {
   });
 
   it('initAvOnUnlock: 解锁标签 + weeklyQuota=max', () => {
-    const e = initAvOnUnlock(eng());
-    expect(e.unlocked.av).toBe(true);
-    expect(e.unlocked.studio_unlocked).toBe(true);
-    expect(e.av?.weeklyQuota).toBe(2);
+    const patch = initAvOnUnlock(eng());
+    expect((patch.unlocked as Record<string, boolean>).av).toBe(true);
+    expect((patch.unlocked as Record<string, boolean>).studio_unlocked).toBe(true);
+    expect((patch.av as { weeklyQuota: number }).weeklyQuota).toBe(2);
   });
 });

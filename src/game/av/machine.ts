@@ -172,11 +172,13 @@ export function upgradeAvDuration(av: AvState, levels = 1): AvState {
   return { ...av, durationCap: Math.min(168, av.durationCap + Math.max(0, levels) * 24) };
 }
 
-/** AV 首次解锁: 切到默认状态,但 weeklyQuota=weeklyQuotaMax(开局就能拍下一部) */
-export function initAvOnUnlock(engine: EngineState): EngineState {
+/**
+ * AV 首次解锁: 返回 EngineState 补丁(用于 FirstMilestone.onApply / ForcedEvent.onApply)。
+ * 写入: unlocked.av + unlocked.studio_unlocked + av.weeklyQuota=max(开局就能拍下一部)
+ */
+export function initAvOnUnlock(engine: EngineState): Record<string, unknown> {
   const av = engine.av ?? defaultAvState();
   return {
-    ...engine,
     unlocked: { ...engine.unlocked, [AV_UNLOCK_KEY]: true, studio_unlocked: true },
     av: { ...av, weeklyQuota: av.weeklyQuotaMax },
   };
