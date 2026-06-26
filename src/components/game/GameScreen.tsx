@@ -5,10 +5,18 @@ import { StatusBar } from './StatusBar';
 import { CharacterPane } from './CharacterPane';
 import { ApiConfigPanel, loadApiSettings } from './ApiConfigPanel';
 import { SavePanel } from './SavePanel';
+import { AvEditor } from './AvEditor';
 import { autosave } from '../../game/save/store';
 import { buildMenu } from '../../game/events/machine';
 import type { EventContext } from '../../game/events/types';
 import { deriveEventUnlocked } from '../../game/engine/unlocked';
+import { DEVELOPMENT_LABELS, type DevelopmentLevel } from '../../game/intrusion/machine';
+
+// 部位开发度→中文展示(0-4)·UI 复用 intrusion 中文枚举
+const DEV_LABEL = DEVELOPMENT_LABELS;
+function devLabel(level: number | undefined): string {
+  return level === undefined ? '' : (DEV_LABEL[level as DevelopmentLevel] ?? String(level));
+}
 import {
   demoEventOptions, demoSummaryTemplates, demoExtractBounds, demoForcedPool, createMockAi,
 } from '../../game/engine/mock-ai';
@@ -142,6 +150,8 @@ export function GameScreen() {
   const [showConfig, setShowConfig] = useState(false);
   const [showSaves, setShowSaves] = useState(false);
   const [expandedKey, setExpandedKey] = useState<string | null>(null);
+  /** AV 编辑器目标格(打开编辑器时设置;提交后清空) */
+  const [avEditorTarget, setAvEditorTarget] = useState<{ period: SlotPeriod; index: number } | null>(null);
 
   const ai = useMemo(() => {
     if (apiSettings?.apiKey) {
@@ -162,6 +172,7 @@ export function GameScreen() {
     settleOptions: {
       eventOptions: demoEventOptions, ai, summaryTemplates: demoSummaryTemplates,
       extractBounds: demoExtractBounds, forcedPool: demoForcedPool,
+      rng: Math.random, // A4 隐瞒判定/其他随机结算的真实随机源
     },
   });
 
@@ -191,7 +202,14 @@ export function GameScreen() {
             isCurrent={r.day.cursor?.period === period && r.day.cursor?.index === slot.index}
             expanded={expandedKey === key}
             onToggle={() => setExpandedKey(expandedKey === key ? null : key)}
-            onPick={(optionId, label) => r.setChoice(period, slot.index, { optionId, label })}
+            onPick={(optionId, label) => {
+              // av_custom: 选中后弹编辑器,玩家定制后由 onCommit 写入 setChoice 带 params
+              if (optionId === 'av_custom') {
+                setAvEditorTarget({ period, index: slot.index });
+                return;
+              }
+              r.setChoice(period, slot.index, { optionId, label });
+            }}
             onClear={() => r.clearChoice(period, slot.index)}
           />
         );
@@ -291,6 +309,37 @@ export function GameScreen() {
               </div>
             )}
 
+            {/* A4 日常侵蚀反馈 */}
+            {r.lastSettle?.events.a4 && (
+              <div style={{
+                marginTop: 10, padding: 10, borderRadius: 6, fontSize: 13,
+                background: r.lastSettle.events.a4.concealed ? '#142018' : '#3a1518',
+                border: `1px solid ${r.lastSettle.events.a4.concealed ? C.green : C.danger}`,
+                color: r.lastSettle.events.a4.concealed ? C.green : C.danger,
+              }}>
+                {r.lastSettle.events.a4.concealed ? (
+                  <>
+                    ✓ 隐瞒成功 · 极道威望 +{r.lastSettle.events.a4.martialGained}
+                    {r.lastSettle.events.a4.developedPart && (
+                      <span style={{ marginLeft: 10, color: C.gold }}>
+                        身体开发推进：{r.lastSettle.events.a4.developedPart} → {devLabel(r.lastSettle.events.a4.developedTo)}
+                      </span>
+                    )}
+                  </>
+                ) : (
+                  <>
+                    ✗ 被外人看到 · 极道威望转淫名 -{r.lastSettle.events.a4.martialTransferred}
+                    {' · '}忠诚 +{r.lastSettle.events.a4.loyaltyDelta}
+                    {r.lastSettle.events.a4.developedPart && (
+                      <span style={{ marginLeft: 10, color: C.gold }}>
+                        身体开发推进：{r.lastSettle.events.a4.developedPart} → {devLabel(r.lastSettle.events.a4.developedTo)}
+                      </span>
+                    )}
+                  </>
+                )}
+              </div>
+            )}
+
             {/* 避孕套不足警告 */}
             {r.lastServe?.condomShort && (
               <div style={{ marginTop: 10, padding: 10, background: '#3a1518', border: `1px solid ${C.danger}`, borderRadius: 6, color: C.danger, fontSize: 13 }}>
@@ -335,6 +384,22 @@ export function GameScreen() {
           fastForward={r.fastForward}
           onLoad={(state, ff) => { r.loadState(state, ff); setShowSaves(false); }}
           onClose={() => setShowSaves(false)}
+        />
+      )}
+      {avEditorTarget && (
+        <AvEditor
+          engine={r.engine}
+          onClose={() => setAvEditorTarget(null)}
+          onCommit={(newEngine, inlinePrompt, def) => {
+            // 写新 engine(已扣 weeklyQuota+customs+shotCount) + setChoice 带 params
+            r.loadState({ ...r.runnerState, engine: newEngine }, r.fastForward);
+            r.setChoice(avEditorTarget.period, avEditorTarget.index, {
+              optionId: 'av_custom',
+              label: `拍 AV: ${def.theme} · ${def.setting} · ${def.durationHours}h`,
+              params: { avInlinePrompt: inlinePrompt },
+            });
+            setAvEditorTarget(null);
+          }}
         />
       )}
     </div>

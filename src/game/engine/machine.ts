@@ -76,6 +76,14 @@ export async function settleSlot(
   if (!option) throw new Error(`未注册的事件选项: ${choice.optionId}`);
 
   const resolution = resolveEvent(option, eventCtxOf(state), opts.fastForward);
+  // SlotChoice.params.avInlinePrompt 携带玩家定制 AV 范式时,覆盖 paradigm.inlinePrompt
+  // (av_custom 事件由 UI 调 buildAvParadigm 生成 prompt 后通过 params 注入,避免污染 EventOption)
+  if (choice.params && typeof choice.params.avInlinePrompt === 'string') {
+    resolution.paradigm = {
+      ...resolution.paradigm,
+      inlinePrompt: choice.params.avInlinePrompt as string,
+    };
+  }
   const mode = resolution.renderMode;
   const attitude = attitudeForStage(state.cognition);
 
