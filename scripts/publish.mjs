@@ -85,14 +85,24 @@ function main() {
   console.log(`\n[6/6] ✓ 发布完成`);
   console.log('────────────────────────────────────────');
   console.log(`版本: v${newVer}`);
-  console.log(`jsdelivr URL (锁版本): https://cdn.jsdelivr.net/gh/${repoSlug}@v${newVer}/index.html`);
-  console.log(`jsdelivr URL (主分支): https://cdn.jsdelivr.net/gh/${repoSlug}@gh-pages/index.html`);
-  console.log(`GitHub Pages: https://${m?.[1] ?? '<user>'}.github.io/${m?.[2] ?? 'pellucid-grove'}/`);
+  console.log('');
+  console.log('部署 URL (gh-pages 分支根目录,jsdelivr 自动同步):');
+  console.log(`  https://cdn.jsdelivr.net/gh/${repoSlug}@gh-pages/index.html`);
+  console.log('');
+  console.log('GitHub Pages 直链(备用):');
+  console.log(`  https://${m?.[1] ?? '<user>'}.github.io/${m?.[2] ?? 'pellucid-grove'}/`);
+  console.log('');
+  console.log('版本锁定(发布给玩家时推荐):');
+  console.log('  1. 等 Actions 跑完(~5min): https://github.com/' + repoSlug + '/actions');
+  console.log('  2. 查 gh-pages 最新 commit:');
+  console.log('     git fetch origin gh-pages');
+  console.log('     git rev-parse origin/gh-pages   # 取前 7 位 sha');
+  console.log(`  3. 锁版本 URL: https://cdn.jsdelivr.net/gh/${repoSlug}@<sha7>/index.html`);
   console.log('────────────────────────────────────────');
   console.log('下一步:');
-  console.log('  - 等 5-10 分钟 Actions 跑完(gh-pages 分支生成)');
-  console.log('  - 在角色卡 状态栏正则 替换 @vX.Y.Z 部分');
-  console.log('  - 重新打包卡(若仅前端有改动,无需重新打包,玩家清浏览器缓存即可看到新版)');
+  console.log('  - 等 5-10 分钟 Actions 跑完(gh-pages 分支生成/更新)');
+  console.log('  - 在角色卡 状态栏正则 HTML 里改 iframe src(锁版本 sha 或 @gh-pages)');
+  console.log('  - 重打包卡: node ~/.claude/skills/tavern-cards/scripts/tavern-cards-forge.mjs pack jiutiao');
 }
 
 main();

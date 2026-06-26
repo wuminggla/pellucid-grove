@@ -34,8 +34,8 @@ jobs:
         run: pnpm vitest run src/game
 
       - name: Build
-        env:
-          VITE_BASE: /pellucid-grove/
+        # base='./' 让构建产物兼容 jsdelivr + GitHub Pages 两种加载路径
+        # VITE_BASE 留环境变量入口(默认走 vite.config 的相对路径)
         run: pnpm build
 
       - name: Deploy to gh-pages
