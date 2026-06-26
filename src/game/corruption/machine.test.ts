@@ -19,11 +19,11 @@ describe('认知防线阈值推进 (每25一档)', () => {
   });
 });
 
-describe('三态度节点 (双判定·态度层)', () => {
-  it('死撑/动摇=堕落前, 崩溃=堕落后, 母猪化=母猪化', () => {
-    expect(attitudeForStage('死撑')).toBe('堕落前');
-    expect(attitudeForStage('动摇')).toBe('堕落前');
-    expect(attitudeForStage('崩溃')).toBe('堕落后');
+describe('四档态度层 (双判定·3-5a直连stage)', () => {
+  it('四档直连:attitudeForStage 返回 stage 本身', () => {
+    expect(attitudeForStage('死撑')).toBe('死撑');
+    expect(attitudeForStage('动摇')).toBe('动摇');
+    expect(attitudeForStage('崩溃')).toBe('崩溃');
     expect(attitudeForStage('母猪化')).toBe('母猪化');
   });
 });

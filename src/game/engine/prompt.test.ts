@@ -16,7 +16,7 @@ function resolution(over: Partial<EventResolution> = {}): EventResolution {
 function req(over: Partial<ExpandRequest> = {}): ExpandRequest {
   return {
     resolution: resolution(),
-    attitude: '堕落前',
+    attitude: '死撑',
     choice: { optionId: 'serve' },
     state: {
       triggeredSpecials: {}, unlocked: {}, corruption: 0, cognition: '死撑', claimedGates: {},
@@ -41,7 +41,7 @@ describe('buildGamePrompt', () => {
   it('user 按key注入范式正文 + 态度 + 场景 + 规格', () => {
     const [, user] = buildGamePrompt(req(), { lorebook: demoLorebook, preset: demoPreset });
     expect(user.content).toContain('范式·供奉'); // getParadigmByKey(wb_serve)
-    expect(user.content).toContain('堕落前');     // 态度层
+    expect(user.content).toContain('死撑档');     // 态度层(四档·3-5a)
     expect(user.content).toContain('在场约 18 人'); // 场景
     expect(user.content).toContain('正常生成');   // ai_normal 规格
   });

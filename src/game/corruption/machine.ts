@@ -18,12 +18,13 @@ export const COGNITION_THRESHOLDS: { stage: CognitionStage; atCorruption: number
   { stage: '母猪化', atCorruption: 75 },
 ];
 
-/** 认知防线"三态度节点"（双判定模型·态度层）。崩溃及以上态度与堕落前彻底区分。 */
-export type CognitionAttitude = '堕落前' | '堕落后' | '母猪化';
+/**
+ * 认知防线态度 key（双判定模型·四档对齐 ATTITUDE_LAYER·3-5a）。
+ * 直接返回 stage 本身，与 prompt.ts ATTITUDE_LAYER 的 key 完全对应。
+ */
+export type CognitionAttitude = CognitionStage;
 export function attitudeForStage(stage: CognitionStage): CognitionAttitude {
-  if (stage === '母猪化') return '母猪化';
-  if (stage === '崩溃') return '堕落后';
-  return '堕落前'; // 死撑/动摇
+  return stage; // 死撑/动摇/崩溃/母猪化 直连四档态度层
 }
 
 /**
