@@ -1,45 +1,46 @@
 /**
- * pellucid-grove 前端加载器 v08 · webpack ESM 编译产物
+ * PellucidLoader v09 · srcdoc iframe + top.document
  * --------------------------------------------------
- * 部署机制(v08 校正):
- *   - 酒馆助手脚本 content 字段写 `import 'jsdelivr URL'` 一行(标准模式,对齐 MVU)
- *   - 浏览器以 ES module 加载该 URL,本文件作为模块顶层代码执行
- *   - webpack 编译时 outputModule=true,输出 ESM 格式 + 任意依赖打包(本文件零外部依赖)
+ * v04-v08 失败根因(v08 诊断锁定):
+ *   酒馆助手把每个卡脚本放进 TH-script--*** 隔离 iframe(隐藏不可见)
+ *   loader 在那 iframe 内部跑,document.body.appendChild 挂到 iframe 内部 body
+ *   Vue mount 也在 iframe 内成功(其实一直在工作),但用户在主页面看不见
  *
- * v04-v07 失败原因:
- *   - v04/v05 直接把 IIFE 源码塞 content 字段,酒馆助手按 ES module 执行时找不到 `$`
- *     (jQuery 全局在普通脚本环境可用,但 ES module 严格模式需显式 `window.$`)
- *   - 酒馆助手对 content 的执行机制可能要求 `import 'URL'` 标准格式,IIFE 被忽略
- *
- * v08 改:
- *   - 本文件由 webpack 编译,作为远程 ESM 由 jsdelivr 提供
- *   - 完全用 vanilla DOM API,不依赖 jQuery/Vue/Pinia(loader 阶段不需要)
- *
- * 远程产物: https://github.com/wuminggla/pellucid-grove (master 分支 dist/)
- * 镜像: testingcf.jsdelivr.net 优先,失败回落 cdn.jsdelivr.net
+ * v09 解决:
+ *   1. 跳出 TH-script iframe: 用 window.top.document.body 操作主页面 DOM
+ *   2. 创建可见 srcdoc iframe: fetch HTML 文本 → iframe.srcdoc = html
+ *   3. srcdoc iframe 是 JS 动态创建并 append 到 top body,绕过状态栏正则的 HTML sanitize
+ *   4. iframe 内部完整执行远程 HTML(含 Vue/Pinia ESM CDN import + mount),完全隔离不冲突
+ *   5. 远程 HTML 用 const o=Vue / $() 依赖全局 Vue/jQuery, 而 srcdoc iframe 不带这些,
+ *      所以 patchHtml() 在 <head> 注入 jQuery + Vue UMD 让全局可用
  */
+
+const topDoc: Document = (window.top?.document ?? document) as Document;
 
 const BASE_URL = 'https://testingcf.jsdelivr.net/gh/wuminggla/pellucid-grove/dist/jiutiao/界面/状态栏/index.html';
 const FALLBACK_URL = 'https://cdn.jsdelivr.net/gh/wuminggla/pellucid-grove/dist/jiutiao/界面/状态栏/index.html';
+const VUE_UMD = 'https://testingcf.jsdelivr.net/npm/vue@3/dist/vue.global.prod.js';
+const JQUERY_UMD = 'https://testingcf.jsdelivr.net/npm/jquery@3/dist/jquery.min.js';
+
 const ROOT_ID = 'pellucid-app-root';
-const BODY_CLASS = 'pellucid-app-body';
+const FRAME_ID = 'pellucid-app-frame';
 
-function ensureAppRoot(): HTMLElement {
-  const existing = document.getElementById(ROOT_ID);
-  if (existing) {
-    const body = existing.querySelector('.' + BODY_CLASS) as HTMLElement | null;
-    if (body) return body;
-  }
+console.log('[pellucid] v09 ESM bundle 顶层执行 (srcdoc iframe + top.document)');
+console.log('[pellucid] 当前 window 是:', window === window.top ? 'TOP' : 'TH-script sandbox');
+console.log('[pellucid] 可访问 top.document:', !!window.top?.document);
 
-  const root = document.createElement('div');
+function ensureRoot(): HTMLElement {
+  const existing = topDoc.getElementById(ROOT_ID);
+  if (existing) return existing as HTMLElement;
+
+  const root = topDoc.createElement('div');
   root.id = ROOT_ID;
   root.style.cssText = [
     'position:fixed',
     'top:64px',
     'right:20px',
     'width:min(460px,92vw)',
-    'max-height:calc(100vh - 100px)',
-    'overflow:hidden',
+    'height:min(640px,calc(100vh - 100px))',
     'display:flex',
     'flex-direction:column',
     'z-index:9999',
@@ -49,106 +50,108 @@ function ensureAppRoot(): HTMLElement {
     'box-shadow:0 8px 32px rgba(0,0,0,0.7)',
     "font-family:'Noto Serif SC',serif",
     'color:#e8dde0',
+    'overflow:hidden',
   ].join(';');
 
-  const bar = document.createElement('div');
+  const bar = topDoc.createElement('div');
   bar.style.cssText = 'display:flex;justify-content:space-between;align-items:center;padding:6px 12px;background:#1a0e12;border-bottom:1px solid #3d2828;flex-shrink:0;';
 
-  const title = document.createElement('span');
+  const title = topDoc.createElement('span');
   title.style.cssText = 'font-size:12px;color:#8a6b73;letter-spacing:2px;';
-  title.textContent = '九条会';
+  title.textContent = '九条会·pellucid';
   bar.appendChild(title);
 
-  const toggleBtn = document.createElement('button');
-  toggleBtn.style.cssText = 'background:none;border:none;color:#8a6b73;cursor:pointer;font-size:13px;padding:2px 10px;';
-  toggleBtn.textContent = '▁';
-  bar.appendChild(toggleBtn);
+  const minBtn = topDoc.createElement('button');
+  minBtn.style.cssText = 'background:none;border:none;color:#8a6b73;cursor:pointer;font-size:13px;padding:2px 10px;';
+  minBtn.textContent = '▁';
+  bar.appendChild(minBtn);
   root.appendChild(bar);
 
-  const body = document.createElement('div');
-  body.className = BODY_CLASS;
-  body.style.cssText = 'flex:1;overflow-y:auto;min-height:0;';
-  root.appendChild(body);
-
-  toggleBtn.addEventListener('click', function () {
-    const isHidden = body.style.display === 'none';
-    body.style.display = isHidden ? '' : 'none';
-    toggleBtn.textContent = isHidden ? '▁' : '▔';
+  let collapsed = false;
+  minBtn.addEventListener('click', () => {
+    collapsed = !collapsed;
+    root.style.height = collapsed ? '36px' : 'min(640px,calc(100vh - 100px))';
+    minBtn.textContent = collapsed ? '▔' : '▁';
   });
 
-  document.body.appendChild(root);
-  console.log('[pellucid] 容器已创建·挂到 body');
-  return body;
+  topDoc.body.appendChild(root);
+  console.log('[pellucid] root 容器已挂到 TOP body (id=' + ROOT_ID + ')');
+  return root;
 }
 
-async function fetchAndInject(targetEl: HTMLElement, url: string): Promise<void> {
+async function fetchHtml(url: string): Promise<string> {
   const r = await fetch(url, { credentials: 'omit', mode: 'cors' });
   if (!r.ok) throw new Error('HTTP ' + r.status);
-  const html = await r.text();
-  const doc = new DOMParser().parseFromString(html, 'text/html');
+  return r.text();
+}
 
-  doc.head.querySelectorAll('style').forEach((s) => {
-    targetEl.appendChild(s.cloneNode(true));
-  });
+/**
+ * 给远程 HTML 的 <head> 注入 jQuery + Vue UMD 全局,
+ * 让远程 HTML 里 webpack 编译产物用的 const o=Vue / $() 引用能从全局拿到.
+ */
+function patchHtml(html: string): string {
+  const inject = `<script src="${JQUERY_UMD}"></script><script src="${VUE_UMD}"></script>`;
+  return html.replace(/<head[^>]*>/i, m => m + inject);
+}
 
-  Array.from(doc.body.childNodes).forEach((node) => {
-    if (node.nodeType === 1 && (node as Element).tagName === 'SCRIPT') return;
-    targetEl.appendChild(node.cloneNode(true));
-  });
+function injectIframe(root: HTMLElement, html: string) {
+  const loading = root.querySelector('#pellucid-loading');
+  if (loading) loading.remove();
+  const old = root.querySelector('#' + FRAME_ID);
+  if (old) old.remove();
 
-  const allScripts: HTMLScriptElement[] = [];
-  doc.head.querySelectorAll('script').forEach((s) => allScripts.push(s as HTMLScriptElement));
-  doc.body.querySelectorAll('script').forEach((s) => allScripts.push(s as HTMLScriptElement));
-
-  for (const oldScript of allScripts) {
-    const newScript = document.createElement('script');
-    Array.from(oldScript.attributes).forEach((attr) => {
-      newScript.setAttribute(attr.name, attr.value);
-    });
-    newScript.textContent = oldScript.textContent || '';
-    targetEl.appendChild(newScript);
-  }
+  const iframe = topDoc.createElement('iframe');
+  iframe.id = FRAME_ID;
+  iframe.style.cssText = 'flex:1;border:0;width:100%;min-height:0;background:#0a0608;';
+  iframe.setAttribute('referrerpolicy', 'no-referrer');
+  iframe.srcdoc = patchHtml(html);
+  root.appendChild(iframe);
+  console.log('[pellucid] srcdoc iframe 已挂载 (注入 jQuery+Vue UMD,Vue mount 将在 iframe 内进行)');
 }
 
 let loadPromise: Promise<void> | null = null;
 function tryLoadOnce(): Promise<void> {
   if (loadPromise) return loadPromise;
   loadPromise = (async () => {
-    const body = ensureAppRoot();
-    body.innerHTML = '<div style="padding:32px;color:#8a6b73;text-align:center;">前端正在加载…</div>';
+    const root = ensureRoot();
+
+    const loading = topDoc.createElement('div');
+    loading.id = 'pellucid-loading';
+    loading.style.cssText = 'flex:1;display:flex;align-items:center;justify-content:center;color:#8a6b73;font-size:13px;';
+    loading.textContent = '前端正在加载…';
+    root.appendChild(loading);
+
+    let html: string;
     try {
-      await fetchAndInject(body, BASE_URL);
-      console.log('[pellucid] loaded from testingcf');
+      html = await fetchHtml(BASE_URL);
+      console.log('[pellucid] fetched from testingcf, html', html.length, 'bytes');
     } catch (e1: any) {
-      console.warn('[pellucid] testingcf 失败,回落 cdn.jsdelivr.net:', e1?.message ?? e1);
-      body.innerHTML = '<div style="padding:32px;color:#8a6b73;text-align:center;">回落镜像加载中…</div>';
+      console.warn('[pellucid] testingcf 失败,回落 cdn:', e1?.message ?? e1);
+      loading.textContent = '回落镜像加载中…';
       try {
-        await fetchAndInject(body, FALLBACK_URL);
-        console.log('[pellucid] loaded from cdn.jsdelivr.net');
+        html = await fetchHtml(FALLBACK_URL);
+        console.log('[pellucid] fetched from cdn, html', html.length, 'bytes');
       } catch (e2: any) {
         console.error('[pellucid] 两个镜像都失败:', e2?.message ?? e2);
-        body.innerHTML =
-          '<div style="color:#e06666;padding:32px;text-align:center;">⚠ 前端加载失败<br><small>' +
-          (e2?.message ?? String(e2)) +
-          '</small></div>';
+        loading.textContent = '⚠ 前端加载失败';
+        loading.style.color = '#e06666';
         loadPromise = null;
+        return;
       }
     }
+
+    injectIframe(root, html);
   })();
   return loadPromise;
 }
 
-function whenReady(fn: () => void): void {
-  if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', fn);
-  } else {
-    fn();
-  }
+function init() {
+  console.log('[pellucid] init 启动 (top doc readyState=' + topDoc.readyState + ')');
+  tryLoadOnce();
 }
 
-console.log('[pellucid] v08 ESM bundle 顶层执行 (诊断锚点·webpack 编译产物)');
-
-whenReady(() => {
-  console.log('[pellucid] DOM ready, init 启动');
-  tryLoadOnce();
-});
+if (topDoc.readyState === 'loading') {
+  topDoc.addEventListener('DOMContentLoaded', init);
+} else {
+  init();
+}
