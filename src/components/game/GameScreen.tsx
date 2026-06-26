@@ -25,6 +25,7 @@ import { buildGamePrompt, buildExtractMessages, presetSampling } from '../../gam
 import { demoLorebook, demoPreset } from '../../game/worldbook/demo';
 import { createApiRouter } from '../../sillytavern/api-router';
 import type { ApiSettings } from '../../sillytavern/types';
+import { getBridge, createBridgeAi } from '../../tavern-bridge';
 import type { EngineState } from '../../game/engine/types';
 import type { ActionSlot, SlotPeriod } from '../../game/action-grid/types';
 
@@ -154,6 +155,19 @@ export function GameScreen() {
   const [avEditorTarget, setAvEditorTarget] = useState<{ period: SlotPeriod; index: number } | null>(null);
 
   const ai = useMemo(() => {
+    // 优先级:
+    //   1. 在酒馆 iframe 里 → 走 bridge-ai (酒馆主页代调 LLM, 用户的酒馆配置)
+    //   2. 本地+配了 apiSettings → 走 real-ai (前端自己的 router, 早期开发用)
+    //   3. 其它 → mock
+    const bridge = getBridge();
+    if (bridge.isInTavern) {
+      return createBridgeAi({
+        bridge,
+        buildExpandMessages: (req) => buildGamePrompt(req, { lorebook: demoLorebook, preset: demoPreset }),
+        buildExtractMessages,
+        sampling: presetSampling(demoPreset),
+      });
+    }
     if (apiSettings?.apiKey) {
       const router = createApiRouter(apiSettings);
       return createRealAi({
@@ -165,7 +179,8 @@ export function GameScreen() {
     }
     return createMockAi();
   }, [apiSettings]);
-  const usingReal = !!apiSettings?.apiKey;
+  const inTavern = getBridge().isInTavern;
+  const usingReal = inTavern || !!apiSettings?.apiKey;
 
   const r = useDayRunner({
     initialEngine: INITIAL_ENGINE, totalSlots: 8,
