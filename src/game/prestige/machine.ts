@@ -31,6 +31,26 @@ export function gainInfamy(infamy: number, amount: number): number {
 }
 
 /**
+ * 极道威望 → 淫名 转移(A4 日常侵蚀·隐瞒失败的代价)。
+ * 设计正典 §4: "隐瞒失败→部分极道威望转淫名(+加忠诚)"=A 面玩家发生 NSFW 事件被外人发现的代价。
+ * 关键性质: martialGainToday 不被扣(此次进账已发生在前;转移影响累计盘)——
+ *   含义=今天打的人头按规则正常累计,但因事被外人看到,部分声誉变质成淫名传出。
+ * AV 未解锁时仍可调用(淫名机制 AV 后才计入"总威望",但变量本身始终在累)。
+ * 返回实际转移量(不超过当前 martialPrestige)。
+ */
+export function transferMartialToInfamy(
+  s: { martialPrestige: number; infamy: number }, amount: number,
+): { martialPrestige: number; infamy: number; transferred: number } {
+  const want = Math.max(0, amount);
+  const actual = Math.min(want, s.martialPrestige); // 不为负
+  return {
+    martialPrestige: s.martialPrestige - actual,
+    infamy: s.infamy + actual,
+    transferred: actual,
+  };
+}
+
+/**
  * 每日硬失败审核（v3/findings 定稿）：极道威望分量连续2次每日审核进账为0 → 硬失败。
  * 只惩罚不靠实力也不靠人海打据点的纯摆烂者；靠人海推据点打赢即涨极道威望→不触发。
  * @param martialGainToday 今日极道威望进账（流量）

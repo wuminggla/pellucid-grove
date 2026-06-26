@@ -44,6 +44,15 @@ export interface EngineState {
   isDangerousPeriod: boolean;  // 危险期(由经期周期派生·去医学化只分安全/危险)
   cycleDay?: number;           // 经期周期日(0..length-1·每日推进)
   pregnant?: boolean;          // 是否已怀孕(生育线判定后置;结局判定用)
+  // —— 身体开发度(A4 日常侵蚀·五级 0-4 抗拒/被迫接受/无意识迎合/轻度上瘾/重度依赖) ——
+  // 注: schema.ts 用中文枚举,引擎层用 number 0-4 便于数值比较(阈值/推进)
+  // 完整字段由 hook 层(将来 MVU 收尾)映射,引擎只读写白天 A4 关心的四主穴
+  bodyDevelopment?: {
+    口腔?: number;   // 0-4
+    小穴?: number;
+    肛门?: number;
+    子宫生育?: number;
+  };
   // —— 派生/统计（结算更新，供UI/失败判定）——
   servedThisNight: number;     // 本晚已被供奉人数（夜晚结算用）
   // —— 记忆层（叙事连贯性·随存档持久化）——
