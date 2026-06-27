@@ -86,16 +86,33 @@
       <div v-if="r.hardFail" class="err-box mt-sm">
         ☠ 硬失败：极道威望连续 2 次审核进账为 0。东山再起的能力已经失去。
       </div>
+
+      <!-- #4 空回/截断警告 + 重新生成 -->
+      <div v-if="r.lastWarn" class="warn-box mt-sm">
+        ⚠ {{ r.lastWarn }}
+        <button class="reroll-btn" :disabled="r.busy" @click="r.rerunLast()">↻ 重新生成</button>
+      </div>
+    </div>
+
+    <!-- #4 生成中遮罩(明确状态,防误判卡死) -->
+    <div v-if="r.busy" class="gen-overlay">
+      <div class="gen-box">
+        <div class="gen-spinner"></div>
+        <div class="gen-text">AI 正在生成本格正文…</div>
+        <div class="gen-sub">{{ r.aiMode === 'tavern' ? '调用酒馆 API(可能需数秒到数十秒)' : 'mock 模拟' }}</div>
+      </div>
     </div>
 
     <!-- 底部操作栏 -->
     <div class="bottom-bar">
       <template v-if="phase === 'day_running' || phase === 'night_running'">
         <span v-if="!r.canRunCurrent" class="dim-hint">请先为当前格选择行动</span>
+        <!-- 已执行完(非首格)可重 roll -->
+        <button v-if="r.lastSettle && !r.busy" class="small-btn" @click="r.rerunLast()">↻ 重生成上一格</button>
         <button class="primary-btn" :disabled="r.busy || !r.canRunCurrent"
           :style="{ opacity: (r.busy || !r.canRunCurrent) ? 0.45 : 1 }"
           @click="r.runCurrent()">
-          {{ r.busy ? '结算中…' : '执行当前格 ▶' }}
+          {{ r.busy ? '生成中…' : '执行当前格 ▶' }}
         </button>
       </template>
       <button v-if="phase === 'day_settled'" class="primary-btn" @click="r.beginNight()">进入夜晚 ▶</button>
@@ -275,6 +292,53 @@ const Section = defineComponent({
   color: #8a6b73;
 }
 .dim-hint { font-size: 12px; color: #8a6b73; margin-right: auto; }
+.warn-box {
+  padding: 10px 12px;
+  background: rgba(232, 168, 122, 0.1);
+  border: 1px solid #e8a87a;
+  border-radius: 6px;
+  color: #e8a87a;
+  font-size: 13px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.reroll-btn {
+  margin-left: auto;
+  background: #e8a87a;
+  color: #1a0e12;
+  border: none;
+  border-radius: 6px;
+  padding: 5px 12px;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.reroll-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+/* 生成中遮罩 */
+.gen-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(10, 6, 8, 0.72);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 200;
+}
+.gen-box { text-align: center; }
+.gen-spinner {
+  width: 36px;
+  height: 36px;
+  margin: 0 auto 14px;
+  border: 3px solid #3d2828;
+  border-top-color: #d96a8f;
+  border-radius: 50%;
+  animation: pellucid-spin 0.8s linear infinite;
+}
+@keyframes pellucid-spin { to { transform: rotate(360deg); } }
+.gen-text { font-size: 15px; color: #e8c87a; letter-spacing: 1px; }
+.gen-sub { font-size: 12px; color: #8a6b73; margin-top: 6px; }
 .bottom-bar {
   border-top: 1px solid #3a2128;
   padding: 12px 18px;

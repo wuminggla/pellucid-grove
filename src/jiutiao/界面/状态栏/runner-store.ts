@@ -50,6 +50,11 @@ export const useRunnerStore = defineStore('runner', () => {
   const reliefCleared = ref(false);
   const hardFail = ref(false);
   const error = ref<string | null>(null);
+  // #4 生成稳定性
+  const lastEmpty = ref(false);        // 上次生成空回/截断(正文过短)
+  const lastWarn = ref<string | null>(null); // 空回/截断的提示文案
+  // 执行前快照(供重 roll: 恢复后重跑同一格)
+  let preRunSnapshot: { day: DayState; engine: EngineState } | null = null;
 
   // AI 端口: 默认接酒馆 generate(套预设/JB,出真实正文);
   // 检测不到酒馆 generate 全局(本地开发/异常)时回落 mock。
@@ -120,18 +125,36 @@ export const useRunnerStore = defineStore('runner', () => {
     day.value = fillEmptyFn(day.value, period, choice); error.value = null;
   }
 
-  async function runCurrent() {
-    if (busy.value) return;
-    busy.value = true; error.value = null;
+  // 空回/截断判定: 正文过短(< 20 字)视为空回;以 <jiutiao_text> 未闭合等截断特征兜底由 extract 处理
+  const MIN_TEXT_LEN = 20;
+  // AI 生成超时(ms): 防 generateRaw 卡死导致前端/酒馆一起卡
+  const GEN_TIMEOUT_MS = 120_000;
+
+  function withTimeout<T>(p: Promise<T>, ms: number): Promise<T> {
+    return Promise.race([
+      p,
+      new Promise<T>((_, reject) => setTimeout(() => reject(new Error('AI 生成超时(可能被审核拦截或网络问题),请重试')), ms)),
+    ]);
+  }
+
+  // 真正执行一格(供 runCurrent 首次 + rerunLast 复用)。snapshot 是执行前状态。
+  async function execCurrentFrom(snapshot: { day: DayState; engine: EngineState }) {
+    busy.value = true; error.value = null; lastEmpty.value = false; lastWarn.value = null;
     try {
-      const state: RunnerState = { day: day.value, engine: engine.value };
-      const r = await runCurrentSlot(state, settleOptions());
+      const r = await withTimeout(runCurrentSlot({ day: snapshot.day, engine: snapshot.engine }, settleOptions()), GEN_TIMEOUT_MS);
       let nextEngine = r.state.engine;
       let nightInfo: NightSettleResult | null = null;
       if (r.state.day.phase === 'night_settled') {
         const ns = settleNight(nextEngine);
         nextEngine = ns.state;
         nightInfo = ns;
+      }
+      // 空回/截断检测(只对调 AI 的格;快进/纯模板不算)
+      const text = (r.settle.resultText ?? '').trim();
+      const wasAi = r.settle.events.renderMode !== 'fast_summary';
+      if (wasAi && text.length < MIN_TEXT_LEN) {
+        lastEmpty.value = true;
+        lastWarn.value = '本次生成内容为空或过短(可能被外部审核拦截/截断)。可点「重新生成」重试。';
       }
       day.value = r.state.day;
       engine.value = nextEngine;
@@ -143,6 +166,19 @@ export const useRunnerStore = defineStore('runner', () => {
     } finally {
       busy.value = false;
     }
+  }
+
+  async function runCurrent() {
+    if (busy.value) return;
+    // 执行前快照(供重 roll)
+    preRunSnapshot = { day: day.value, engine: engine.value };
+    await execCurrentFrom(preRunSnapshot);
+  }
+
+  /** 重新生成当前(刚执行完的)格: 恢复执行前快照,重跑一次。 */
+  async function rerunLast() {
+    if (busy.value || !preRunSnapshot) return;
+    await execCurrentFrom(preRunSnapshot);
   }
 
   function nextDay() {
@@ -170,10 +206,11 @@ export const useRunnerStore = defineStore('runner', () => {
   return {
     day, engine, fastForward, busy, lastSettle, lastServe, lastNight,
     forcedLeaveToday, forcedSeize, reliefCleared, hardFail, error,
+    lastEmpty, lastWarn,
     currentSlot: currentSlotRef, canRunCurrent, runnerState,
     aiMode,
     setFastForward, allocate, setChoice, clearChoice, fillEmpty,
-    beginDay, beginNight, runCurrent, nextDay, loadState,
+    beginDay, beginNight, runCurrent, rerunLast, nextDay, loadState,
     useMock, useTavern,
   };
 });

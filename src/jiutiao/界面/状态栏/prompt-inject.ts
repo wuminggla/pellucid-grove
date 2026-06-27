@@ -24,18 +24,25 @@ const EMPTY_PRESET: ChatPreset = {
   updatedAt: 0,
 } as ChatPreset;
 
-/** 生成主 AI(正文)的注入文本:世界书常驻 + 范式 + 态度 + 状态 + 输出格式。 */
+/** 生成主 AI(正文)的注入文本:强指令 + 世界书常驻 + 范式 + 态度 + 状态 + 输出格式。 */
 export function buildGameInject(req: ExpandRequest, lorebook: Lorebook): string {
   const msgs = buildGamePrompt(req, { lorebook, preset: EMPTY_PRESET });
-  // msgs = [{role:system, content: 常驻世界书+记忆}, {role:user, content: 范式+态度+场景+规格+输出格式}]
-  // 合并为单段注入(system 段去掉空预设留下的开头空行)
   const sys = (msgs[0]?.content ?? '').trim();
   const user = (msgs[1]?.content ?? '').trim();
-  return [
-    '【以下是本回合游戏指令,严格遵守。生成的正文只输出 <maintext> 标签内容。】',
-    sys,
-    user,
-  ].filter(Boolean).join('\n\n');
+
+  // 强指令(置顶·根治 #3 续写前文 + #2 思维链/尾部混入):
+  //  - 明确"这是独立场景生成,不是续写";忽略任何前文/历史
+  //  - 严格按下方【本格行动】范式演,不得写成别的场景
+  //  - 正文必须且只能包在 <jiutiao_text> 内,其它思考/格式块放标签外(会被剥离)
+  const directive =
+    '【最高指令·游戏事件生成】\n'
+    + '你现在为一个文字游戏生成【单个独立事件】的正文,不是续写对话历史。\n'
+    + '忽略任何聊天历史/上一条消息的情节——本次只演下方【本格行动】指定的事件,场景从该事件本身起笔。\n'
+    + '严禁把正文写成与【本格行动】无关的其它场景(如把"口交侍奉"写成"便利店采购")。必须严格命中本格事件的范式。\n'
+    + '【输出格式·强制】正文必须完整包裹在 <jiutiao_text> 与 </jiutiao_text> 之间。\n'
+    + '你的思维链/分析/预设要求的尾部格式块照常输出,但放在 <jiutiao_text> 标签【之外】——标签内只有给玩家看的纯故事正文,不含任何标签/注释/格式块。';
+
+  return [directive, sys, user].filter(Boolean).join('\n\n');
 }
 
 /** 生成副 AI(抓数值)的注入文本。 */
