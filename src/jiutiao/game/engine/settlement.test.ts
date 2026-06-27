@@ -41,13 +41,23 @@ describe('单格供奉结算', () => {
 });
 
 describe('夜晚收尾结算', () => {
-  it('未供奉打手欲望滚雪球', () => {
-    // 100可用,本晚供奉了36 → 未供奉64 → 欲望+128
+  it('未供奉滚雪球(增) + 供奉清偿(减) → 净变化', () => {
+    // 100可用,本晚供奉了36 → 未供奉64 → 滚雪球+128;供奉清欲 36×2=72;净 +56
     const r = settleNight(base({ thugTotal: 100, servedThisNight: 36, desire: 0 }));
     expect(r.unserved).toBe(64);
     expect(r.desireGained).toBe(128);
-    expect(r.state.desire).toBe(128);
+    expect(r.desireRelieved).toBe(72);
+    expect(r.desireNet).toBe(56);
+    expect(r.state.desire).toBe(56);
     expect(r.state.servedThisNight).toBe(0); // 重置
+  });
+  it('供奉数>未供奉数 → 群体欲望净下降(不再只增不减)', () => {
+    // 60可用,供奉50 → 未供奉10 → +20;清欲 50×2=100;净 -80;原有80 → 0
+    const r = settleNight(base({ thugTotal: 60, servedThisNight: 50, desire: 80, desireCapacity: 60 }));
+    expect(r.desireGained).toBe(20);
+    expect(r.desireRelieved).toBe(100);
+    expect(r.desireNet).toBe(-80);
+    expect(r.state.desire).toBe(0); // 80-80=0,clamp≥0
   });
   it('欲望溢出判定→置 pendingForcedLeave', () => {
     const r = settleNight(base({ thugTotal: 50, servedThisNight: 0, desire: 0, desireCapacity: 60 }));

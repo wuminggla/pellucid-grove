@@ -14,8 +14,8 @@
 //   都是 constant 蓝灯(范式按 key 直取,非绿灯扫描),且玩家第三方世界书不归我们管。
 //   若实测有世界书漏入干扰,再考虑 overrides 屏蔽。
 
-import { buildGameInject, buildExtractInject } from './prompt-inject';
-import { extractGameText, extractContinuity, extractVarsJson } from './extract';
+import { buildGameInject, buildExtractInject, buildDirectorBriefPrompt } from './prompt-inject';
+import { extractGameText, extractContinuity, extractVarsJson, stripThinking } from './extract';
 import type { AiPort, ExpandRequest, ExtractRequest, ExpandResult } from '../../game/engine/types';
 import type { Lorebook } from '../../sillytavern/types';
 
@@ -64,6 +64,19 @@ const SAMPLING: CustomApiConfig = {
   max_tokens: 'same_as_preset',
 };
 
+// ─── 连贯性简报(代替前文)调参 ───
+const PROSE_KEEP = 3;          // 滚动缓冲保留最近 N 段正文(喂给副AI提炼简报)
+const PROSE_CHARS = 700;       // 每段截断字数(控副AI prompt 体积)
+const BRIEF_TIMEOUT_MS = 45_000; // 副AI简报生成超时(失败则跳过,不阻断主生成)
+const MIN_PROSE_LEN = 20;      // 过短(空回/截断)不入缓冲
+
+function withTimeout<T>(p: Promise<T>, ms: number): Promise<T> {
+  return Promise.race([
+    p,
+    new Promise<T>((_, reject) => setTimeout(() => reject(new Error('brief-timeout')), ms)),
+  ]);
+}
+
 export interface TavernAiOpts {
   /** 游戏世界书(含范式条目真实内容)。注入用,非酒馆世界书。 */
   lorebook: Lorebook;
@@ -73,20 +86,49 @@ export interface TavernAiOpts {
 
 /** 构造接酒馆 generateRaw 的 AiPort。 */
 export function createTavernAi(opts: TavernAiOpts): AiPort {
+  // 滚动缓冲:最近 N 段已生成正文。不发原始楼层历史(根治 #3),改由副AI提炼成
+  //   连贯性简报注入主AI(用户定的"堵不如疏")——既保逻辑连贯,又压连续事件格的审美疲劳。
+  let recentProse: string[] = [];
+
+  /** 副AI:读最近正文 → 产出连贯性简报(代替前文)。失败/无前文返回空串(不阻断主生成)。 */
+  async function buildBrief(req: ExpandRequest): Promise<string> {
+    if (recentProse.length === 0) return '';
+    try {
+      const briefPrompt = buildDirectorBriefPrompt(recentProse, req);
+      const rawBrief = await withTimeout(generateRaw({
+        ordered_prompts: [{ role: 'system', content: briefPrompt }],
+        should_stream: false,
+        should_silence: true,                            // 后台静默,不产生楼层消息
+        custom_api: { ...(opts.extractApi ?? {}), max_tokens: 'unset' },
+      }), BRIEF_TIMEOUT_MS);
+      return stripThinking(rawBrief);
+    } catch {
+      return ''; // 简报失败 → 主生成照常(退化为"只看范式")
+    }
+  }
+
   return {
     async expand(req: ExpandRequest): Promise<ExpandResult> {
-      const inject = buildGameInject(req, opts.lorebook);
+      // 1. 副AI 先提炼连贯性简报(有前文时)
+      const brief = await buildBrief(req);
+      // 2. 主AI 出正文(简报注入,代替前楼层)
+      const inject = buildGameInject(req, opts.lorebook, brief);
       const ordered: (PlaceholderPrompt | RolePrompt)[] = [
         ...presetSystemBlocks(),                         // 预设 JB/文风(过审基调)
-        { role: 'system', content: inject },             // 我们的范式+态度+状态+输出格式
-        // 不放 'chat_history' → 不发楼层历史,AI 只看范式
+        { role: 'system', content: inject },             // 范式+态度+状态+简报+输出格式
+        // 不放 'chat_history' → 不发楼层历史
       ];
       const raw = await generateRaw({
         ordered_prompts: ordered,
         should_stream: false,
         custom_api: SAMPLING,
       });
-      return { text: extractGameText(raw), continuity: extractContinuity(raw) };
+      const text = extractGameText(raw);
+      // 3. 有效正文入滚动缓冲(截断控体积,供下一格提炼简报)
+      if (text && text.length >= MIN_PROSE_LEN) {
+        recentProse = [...recentProse, text.slice(-PROSE_CHARS)].slice(-PROSE_KEEP);
+      }
+      return { text, continuity: extractContinuity(raw) };
     },
 
     async extract(req: ExtractRequest): Promise<Record<string, unknown>> {

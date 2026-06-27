@@ -78,7 +78,11 @@
 
       <!-- 夜晚收尾 -->
       <div v-if="r.lastNight" class="night-box">
-        夜晚收尾：未供奉 {{ r.lastNight.unserved }} 人 → 群体欲望 +{{ r.lastNight.desireGained }}
+        夜晚收尾：未供奉 {{ r.lastNight.unserved }} 人 滚雪球 +{{ r.lastNight.desireGained }}
+        <span v-if="r.lastNight.desireRelieved > 0">；供奉清欲 -{{ r.lastNight.desireRelieved }}</span>
+        <span :style="{ color: r.lastNight.desireNet <= 0 ? '#7aa37a' : '#e8a87a', marginLeft: '6px' }">
+          → 群体欲望净 {{ r.lastNight.desireNet > 0 ? '+' : '' }}{{ r.lastNight.desireNet }}
+        </span>
         <span v-if="r.lastNight.overflow" style="color:#e06666;margin-left:8px">⚠ 欲望溢出！次日将触发强制请假轮奸</span>
       </div>
 
@@ -98,17 +102,17 @@
     <div v-if="r.busy" class="gen-overlay">
       <div class="gen-box">
         <div class="gen-spinner"></div>
-        <div class="gen-text">AI 正在生成本格正文…</div>
+        <div class="gen-text">{{ r.genHint }}</div>
         <div class="gen-sub">{{ r.aiMode === 'tavern' ? '调用酒馆 API(可能需数秒到数十秒)' : 'mock 模拟' }}</div>
       </div>
     </div>
 
     <!-- 底部操作栏 -->
     <div class="bottom-bar">
+      <!-- 重生成上一格: 只要刚跑完一格且尚未推进到下一面/次日就能重 roll(running 与 settled 阶段都在);进入夜晚/次日后快照失效自动隐藏 -->
+      <button v-if="canRerun" class="small-btn" @click="r.rerunLast()">↻ 重生成上一格</button>
       <template v-if="phase === 'day_running' || phase === 'night_running'">
         <span v-if="!r.canRunCurrent" class="dim-hint">请先为当前格选择行动</span>
-        <!-- 已执行完(非首格)可重 roll -->
-        <button v-if="r.lastSettle && !r.busy" class="small-btn" @click="r.rerunLast()">↻ 重生成上一格</button>
         <button class="primary-btn" :disabled="r.busy || !r.canRunCurrent"
           :style="{ opacity: (r.busy || !r.canRunCurrent) ? 0.45 : 1 }"
           @click="r.runCurrent()">
@@ -148,6 +152,12 @@ const allocOptions = computed(() => Array.from({ length: r.day.totalSlots + 1 },
 
 const showSettleFeedback = computed(() =>
   !!r.lastSettle && (r.lastSettle.events.isFirstSpecial || r.lastSettle.events.firedGateIds.length > 0));
+
+// 重生成上一格可用: 刚跑完一格(有 lastSettle)、未在生成中、仍停留在该格所在的执行/结算面。
+// nextDay/beginNight 会清掉 lastSettle+快照,推进后此按钮自动消失(防误回退已离开的格)。
+const canRerun = computed(() =>
+  !!r.lastSettle && !r.busy
+  && ['day_running', 'night_running', 'day_settled', 'night_settled'].includes(phase.value));
 
 function eventCtx(engine: EngineState): EventContext {
   return {

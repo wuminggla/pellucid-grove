@@ -164,21 +164,27 @@ describe('insertEventSlot 事件专属临时格', () => {
 });
 
 describe('buildForcedLeaveDay 强制请假轮奸日', () => {
-  it('全格夜晚供奉+locked,白天0格,可直接beginNight', () => {
+  it('白天/夜晚各半供奉+locked,从白天第0格起逐格供奉', () => {
     const d = buildForcedLeaveDay(5, 8, serve);
     expect(d.dayNumber).toBe(5);
-    expect(d.phase).toBe('day_settled'); // 白天已无格
-    expect(d.dayCount).toBe(0);
-    expect(d.nightCount).toBe(8);
+    expect(d.phase).toBe('day_running'); // 有白天格→从白天起
+    expect(d.dayCount).toBe(4);
+    expect(d.nightCount).toBe(4);
     expect(d.forcedLeave).toBe(true);
-    expect(d.nightSlots.length).toBe(8);
-    expect(d.nightSlots.every(s => s.locked && s.choice!.optionId === 'serve')).toBe(true);
+    expect(d.daySlots.length).toBe(4);
+    expect(d.nightSlots.length).toBe(4);
+    expect(d.cursor).toEqual({ period: 'day', index: 0 });
+    const allLockedServe = [...d.daySlots, ...d.nightSlots]
+      .every(s => s.locked && s.choice!.optionId === 'serve');
+    expect(allLockedServe).toBe(true);
     // 玩家不可改派
+    expect(() => setChoice(d, 'day', 0, recruit)).toThrow();
     expect(() => setChoice(d, 'night', 0, recruit)).toThrow();
-    // 直接进夜晚执行
-    const n = beginNight(d);
-    expect(n.phase).toBe('night_running');
-    expect(n.cursor!.index).toBe(0);
+  });
+  it('奇数总格:floor给白天,ceil给夜晚', () => {
+    const d = buildForcedLeaveDay(5, 7, serve);
+    expect(d.dayCount).toBe(3);
+    expect(d.nightCount).toBe(4);
   });
 });
 

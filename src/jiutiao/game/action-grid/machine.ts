@@ -34,30 +34,35 @@ export function startDay(dayNumber: number, totalSlots: number): DayState {
 
 /**
  * 构造"强制请假轮奸日"（v3 §6.4·霸全）。夜晚欲望溢出后次日不进玩家分配：
- * - 白天0格（放弃白天），全部 totalSlots 给夜晚，每格=供奉，locked（玩家不可改派）。
- * - 直接进 day_settled（白天已无格），调用方 beginNight 即开始逐格供奉。
+ * - 白天/夜晚各占一半格（floor/ceil），每格=供奉，locked（玩家不可改派）。
+ *   请假在家全天被轮奸，白天与夜晚都有供奉更符合逻辑（旧版白天0格不合理）。
+ * - 有白天格则进 day_running 从白天第0格起逐格供奉；白天结束→进入夜晚续供奉。
  */
 export function buildForcedLeaveDay(
   dayNumber: number, totalSlots: number, serveChoice: SlotChoice,
   eventName = '强制请假轮奸',
 ): DayState {
-  const nightSlots: ActionSlot[] = Array.from({ length: totalSlots }, (_, i) => ({
-    index: i,
-    period: 'night' as const,
-    status: 'planned' as const,
-    choice: serveChoice,
-    locked: true,
-    lockedBy: eventName,
-  }));
+  const dayCount = Math.floor(totalSlots / 2);
+  const nightCount = totalSlots - dayCount;
+  const lockedServeSlots = (period: SlotPeriod, count: number): ActionSlot[] =>
+    Array.from({ length: count }, (_, i) => ({
+      index: i,
+      period,
+      status: 'planned' as const,
+      choice: serveChoice,
+      locked: true,
+      lockedBy: eventName,
+    }));
+  const hasDay = dayCount > 0;
   return {
     dayNumber,
-    phase: 'day_settled',
+    phase: hasDay ? 'day_running' : 'day_settled',
     totalSlots,
-    dayCount: 0,
-    nightCount: totalSlots,
-    daySlots: [],
-    nightSlots,
-    cursor: null,
+    dayCount,
+    nightCount,
+    daySlots: lockedServeSlots('day', dayCount),
+    nightSlots: lockedServeSlots('night', nightCount),
+    cursor: hasDay ? { period: 'day', index: 0 } : null,
     forcedLeave: true,
   };
 }

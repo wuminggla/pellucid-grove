@@ -53,6 +53,12 @@ export const useRunnerStore = defineStore('runner', () => {
   // #4 生成稳定性
   const lastEmpty = ref(false);        // 上次生成空回/截断(正文过短)
   const lastWarn = ref<string | null>(null); // 空回/截断的提示文案
+  // 生成中文案(有代入感/幽默,每次随机一条)
+  const genHint = ref('事件演化中…');
+  const GEN_HINTS = [
+    '事件演化中…', '大小姐正在努力…', '时间推移中…', '九条会账房结算中…',
+    '罗刹之血在躁动…', '正在拨动命运的算盘…', '凛的体面正在接受考验…', '夜色与欲望发酵中…',
+  ];
   // 执行前快照(供重 roll: 恢复后重跑同一格)
   let preRunSnapshot: { day: DayState; engine: EngineState } | null = null;
 
@@ -117,8 +123,12 @@ export const useRunnerStore = defineStore('runner', () => {
   }
 
   function beginNight(): boolean {
-    try { day.value = beginNightFn(day.value); error.value = null; return true; }
-    catch (e) { error.value = (e as Error).message; return false; }
+    try {
+      day.value = beginNightFn(day.value); error.value = null;
+      // 推进到夜晚后,白天最后一格的快照已失效 → 清掉,避免"重生成上一格"误回退白天格
+      lastSettle.value = null; lastServe.value = null; preRunSnapshot = null;
+      return true;
+    } catch (e) { error.value = (e as Error).message; return false; }
   }
 
   function fillEmpty(period: SlotPeriod, choice: SlotChoice) {
@@ -140,6 +150,7 @@ export const useRunnerStore = defineStore('runner', () => {
   // 真正执行一格(供 runCurrent 首次 + rerunLast 复用)。snapshot 是执行前状态。
   async function execCurrentFrom(snapshot: { day: DayState; engine: EngineState }) {
     busy.value = true; error.value = null; lastEmpty.value = false; lastWarn.value = null;
+    genHint.value = GEN_HINTS[Math.floor(Math.random() * GEN_HINTS.length)];
     try {
       const r = await withTimeout(runCurrentSlot({ day: snapshot.day, engine: snapshot.engine }, settleOptions()), GEN_TIMEOUT_MS);
       let nextEngine = r.state.engine;
@@ -206,7 +217,7 @@ export const useRunnerStore = defineStore('runner', () => {
   return {
     day, engine, fastForward, busy, lastSettle, lastServe, lastNight,
     forcedLeaveToday, forcedSeize, reliefCleared, hardFail, error,
-    lastEmpty, lastWarn,
+    lastEmpty, lastWarn, genHint,
     currentSlot: currentSlotRef, canRunCurrent, runnerState,
     aiMode,
     setFastForward, allocate, setChoice, clearChoice, fillEmpty,

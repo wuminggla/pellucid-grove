@@ -12,6 +12,7 @@ export const CONST = {
   欲望基础增量: 2,            // 每个未供奉打手每晚 +2
   欲望连续翻倍倍率: 2,        // 单打手连续3晚未供奉，其贡献翻倍
   欲望连续阈值天数: 3,
+  供奉降欲量: 2,             // 每个被供奉打手每晚清偿欲望 -2(与未供奉增量对称:供奉>未供奉则欲望净降)
   采购单格基础上限: 360,      // 单次采购(占1白天格)基础上限,个
   请假轮奸吞吐倍率: 1.5,      // 强制请假轮奸日：每供奉格多服务1.5×人(帮运营失败玩家清欲望)
   // 滑动窗口保底（软卡死非真卡死，给运营失败玩家出口）
@@ -77,6 +78,14 @@ export function desireGain(unserved: number, longUnservedCount: number): number 
   const normal = (unserved - longUnservedCount) * CONST.欲望基础增量;
   const doubled = longUnservedCount * CONST.欲望基础增量 * CONST.欲望连续翻倍倍率;
   return Math.max(0, Math.round(normal + doubled));
+}
+
+/**
+ * 计算本晚供奉清偿的欲望量。被供奉的打手获得释放，按 served × 供奉降欲量 抵扣累积欲望。
+ * 与 desireGain 对称：当本晚被供奉数 > 未供奉数时，群体欲望净下降(供奉切实降欲)。
+ */
+export function desireRelief(served: number): number {
+  return Math.max(0, Math.round(served * CONST.供奉降欲量));
 }
 
 /** 欲望是否溢出(≥承载上限) → 触发强制请假轮奸。注：欲望不 clamp，可超上限继续计数(数值奇观永动)。 */

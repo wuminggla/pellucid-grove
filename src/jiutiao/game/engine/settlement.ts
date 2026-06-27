@@ -2,7 +2,7 @@
 // 三层结算：单格供奉 → 夜晚收尾 → 每日收尾。settleSlot 之外的"硬经营数值"在此结算。
 
 import {
-  condomCost, condomStatus, desireGain, desireOverflow,
+  condomCost, condomStatus, desireGain, desireRelief, desireOverflow,
   availableThugs, combatPower, weeklyRecruitQuota, totalPrestige,
 } from '../economy/machine';
 import { isAvUnlocked, auditMartial } from '../prestige/machine';
@@ -44,24 +44,30 @@ export function settleServe(state: EngineState, throughputMultiplier = 1): Serve
 export interface NightSettleResult {
   state: EngineState;
   unserved: number;
-  desireGained: number;
-  overflow: boolean;      // 欲望≥承载上限 → 次日强制请假轮奸（事件系统消费）
+  desireGained: number;    // 未供奉打手滚雪球增量（毛增）
+  desireRelieved: number;  // 被供奉打手清偿量（毛减）
+  desireNet: number;       // 净变化 = 增 - 减（可负）
+  overflow: boolean;       // 欲望≥承载上限 → 次日强制请假轮奸（事件系统消费）
 }
 
 /**
- * 夜晚收尾。可用打手中未被供奉的部分欲望增长（滚雪球）。
+ * 夜晚收尾。未供奉打手欲望滚雪球(增)；被供奉打手获释放清偿欲望(减)。
+ * 净变化 = desireGain(未供奉) - desireRelief(已供奉)，clamp 到 ≥0。
+ * 这样夜晚供奉切实降低群体欲望(供奉数 > 未供奉数 → 欲望净降)，而非只增不减。
  * MVP：连续3晚未供奉的"翻倍"暂记为0（需跨天追踪每个打手，后续接），先用基础增长。
  */
 export function settleNight(state: EngineState): NightSettleResult {
   const avail = availableThugs(state.thugTotal, state.garrison);
   const unserved = Math.max(0, avail - state.servedThisNight);
   const gained = desireGain(unserved, 0); // longUnservedCount=0（跨天追踪后续接）
-  const desire = state.desire + gained;
+  const relieved = desireRelief(state.servedThisNight);
+  const net = gained - relieved;
+  const desire = Math.max(0, state.desire + net);
   const overflow = desireOverflow(desire, state.desireCapacity);
   return {
     // 溢出 → 置 pendingForcedLeave，由 nextDay 构造次日强制请假轮奸日（霸全）
     state: { ...state, desire, servedThisNight: 0, pendingForcedLeave: overflow || state.pendingForcedLeave },
-    unserved, desireGained: gained, overflow,
+    unserved, desireGained: gained, desireRelieved: relieved, desireNet: net, overflow,
   };
 }
 

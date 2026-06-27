@@ -23,6 +23,19 @@ export function extractGameText(raw: string): string {
   return t.trim();
 }
 
+/**
+ * 剥离思维链/推理块,留纯文本。用于副AI产出的连贯性简报(无 jiutiao_text 包裹)。
+ * 只去成对的思考标签块,不动正常中文分点内容。
+ */
+export function stripThinking(raw: string): string {
+  if (!raw) return '';
+  let t = raw;
+  t = t.replace(/<(thinking|think|thought|reasoning|cot|分析|思考)[\s\S]*?<\/\1>/gi, '');
+  // 去 markdown 代码围栏(模型偶尔把简报包进 ```)
+  t = t.replace(/```[a-z]*\n?/gi, '');
+  return t.trim();
+}
+
 /** 提取 <continuity> 延续摘要;无则 undefined。 */
 export function extractContinuity(raw: string): string | undefined {
   const m = raw.match(/<continuity>([\s\S]*?)<\/continuity>/i);

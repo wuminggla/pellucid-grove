@@ -239,9 +239,10 @@ describe('advanceToNextDay 进入次日', () => {
     );
     expect(r2.forcedLeave).toBe(true);
     expect(r2.day.dayNumber).toBe(4);
-    expect(r2.day.phase).toBe('day_settled');     // 白天0格
-    expect(r2.day.nightCount).toBe(8);
-    expect(r2.day.nightSlots.every(s => s.locked)).toBe(true);
+    expect(r2.day.phase).toBe('day_running');      // 白天4格→从白天起逐格供奉
+    expect(r2.day.dayCount).toBe(4);
+    expect(r2.day.nightCount).toBe(4);
+    expect([...r2.day.daySlots, ...r2.day.nightSlots].every(s => s.locked)).toBe(true);
     expect(r2.engine.pendingForcedLeave).toBe(false); // 标记已清除
   });
 
