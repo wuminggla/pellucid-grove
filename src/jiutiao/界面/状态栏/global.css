@@ -1,0 +1,32 @@
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+:root {
+  /* 九条会配色 - 极道暗金 */
+  --c-bg: #0a0608;
+  --c-surface: #1a0e12;
+  --c-surface-hi: #241318;
+  --c-border: #3d2828;
+  --c-border-soft: #2c1a20;
+  --c-text: #e8dde0;
+  --c-text-dim: #8a6b73;
+  --c-gold: #e8c87a;
+  --c-rose: #d96a8f;
+  --c-danger: #e06666;
+  --c-green: #7aa37a;
+  --font-serif: 'Noto Serif SC', serif;
+}
+
+html, body {
+  background: var(--c-bg);
+  color: var(--c-text);
+  font-family: var(--font-serif);
+}
+
+#app {
+  width: 100%;
+  min-height: 100vh;
+}
