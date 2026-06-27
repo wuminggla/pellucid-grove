@@ -8,6 +8,7 @@
     <!-- 阶段标签 + 快进 -->
     <div class="tool-row">
       <span class="phase-label">{{ phaseLabel }}</span>
+      <span class="ai-mode" :class="r.aiMode">{{ r.aiMode === 'tavern' ? '◆ 酒馆AI' : '○ mock' }}</span>
       <label class="ff-toggle">
         <input type="checkbox" :checked="r.fastForward" @change="onFastForward" />
         快进
@@ -104,7 +105,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, h, defineComponent } from 'vue';
+import { ref, computed, h, defineComponent } from 'vue';
 import { useRunnerStore } from './runner-store';
 import StatusBar from './components/StatusBar.vue';
 import SlotCard from './components/SlotCard.vue';
@@ -148,13 +149,8 @@ function onFastForward(e: Event) {
 }
 
 // SlotGrid: 渲染某时段所有格(内联组件,管展开态)
-const expandedKey = (() => {
-  let k: string | null = null;
-  return {
-    get: () => k,
-    toggle: (key: string) => { k = (k === key ? null : key); },
-  };
-})();
+// expandedKey 用 ref(响应式),toggle 改了能触发 SlotGrid 重渲染。
+const expandedKey = ref<string | null>(null);
 
 const SlotGrid = defineComponent({
   props: { period: { type: String as () => SlotPeriod, required: true },
@@ -167,8 +163,8 @@ const SlotGrid = defineComponent({
         key,
         slot, period: props.period, options: opts,
         isCurrent: r.day.cursor?.period === props.period && r.day.cursor?.index === slot.index,
-        expanded: expandedKey.get() === key,
-        onToggle: () => { expandedKey.toggle(key); },
+        expanded: expandedKey.value === key,
+        onToggle: () => { expandedKey.value = expandedKey.value === key ? null : key; },
         onPick: (optionId: string, label: string) => {
           // av_custom 弹编辑器留待 AvEditor 翻译;先直接 setChoice
           r.setChoice(props.period, slot.index, { optionId, label });
@@ -211,6 +207,9 @@ const Section = defineComponent({
   border-bottom: 1px solid #2c1a20;
 }
 .phase-label { font-size: 13px; color: #8a6b73; letter-spacing: 1px; }
+.ai-mode { font-size: 11px; padding: 2px 8px; border-radius: 4px; }
+.ai-mode.tavern { color: #7aa37a; background: rgba(122, 163, 122, 0.12); }
+.ai-mode.mock { color: #e8a87a; background: rgba(232, 168, 122, 0.12); }
 .ff-toggle {
   display: flex;
   align-items: center;

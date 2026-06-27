@@ -15,6 +15,8 @@ import type { NightSettleResult } from '../../game/engine/settlement';
 import {
   demoEventOptions, demoSummaryTemplates, demoExtractBounds, demoForcedPool, createMockAi,
 } from '../../game/engine/mock-ai';
+import { demoLorebook } from '../../game/worldbook/demo';
+import { createTavernAi } from './tavern-ai';
 import type { ForcedEvent } from '../../game/events/machine';
 import type { DayState, SlotChoice, SlotPeriod } from '../../game/action-grid/types';
 import type { EngineState, SettleOptions, SettleResult, AiPort } from '../../game/engine/types';
@@ -49,8 +51,17 @@ export const useRunnerStore = defineStore('runner', () => {
   const hardFail = ref(false);
   const error = ref<string | null>(null);
 
-  // AI 端口: 当前 mock,阶段2接酒馆 generate 后换 createBridgeAi
-  let ai: AiPort = createMockAi();
+  // AI 端口: 默认接酒馆 generate(套预设/JB,出真实正文);
+  // 检测不到酒馆 generate 全局(本地开发/异常)时回落 mock。
+  // useMock() 可手动切回 mock 调试。
+  const hasTavernGenerate = typeof (globalThis as any).generate === 'function';
+  let ai: AiPort = hasTavernGenerate
+    ? createTavernAi({ lorebook: demoLorebook })
+    : createMockAi();
+  const aiMode = ref<'tavern' | 'mock'>(hasTavernGenerate ? 'tavern' : 'mock');
+
+  function useMock() { ai = createMockAi(); aiMode.value = 'mock'; }
+  function useTavern() { ai = createTavernAi({ lorebook: demoLorebook }); aiMode.value = 'tavern'; }
 
   // ─── getters(computed) ───
   const currentSlotRef = computed(() => currentSlot(day.value));
@@ -160,7 +171,9 @@ export const useRunnerStore = defineStore('runner', () => {
     day, engine, fastForward, busy, lastSettle, lastServe, lastNight,
     forcedLeaveToday, forcedSeize, reliefCleared, hardFail, error,
     currentSlot: currentSlotRef, canRunCurrent, runnerState,
+    aiMode,
     setFastForward, allocate, setChoice, clearChoice, fillEmpty,
     beginDay, beginNight, runCurrent, nextDay, loadState,
+    useMock, useTavern,
   };
 });
