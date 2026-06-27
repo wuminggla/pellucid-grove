@@ -1,7 +1,10 @@
 {
+<<<<<<< HEAD
   "name": "pellucid-grove",
   "version": "0.2.0",
   "private": true,
+=======
+>>>>>>> 4f0b745981550e95a66a32adf5b43f01a2cde104
   "scripts": {
     "build:dev": "webpack --mode development",
     "build": "webpack --mode production",
