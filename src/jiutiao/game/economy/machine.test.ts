@@ -110,8 +110,8 @@ describe('武力与招募', () => {
     expect(totalPrestige(10, 5, true)).toBe(15); // 解锁后极道+淫名
   });
   it('每周招募额度随威望', () => {
-    expect(weeklyRecruitQuota(0)).toBe(5);    // 保底
-    expect(weeklyRecruitQuota(100)).toBe(55); // 5+100×0.5
+    expect(weeklyRecruitQuota(0)).toBe(20);    // 保底(招募周额度基础)
+    expect(weeklyRecruitQuota(100)).toBe(70);  // 20+100×0.5
   });
 });
 

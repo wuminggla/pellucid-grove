@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { settleServe, settleNight, settleDaily, condomLabel } from './settlement';
+import { settleRecruit, dailyDesireDemand } from '../economy/machine';
 import type { EngineState } from './types';
 
 function base(over: Partial<EngineState> = {}): EngineState {
@@ -16,12 +17,20 @@ function base(over: Partial<EngineState> = {}): EngineState {
 }
 
 describe('单格供奉结算', () => {
-  it('扣避孕套(18人×3=54),记被供奉人数', () => {
-    const r = settleServe(base({ presentCount: 18 }));
+  it('扣避孕套(18人×3=54),记被供奉人数,当场降欲', () => {
+    const r = settleServe(base({ presentCount: 18, desire: 50 }));
     expect(r.condomUsed).toBe(54);
     expect(r.state.condomStock).toBe(480 - 54);
     expect(r.state.servedThisNight).toBe(18);
     expect(r.condomShort).toBe(false);
+    // 实时降欲: 18人 × 供奉降欲量(1) = 18; 50 → 32
+    expect(r.served).toBe(18);
+    expect(r.desireRelieved).toBe(18);
+    expect(r.state.desire).toBe(32);
+  });
+  it('降欲 clamp≥0(欲望不为负)', () => {
+    const r = settleServe(base({ presentCount: 18, desire: 10 }));
+    expect(r.state.desire).toBe(0); // 10-18 → clamp 0
   });
   it('危险期消耗×1.5', () => {
     const r = settleServe(base({ presentCount: 100, isDangerousPeriod: true }));
@@ -40,45 +49,46 @@ describe('单格供奉结算', () => {
   });
 });
 
-describe('夜晚收尾结算', () => {
-  it('未供奉滚雪球(增) + 供奉清偿(减) → 净变化', () => {
-    // 100可用,本晚供奉了36 → 未供奉64 → 滚雪球+128;供奉清欲 36×2=72;净 +56
-    const r = settleNight(base({ thugTotal: 100, servedThisNight: 36, desire: 0 }));
-    expect(r.unserved).toBe(64);
-    expect(r.desireGained).toBe(128);
-    expect(r.desireRelieved).toBe(72);
-    expect(r.desireNet).toBe(56);
-    expect(r.state.desire).toBe(56);
-    expect(r.state.servedThisNight).toBe(0); // 重置
+describe('夜晚收尾(报告·只读·欲望已实时结算)', () => {
+  it('汇报今日供奉数与结余欲望,不改欲望', () => {
+    const r = settleNight(base({ desire: 32, servedThisNight: 18, desireCapacity: 60 }));
+    expect(r.servedToday).toBe(18);
+    expect(r.desireLeftover).toBe(32);
+    expect(r.state.desire).toBe(32); // 不改动
+    expect(r.overflowImminent).toBe(false); // 32 < 60
   });
-  it('供奉数>未供奉数 → 群体欲望净下降(不再只增不减)', () => {
-    // 60可用,供奉50 → 未供奉10 → +20;清欲 50×2=100;净 -80;原有80 → 0
-    const r = settleNight(base({ thugTotal: 60, servedThisNight: 50, desire: 80, desireCapacity: 60 }));
-    expect(r.desireGained).toBe(20);
-    expect(r.desireRelieved).toBe(100);
-    expect(r.desireNet).toBe(-80);
-    expect(r.state.desire).toBe(0); // 80-80=0,clamp≥0
+  it('结余≥上限→overflowImminent(预警次日请假轮奸)', () => {
+    const r = settleNight(base({ desire: 70, desireCapacity: 60 }));
+    expect(r.overflowImminent).toBe(true);
   });
-  it('欲望溢出判定→置 pendingForcedLeave', () => {
-    const r = settleNight(base({ thugTotal: 50, servedThisNight: 0, desire: 0, desireCapacity: 60 }));
-    // 50未供奉×2=100 ≥60 → overflow
-    expect(r.overflow).toBe(true);
-    expect(r.state.pendingForcedLeave).toBe(true);
+});
+
+describe('招募即时结算(settleRecruit)', () => {
+  it('额度+钱够→当场招到min(额度,买得起),扣钱扣额度', () => {
+    const r = settleRecruit(30, 8000, 20); // 额度20,8000/60=133买得起 → 招20
+    expect(r.recruited).toBe(20);
+    expect(r.thugTotal).toBe(50);
+    expect(r.cost).toBe(1200);     // 20×60
+    expect(r.money).toBe(6800);
+    expect(r.recruitQuota).toBe(0);
   });
-  it('未溢出不置 pendingForcedLeave', () => {
-    const r = settleNight(base({ thugTotal: 30, servedThisNight: 30, desire: 0, desireCapacity: 60 }));
-    expect(r.overflow).toBe(false);
-    expect(r.state.pendingForcedLeave).toBeFalsy();
+  it('钱不够→受买得起封顶', () => {
+    const r = settleRecruit(30, 300, 20); // 300/60=5 → 招5
+    expect(r.recruited).toBe(5);
+    expect(r.thugTotal).toBe(35);
+    expect(r.reason).toBeUndefined();
   });
-  it('全供奉则无未供奉,欲望不涨', () => {
-    const r = settleNight(base({ thugTotal: 30, servedThisNight: 30 }));
-    expect(r.unserved).toBe(0);
-    expect(r.desireGained).toBe(0);
+  it('无额度→招0,reason=no_quota', () => {
+    const r = settleRecruit(30, 8000, 0);
+    expect(r.recruited).toBe(0);
+    expect(r.reason).toBe('no_quota');
   });
-  it('欲望可超承载上限继续计数(无clamp,数值奇观永动)', () => {
-    const r = settleNight(base({ thugTotal: 200, servedThisNight: 0, desire: 500, desireCapacity: 60 }));
-    expect(r.state.desire).toBe(900); // 500 + 200未供奉×2,远超上限60
-    expect(r.overflow).toBe(true);
+});
+
+describe('晨间欲望累积(dailyDesireDemand)', () => {
+  it('= 可用打手 × 欲望日增系数(1)', () => {
+    expect(dailyDesireDemand(30)).toBe(30);
+    expect(dailyDesireDemand(100)).toBe(100);
   });
 });
 

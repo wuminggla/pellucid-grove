@@ -7,7 +7,9 @@ import {
 } from '../action-grid/machine';
 import { settleSlot } from './machine';
 import { settleServe, settleDaily } from './settlement';
-import { CONST, slidingWindowRelief } from '../economy/machine';
+import {
+  CONST, slidingWindowRelief, settleRecruit, dailyDesireDemand, desireOverflow, availableThugs,
+} from '../economy/machine';
 import { scanForced } from '../events/machine';
 import { appendLog, appendContinuity } from '../memory/machine';
 import { deriveEventUnlocked } from './unlocked';
@@ -85,8 +87,10 @@ export interface RunnerState {
 export interface RunSlotResult {
   state: RunnerState;
   settle: SettleResult;
-  /** 供奉类格子的避孕套结算（非供奉格为 null） */
-  serve?: { condomUsed: number; condomShort: boolean } | null;
+  /** 供奉类格子的结算（非供奉格为 null）：避孕套 + 当场降欲 */
+  serve?: { condomUsed: number; condomShort: boolean; served: number; desireRelieved: number } | null;
+  /** 招募格的即时结算（非招募格为 null）：当场招到的人数/花费 */
+  recruit?: { recruited: number; cost: number; reason?: 'no_quota' | 'no_money' } | null;
   /** 本格触发的临时格强制事件（如避孕套归零），null=无 */
   forcedInsert?: ForcedEvent | null;
   /** 本格的结构化日志条目（供正文留档/UI 复用） */
@@ -115,7 +119,7 @@ export async function runCurrentSlot(
     params: slot.choice.params,
   }, opts);
 
-  // 供奉类格子：执行后扣避孕套 + 计入被供奉人数（由 EventOption.isServe 判定）
+  // 供奉类格子：执行后扣避孕套 + 当场降欲 + 计入被供奉人数（由 EventOption.isServe 判定）
   let engine = settle.state;
   let serve: RunSlotResult['serve'] = null;
   if (opts.eventOptions[slot.choice.optionId]?.isServe) {
@@ -123,7 +127,15 @@ export async function runCurrentSlot(
     const mult = state.day.forcedLeave ? CONST.请假轮奸吞吐倍率 : 1;
     const sr = settleServe(engine, mult);
     engine = sr.state;
-    serve = { condomUsed: sr.condomUsed, condomShort: sr.condomShort };
+    serve = { condomUsed: sr.condomUsed, condomShort: sr.condomShort, served: sr.served, desireRelieved: sr.desireRelieved };
+  }
+
+  // 招募格：即时结算（当场招人、扣钱、扣额度，玩家立刻看到打手数变化，而非日终）
+  let recruit: RunSlotResult['recruit'] = null;
+  if (slot.choice.optionId === 'recruit') {
+    const rr = settleRecruit(engine.thugTotal, engine.money, engine.recruitQuota);
+    engine = { ...engine, thugTotal: rr.thugTotal, money: rr.money, recruitQuota: rr.recruitQuota };
+    recruit = { recruited: rr.recruited, cost: rr.cost, reason: rr.reason };
   }
 
   // 强制临时格扫描（如避孕套归零）：在完成当前格【前】插入，使其成为下一格立即执行。
@@ -166,7 +178,7 @@ export async function runCurrentSlot(
 
   return {
     state: { day: dayDone, engine },
-    settle, serve, forcedInsert, logEntry,
+    settle, serve, recruit, forcedInsert, logEntry,
   };
 }
 
@@ -200,9 +212,23 @@ export function advanceToNextDay(
   const relief = slidingWindowRelief(history, daily.state.desire);
   let next: EngineState = { ...daily.state, leaveHistory: history, desire: relief.desire };
 
+  // —— 请假轮奸判定：对"结余欲望"(当天供奉后剩下的)判定，在加次日晨间累积【之前】。 ——
+  //    晨间累积不参与判定，避免打手数 > 欲望槽时永远触发(用户明确约束)。
+  //    pendingForcedLeave 是个别事件可能置的旁路信号，一并消费。
+  const overflow = desireOverflow(next.desire, next.desireCapacity) || !!next.pendingForcedLeave;
+
+  // —— 次日晨间欲望累积(按可用打手数) + 重置今日供奉计数 ——
+  const influx = dailyDesireDemand(availableThugs(next.thugTotal, next.garrison));
+  next = {
+    ...next,
+    desire: next.desire + influx,
+    desireAddedThisMorning: influx,
+    servedThisNight: 0,
+    pendingForcedLeave: false, // 判定已消费
+  };
+
   const newDayNumber = currentDayNumber + 1;
-  if (next.pendingForcedLeave) {
-    next = { ...next, pendingForcedLeave: false };
+  if (overflow) {
     return {
       engine: next,
       day: buildForcedLeaveDay(newDayNumber, totalSlots, serveChoice),

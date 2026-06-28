@@ -23,8 +23,9 @@ export interface EngineState {
   garrison: number;           // 驻守占用打手
   loyalty: number;            // 打手忠诚度 0~100
   condomStock: number;        // 避孕套库存
-  desire: number;             // 打手欲望值
+  desire: number;             // 打手欲望值(晨间按可用打手累积·供奉格实时降·结余≥上限触发请假轮奸)
   desireCapacity: number;     // 欲望承载上限（设施可提）
+  desireAddedThisMorning?: number; // 今晨累积的欲望量(UI 提示用·流量)
   perSlotThroughput: number;  // 每格供奉吞吐（可升级 6→30）
   // —— 威望（招募/硬失败/侵蚀闸门用）——
   infamy: number;             // 淫名（累计；仅 AV 解锁后计入总威望）

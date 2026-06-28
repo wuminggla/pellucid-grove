@@ -9,10 +9,14 @@ export const CONST = {
   避孕套每人消耗: 3,          // 每打手每场消耗
   危险期套消耗倍率: 1.5,       // 经期=危险期时
   忠诚武力系数基准: 100,       // 武力 = 可用打手 × (忠诚/基准)
-  欲望基础增量: 2,            // 每个未供奉打手每晚 +2
+  欲望基础增量: 2,            // [旧夜结模型]每个未供奉打手每晚 +2(已被晨间累积模型取代,保留兼容)
   欲望连续翻倍倍率: 2,        // 单打手连续3晚未供奉，其贡献翻倍
   欲望连续阈值天数: 3,
-  供奉降欲量: 2,             // 每个被供奉打手每晚清偿欲望 -2(与未供奉增量对称:供奉>未供奉则欲望净降)
+  欲望日增系数: 1,           // [晨间累积]每天早晨 欲望 += 可用打手数 × 此系数(30打手→+30,日1起可见)
+  供奉降欲量: 1,             // [实时降欲]每供奉1人当场清偿欲望 -1(供奉格执行时即扣,玩家盯着状态栏掉)
+  // 招募(每周额度·威望刷新·即时结算)
+  招1打手价: 60,             // 每招1个打手花费(§12.4)
+  招募周额度基础: 20,        // 每周招募额度保底(原§11起调5,上调让招募手感明显;额度仍随威望增长)
   采购单格基础上限: 360,      // 单次采购(占1白天格)基础上限,个
   请假轮奸吞吐倍率: 1.5,      // 强制请假轮奸日：每供奉格多服务1.5×人(帮运营失败玩家清欲望)
   // 滑动窗口保底（软卡死非真卡死，给运营失败玩家出口）
@@ -81,8 +85,18 @@ export function desireGain(unserved: number, longUnservedCount: number): number 
 }
 
 /**
- * 计算本晚供奉清偿的欲望量。被供奉的打手获得释放，按 served × 供奉降欲量 抵扣累积欲望。
- * 与 desireGain 对称：当本晚被供奉数 > 未供奉数时，群体欲望净下降(供奉切实降欲)。
+ * 晨间欲望累积(每天早晨一次)。= 可用打手数 × 欲望日增系数。
+ * 让欲望从日1起就可见、随人数线性增长；玩家白天/夜晚靠供奉把它压下去。
+ * 注：晨间累积本身不参与"请假轮奸是否触发"的判定(判定在加此增量之前,见 advanceToNextDay),
+ *     否则打手数>欲望槽时会永远触发。
+ */
+export function dailyDesireDemand(availableThugs: number): number {
+  return Math.max(0, Math.round(availableThugs * CONST.欲望日增系数));
+}
+
+/**
+ * 单个供奉格当场清偿的欲望量(实时)。= 本场供奉人数 × 供奉降欲量。
+ * 在供奉格执行时即扣减(settleServe),玩家盯着状态栏看欲望下降,精确规划。
  */
 export function desireRelief(served: number): number {
   return Math.max(0, Math.round(served * CONST.供奉降欲量));
@@ -137,9 +151,44 @@ export function availableThugs(total: number, garrison: number): number {
 
 /** 每周招募额度 = f(总威望)。起调:线性+保底。 */
 export function weeklyRecruitQuota(totalPrestige: number): number {
-  const base = 5;            // 保底
-  const perPrestige = 0.5;   // 每点威望+0.5额度
+  const base = CONST.招募周额度基础; // 保底
+  const perPrestige = 0.5;            // 每点威望+0.5额度
   return Math.floor(base + Math.max(0, totalPrestige) * perPrestige);
+}
+
+/**
+ * 招募即时结算。一个招募格当场招人:招募数 = min(本周剩余额度, 买得起的人数)。
+ * 立即 thugTotal +=、money -=、recruitQuota -=(玩家当场看到打手数变化,而非日终)。
+ * 额度由每周 settleDaily 按威望刷新(§13.4),是节奏闸门;钱按 招1打手价 扣。
+ */
+export interface RecruitResult {
+  thugTotal: number;
+  money: number;
+  recruitQuota: number;
+  recruited: number;       // 实际招到人数
+  cost: number;            // 花费
+  reason?: 'no_quota' | 'no_money'; // 招到0时的原因(供UI提示)
+}
+export function settleRecruit(
+  thugTotal: number, money: number, recruitQuota: number,
+): RecruitResult {
+  const quota = Math.max(0, recruitQuota);
+  if (quota <= 0) {
+    return { thugTotal, money, recruitQuota: quota, recruited: 0, cost: 0, reason: 'no_quota' };
+  }
+  const affordable = Math.floor(money / CONST.招1打手价);
+  const n = Math.min(quota, Math.max(0, affordable));
+  if (n <= 0) {
+    return { thugTotal, money, recruitQuota: quota, recruited: 0, cost: 0, reason: 'no_money' };
+  }
+  const cost = n * CONST.招1打手价;
+  return {
+    thugTotal: thugTotal + n,
+    money: money - cost,
+    recruitQuota: quota - n,
+    recruited: n,
+    cost,
+  };
 }
 
 /**

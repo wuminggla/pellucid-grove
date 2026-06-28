@@ -21,6 +21,9 @@
 
       <!-- 分配阶段 -->
       <template v-if="phase === 'allocating'">
+        <div v-if="(r.engine.desireAddedThisMorning ?? 0) > 0" class="morning-box">
+          ☼ 今晨打手欲望累积 +{{ r.engine.desireAddedThisMorning }} → 当前群体欲望 {{ r.engine.desire }}/{{ r.engine.desireCapacity }}。安排足够供奉格在日终前把它压回安全线，否则次日强制请假轮奸。
+        </div>
         <div class="alloc-hint">分配 {{ r.day.totalSlots }} 行动格（白天经营 / 夜晚供奉；白天0格 = 请假）</div>
         <div class="alloc-btns">
           <button v-for="dayN in allocOptions" :key="dayN"
@@ -76,14 +79,19 @@
         ⚠ 避孕套库存不足！本场出现无套内射风险（怀孕判定链）
       </div>
 
+      <!-- 招募即时反馈 -->
+      <div v-if="r.lastRecruit && r.lastRecruit.recruited > 0" class="night-box" style="color:#7aa37a;border-color:#3a4a2a">
+        ◆ 招募即时入伙：+{{ r.lastRecruit.recruited }} 打手（花费 ¥{{ r.lastRecruit.cost }}）→ 当前打手 {{ r.engine.thugTotal }}，剩余周额度 {{ r.engine.recruitQuota }}
+      </div>
+      <div v-else-if="r.lastRecruit && r.lastRecruit.reason" class="warn-box mt-sm">
+        招募未成：{{ r.lastRecruit.reason === 'no_quota' ? '本周招募额度已用尽（每周刷新，威望越高额度越多）' : '资金不足' }}
+      </div>
+
       <!-- 夜晚收尾 -->
       <div v-if="r.lastNight" class="night-box">
-        夜晚收尾：未供奉 {{ r.lastNight.unserved }} 人 滚雪球 +{{ r.lastNight.desireGained }}
-        <span v-if="r.lastNight.desireRelieved > 0">；供奉清欲 -{{ r.lastNight.desireRelieved }}</span>
-        <span :style="{ color: r.lastNight.desireNet <= 0 ? '#7aa37a' : '#e8a87a', marginLeft: '6px' }">
-          → 群体欲望净 {{ r.lastNight.desireNet > 0 ? '+' : '' }}{{ r.lastNight.desireNet }}
-        </span>
-        <span v-if="r.lastNight.overflow" style="color:#e06666;margin-left:8px">⚠ 欲望溢出！次日将触发强制请假轮奸</span>
+        夜晚收尾：今日已供奉 {{ r.lastNight.servedToday }} 人 · 结余欲望 {{ r.lastNight.desireLeftover }}/{{ r.engine.desireCapacity }}
+        <span v-if="r.lastNight.overflowImminent" style="color:#e06666;margin-left:8px">⚠ 结余超上限！次日触发强制请假轮奸</span>
+        <span v-else style="color:#7aa37a;margin-left:8px">✓ 欲望压在安全线内</span>
       </div>
 
       <!-- 硬失败 -->
@@ -257,6 +265,16 @@ const Section = defineComponent({
   font-size: 13px;
 }
 .mt-sm { margin-top: 10px; }
+.morning-box {
+  margin-bottom: 12px;
+  padding: 10px 12px;
+  background: rgba(232, 200, 122, 0.08);
+  border: 1px solid #c9a24a;
+  border-radius: 6px;
+  color: #e8c87a;
+  font-size: 13px;
+  line-height: 1.5;
+}
 .alloc-hint { font-size: 13px; color: #b08a93; letter-spacing: 1px; margin-bottom: 10px; }
 .alloc-btns { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 8px; }
 .alloc-btn {

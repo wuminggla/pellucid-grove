@@ -11,6 +11,7 @@ import {
 } from '../../game/action-grid/machine';
 import { runCurrentSlot, settleNight, advanceToNextDay, applyForcedSeizes } from '../../game/engine/day-runner';
 import type { RunnerState } from '../../game/engine/day-runner';
+import { dailyDesireDemand, availableThugs, weeklyRecruitQuota } from '../../game/economy/machine';
 import type { NightSettleResult } from '../../game/engine/settlement';
 import {
   demoEventOptions, demoSummaryTemplates, demoExtractBounds, demoForcedPool, createMockAi,
@@ -25,13 +26,16 @@ const DEFAULT_FORCED_LEAVE_CHOICE: SlotChoice = { optionId: 'serve_vaginal', lab
 const TOTAL_SLOTS = 8;
 
 function initialEngine(): EngineState {
+  const thugTotal = 30, garrison = 0;
+  const morning = dailyDesireDemand(availableThugs(thugTotal, garrison)); // 日1晨间累积(30打手→30)
   return {
     triggeredSpecials: {}, unlocked: {},
     corruption: 0, cognition: '死撑', claimedGates: {},
-    money: 8000, thugTotal: 30, garrison: 0, loyalty: 60,
-    condomStock: 480, desire: 0, desireCapacity: 60, perSlotThroughput: 6,
+    money: 8000, thugTotal, garrison, loyalty: 60,
+    condomStock: 480, desire: morning, desireCapacity: 60, desireAddedThisMorning: morning,
+    perSlotThroughput: 6,
     infamy: 0, martialPrestige: 0,
-    recruitQuota: 0, presentCount: 18, isDangerousPeriod: false,
+    recruitQuota: weeklyRecruitQuota(0), presentCount: 18, isDangerousPeriod: false,
     servedThisNight: 0,
   };
 }
@@ -43,7 +47,8 @@ export const useRunnerStore = defineStore('runner', () => {
   const fastForward = ref(false);
   const busy = ref(false);
   const lastSettle = ref<SettleResult | null>(null);
-  const lastServe = ref<{ condomUsed: number; condomShort: boolean } | null>(null);
+  const lastServe = ref<{ condomUsed: number; condomShort: boolean; served: number; desireRelieved: number } | null>(null);
+  const lastRecruit = ref<{ recruited: number; cost: number; reason?: 'no_quota' | 'no_money' } | null>(null);
   const lastNight = ref<NightSettleResult | null>(null);
   const forcedLeaveToday = ref(false);
   const forcedSeize = ref<ForcedEvent | null>(null);
@@ -126,7 +131,7 @@ export const useRunnerStore = defineStore('runner', () => {
     try {
       day.value = beginNightFn(day.value); error.value = null;
       // 推进到夜晚后,白天最后一格的快照已失效 → 清掉,避免"重生成上一格"误回退白天格
-      lastSettle.value = null; lastServe.value = null; preRunSnapshot = null;
+      lastSettle.value = null; lastServe.value = null; lastRecruit.value = null; preRunSnapshot = null;
       return true;
     } catch (e) { error.value = (e as Error).message; return false; }
   }
@@ -171,6 +176,7 @@ export const useRunnerStore = defineStore('runner', () => {
       engine.value = nextEngine;
       lastSettle.value = r.settle;
       lastServe.value = r.serve ?? null;
+      lastRecruit.value = r.recruit ?? null;
       lastNight.value = nightInfo;
     } catch (e) {
       error.value = (e as Error).message;
@@ -204,18 +210,18 @@ export const useRunnerStore = defineStore('runner', () => {
     reliefCleared.value = r.reliefCleared;
     hardFail.value = r.daily.hardFail;
     forcedSeize.value = null;
-    lastSettle.value = null; lastServe.value = null; lastNight.value = null; error.value = null;
+    lastSettle.value = null; lastServe.value = null; lastRecruit.value = null; lastNight.value = null; error.value = null;
   }
 
   function loadState(state: RunnerState, ff: boolean) {
     day.value = state.day; engine.value = state.engine; fastForward.value = ff;
-    lastSettle.value = null; lastServe.value = null; lastNight.value = null;
+    lastSettle.value = null; lastServe.value = null; lastRecruit.value = null; lastNight.value = null;
     forcedLeaveToday.value = false; forcedSeize.value = null;
     reliefCleared.value = false; hardFail.value = false; error.value = null;
   }
 
   return {
-    day, engine, fastForward, busy, lastSettle, lastServe, lastNight,
+    day, engine, fastForward, busy, lastSettle, lastServe, lastRecruit, lastNight,
     forcedLeaveToday, forcedSeize, reliefCleared, hardFail, error,
     lastEmpty, lastWarn, genHint,
     currentSlot: currentSlotRef, canRunCurrent, runnerState,
