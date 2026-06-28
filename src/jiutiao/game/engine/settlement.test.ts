@@ -115,9 +115,21 @@ describe('每日收尾结算', () => {
     const r = settleDaily(base({ thugTotal: 100, garrison: 20, loyalty: 60 }), 2);
     expect(r.combatPower).toBe(Math.round(80 * 0.6)); // 48
   });
-  it('资金为负→硬失败信号(兜底)', () => {
-    const r = settleDaily(base({ money: -2000, martialGainToday: 5 }), 2); // 据点产出+500后仍负
-    expect(r.hardFail).toBe(true);
+  it('资金余额连续2次≤0→硬失败;第1次只预警(存量判定·非进账流)', () => {
+    // 第1次:据点产出+500后仍≤0 → streak1,不失败,给预警
+    const r1 = settleDaily(base({ money: -1000, martialGainToday: 5, moneyZeroStreak: 0 }), 2);
+    expect(r1.hardFail).toBe(false);
+    expect(r1.state.moneyZeroStreak).toBe(1);
+    expect(r1.failWarnings.length).toBeGreaterThan(0);
+    // 第2次:仍≤0 → streak2 → 硬失败
+    const r2 = settleDaily(base({ money: -1000, martialGainToday: 5, moneyZeroStreak: 1 }), 2);
+    expect(r2.hardFail).toBe(true);
+    expect(r2.hardFailReason).toBe('money');
+    expect(r2.state.moneyZeroStreak).toBe(2);
+  });
+  it('资金转正→资金streak归零', () => {
+    const r = settleDaily(base({ money: 8000, moneyZeroStreak: 1 }), 2);
+    expect(r.state.moneyZeroStreak).toBe(0);
   });
   it('据点产出:已解锁区域每日给避孕套/资金(老宅默认)', () => {
     const r = settleDaily(base({ money: 8000, condomStock: 480 }), 2);
