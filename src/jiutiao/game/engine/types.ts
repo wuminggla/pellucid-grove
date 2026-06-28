@@ -31,7 +31,8 @@ export interface EngineState {
   infamy: number;             // 淫名（累计；仅 AV 解锁后计入总威望）
   martialPrestige: number;    // 极道威望（累计）
   martialGainToday?: number;  // 今日极道威望进账（流量，每日审核后重置）
-  martialZeroStreak?: number; // 连续零进账次数（连续2次=硬失败）
+  martialZeroStreak?: number; // 威望轨:连续零进账次数（连续2次=硬失败）
+  moneyZeroStreak?: number;   // 资金轨:连续余额≤0次数（连续2次=硬失败·存量判定）
   // —— 升级（群体升级账本：升级项id→等级 + 设施/扩张效果落地的字段） ——
   upgrades?: Record<string, number>;
   totalSlots?: number;          // 每日总行动格(行动格扩容；默认见 BASE_ACTION_SLOTS)

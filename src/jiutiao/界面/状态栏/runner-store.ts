@@ -54,6 +54,8 @@ export const useRunnerStore = defineStore('runner', () => {
   const forcedSeize = ref<ForcedEvent | null>(null);
   const reliefCleared = ref(false);
   const hardFail = ref(false);
+  const hardFailReason = ref<'martial' | 'money' | null>(null);
+  const failWarnings = ref<string[]>([]); // 第1次坏审核预警(留1回合缓冲)
   const error = ref<string | null>(null);
   // #4 生成稳定性
   const lastEmpty = ref(false);        // 上次生成空回/截断(正文过短)
@@ -209,6 +211,8 @@ export const useRunnerStore = defineStore('runner', () => {
     forcedLeaveToday.value = r.forcedLeave;
     reliefCleared.value = r.reliefCleared;
     hardFail.value = r.daily.hardFail;
+    hardFailReason.value = r.daily.hardFailReason ?? null;
+    failWarnings.value = r.daily.failWarnings ?? [];
     forcedSeize.value = null;
     lastSettle.value = null; lastServe.value = null; lastRecruit.value = null; lastNight.value = null; error.value = null;
   }
@@ -217,12 +221,12 @@ export const useRunnerStore = defineStore('runner', () => {
     day.value = state.day; engine.value = state.engine; fastForward.value = ff;
     lastSettle.value = null; lastServe.value = null; lastRecruit.value = null; lastNight.value = null;
     forcedLeaveToday.value = false; forcedSeize.value = null;
-    reliefCleared.value = false; hardFail.value = false; error.value = null;
+    reliefCleared.value = false; hardFail.value = false; hardFailReason.value = null; failWarnings.value = []; error.value = null;
   }
 
   return {
     day, engine, fastForward, busy, lastSettle, lastServe, lastRecruit, lastNight,
-    forcedLeaveToday, forcedSeize, reliefCleared, hardFail, error,
+    forcedLeaveToday, forcedSeize, reliefCleared, hardFail, hardFailReason, failWarnings, error,
     lastEmpty, lastWarn, genHint,
     currentSlot: currentSlotRef, canRunCurrent, runnerState,
     aiMode,

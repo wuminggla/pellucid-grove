@@ -94,9 +94,14 @@
         <span v-else style="color:#7aa37a;margin-left:8px">✓ 欲望压在安全线内</span>
       </div>
 
+      <!-- 再生力预警(第1次坏审核·留1回合缓冲·设计补遗_A) -->
+      <div v-for="(w, i) in r.failWarnings" :key="i" class="warn-box mt-sm">{{ w }}</div>
+
       <!-- 硬失败 -->
       <div v-if="r.hardFail" class="err-box mt-sm">
-        ☠ 硬失败：极道威望连续 2 次审核进账为 0。东山再起的能力已经失去。
+        ☠ 硬失败：{{ r.hardFailReason === 'money'
+          ? '资金余额连续 2 次结算为 0/负，现金流断裂。'
+          : '极道威望连续 2 次审核进账为 0，招牌再也榨不出人和钱。' }}九条会东山再起的能力已经失去。
       </div>
 
       <!-- #4 空回/截断警告 + 重新生成 -->

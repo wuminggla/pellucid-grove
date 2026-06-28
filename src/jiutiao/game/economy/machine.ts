@@ -199,6 +199,20 @@ export function totalPrestige(martial: number, infamy: number, avUnlocked = fals
   return Math.max(0, martial) + (avUnlocked ? Math.max(0, infamy) : 0);
 }
 
+/**
+ * 资金轨硬失败审核(设计补遗_A·双轨再生力之一·资金轨)。
+ * 用户定: 资金沿用【存量】≤0 判定(不是进账流)——玩家怎么把余额抬到0以上是玩家的事,
+ *   "亏一天赚一天"的运营玩家不该被进账流误杀。连续2次结算余额≤0 → 硬失败。
+ * @param moneyBalance 当前资金余额(存量)
+ * @param zeroStreak 既往连续"余额≤0"次数
+ */
+export function auditMoney(
+  moneyBalance: number, zeroStreak: number,
+): { zeroStreak: number; hardFail: boolean } {
+  const streak = moneyBalance <= 0 ? zeroStreak + 1 : 0;
+  return { zeroStreak: streak, hardFail: streak >= 2 };
+}
+
 /** 据点战胜率(0~1) = f(己方武力,敌方武力,威望差,情报完备度0~1)。起调逻辑式。 */
 export function siegeWinChance(
   ownPower: number, enemyPower: number, prestigeDiff: number, intel: number,
