@@ -21,8 +21,8 @@
 
       <!-- 分配阶段 -->
       <template v-if="phase === 'allocating'">
-        <div v-if="(r.engine.desireAddedThisMorning ?? 0) > 0" class="morning-box">
-          ☼ 今晨打手欲望累积 +{{ r.engine.desireAddedThisMorning }} → 当前群体欲望 {{ r.engine.desire }}/{{ r.engine.desireCapacity }}。安排足够供奉格在日终前把它压回安全线，否则次日强制请假轮奸。
+        <div v-if="r.engine.desire >= r.engine.desireCapacity" class="morning-box">
+          ⚠ 群体欲望 {{ r.engine.desire }}/{{ r.engine.desireCapacity }} 已超上限！务必在日终前安排足够供奉格把它压回上限以内，否则次日强制请假轮奸。
         </div>
         <div class="alloc-hint">分配 {{ r.day.totalSlots }} 行动格（白天经营 / 夜晚供奉；白天0格 = 请假）</div>
         <div class="alloc-btns">
@@ -99,7 +99,6 @@
       <div v-if="r.lastNight" class="night-box">
         夜晚收尾：今日已供奉 {{ r.lastNight.servedToday }} 人 · 结余欲望 {{ r.lastNight.desireLeftover }}/{{ r.engine.desireCapacity }}
         <span v-if="r.lastNight.overflowImminent" style="color:#e06666;margin-left:8px">⚠ 结余超上限！次日触发强制请假轮奸</span>
-        <span v-else style="color:#7aa37a;margin-left:8px">✓ 欲望压在安全线内</span>
       </div>
 
       <!-- 再生力预警(第1次坏审核·留1回合缓冲·设计补遗_A) -->

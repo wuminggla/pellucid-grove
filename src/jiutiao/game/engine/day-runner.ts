@@ -135,7 +135,7 @@ export async function runCurrentSlot(
   // 招募格：即时结算（当场招人、扣钱、扣额度，玩家立刻看到打手数变化，而非日终）
   let recruit: RunSlotResult['recruit'] = null;
   if (slot.choice.optionId === 'recruit') {
-    const rr = settleRecruit(engine.thugTotal, engine.money, engine.recruitQuota);
+    const rr = settleRecruit(engine.thugTotal, engine.money, engine.recruitQuota, opts.rng);
     engine = { ...engine, thugTotal: rr.thugTotal, money: rr.money, recruitQuota: rr.recruitQuota };
     recruit = { recruited: rr.recruited, cost: rr.cost, reason: rr.reason };
   }

@@ -63,23 +63,25 @@ describe('夜晚收尾(报告·只读·欲望已实时结算)', () => {
   });
 });
 
-describe('招募即时结算(settleRecruit)', () => {
-  it('额度+钱够→当场招到min(额度,买得起),扣钱扣额度', () => {
-    const r = settleRecruit(30, 8000, 20); // 额度20,8000/60=133买得起 → 招20
-    expect(r.recruited).toBe(20);
-    expect(r.thugTotal).toBe(50);
-    expect(r.cost).toBe(1200);     // 20×60
-    expect(r.money).toBe(6800);
-    expect(r.recruitQuota).toBe(0);
+describe('招募即时结算(settleRecruit·单格3-4浮动)', () => {
+  it('单格招募受[3,4]浮动封顶(rng=0→3),扣钱扣额度', () => {
+    const r = settleRecruit(30, 8000, 10, () => 0); // perGrid=3,额度10,买得起 → 招3
+    expect(r.recruited).toBe(3);
+    expect(r.thugTotal).toBe(33);
+    expect(r.cost).toBe(180);     // 3×60
+    expect(r.recruitQuota).toBe(7); // 10-3
   });
-  it('钱不够→受买得起封顶', () => {
-    const r = settleRecruit(30, 300, 20); // 300/60=5 → 招5
-    expect(r.recruited).toBe(5);
-    expect(r.thugTotal).toBe(35);
-    expect(r.reason).toBeUndefined();
+  it('rng高→单格招4', () => {
+    const r = settleRecruit(30, 8000, 10, () => 0.99);
+    expect(r.recruited).toBe(4);
+  });
+  it('钱不够→受买得起封顶(低于单格下限)', () => {
+    const r = settleRecruit(30, 100, 10, () => 0); // 100/60=1 → 招1
+    expect(r.recruited).toBe(1);
+    expect(r.thugTotal).toBe(31);
   });
   it('无额度→招0,reason=no_quota', () => {
-    const r = settleRecruit(30, 8000, 0);
+    const r = settleRecruit(30, 8000, 0, () => 0);
     expect(r.recruited).toBe(0);
     expect(r.reason).toBe('no_quota');
   });

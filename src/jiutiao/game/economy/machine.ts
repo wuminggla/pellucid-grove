@@ -16,7 +16,8 @@ export const CONST = {
   供奉降欲量: 1,             // [实时降欲]每供奉1人当场清偿欲望 -1(供奉格执行时即扣,玩家盯着状态栏掉)
   // 招募(每周额度·威望刷新·即时结算)
   招1打手价: 60,             // 每招1个打手花费(§12.4)
-  招募周额度基础: 6,        // 每周招募额度保底(原§11起调5,上调让招募手感明显;额度仍随威望增长)
+  招募周额度基础: 10,       // 每周招募额度保底(额度仍随威望增长)
+  招募单格下限: 3, 招募单格上限: 4,  // 单个招募格当场招到的人数浮动区间(3-4人)
   采购单格基础上限: 360,      // 单次采购(占1白天格)基础上限,个
   避孕套单价: 2,             // 每个避孕套采购单价(资金)
   请假轮奸吞吐倍率: 1.5,      // 强制请假轮奸日：每供奉格多服务1.5×人(帮运营失败玩家清欲望)
@@ -171,14 +172,17 @@ export interface RecruitResult {
   reason?: 'no_quota' | 'no_money'; // 招到0时的原因(供UI提示)
 }
 export function settleRecruit(
-  thugTotal: number, money: number, recruitQuota: number,
+  thugTotal: number, money: number, recruitQuota: number, rng: () => number = Math.random,
 ): RecruitResult {
   const quota = Math.max(0, recruitQuota);
   if (quota <= 0) {
     return { thugTotal, money, recruitQuota: quota, recruited: 0, cost: 0, reason: 'no_quota' };
   }
+  // 单格招募人数在 [下限,上限] 浮动(3-4),受本周剩余额度与资金封顶。要招满周额度需多个招募格。
+  const span = CONST.招募单格上限 - CONST.招募单格下限 + 1;
+  const perGrid = CONST.招募单格下限 + Math.floor(Math.max(0, Math.min(0.999, rng())) * span);
   const affordable = Math.floor(money / CONST.招1打手价);
-  const n = Math.min(quota, Math.max(0, affordable));
+  const n = Math.min(perGrid, quota, Math.max(0, affordable));
   if (n <= 0) {
     return { thugTotal, money, recruitQuota: quota, recruited: 0, cost: 0, reason: 'no_money' };
   }
