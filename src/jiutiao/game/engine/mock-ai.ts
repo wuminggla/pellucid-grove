@@ -40,7 +40,7 @@ export const demoEventOptions: Record<string, EventOption> = {
     nsfw: { worldbookKey: 'wb_bribe_body' },
     erosionGate: { corruptionAtLeast: 30 },
     irreversibleAfterErosion: true,
-    first: { ledgerKey: 'bribe_first_body', paradigm: { worldbookKey: 'wb_bribe_first' }, corruptionWeight: 10 },
+    first: { ledgerKey: 'bribe_first_body', paradigm: { worldbookKey: 'wb_bribe_first' }, corruptionWeight: 2 },
     needsContinuity: true,
   },
 
@@ -50,7 +50,7 @@ export const demoEventOptions: Record<string, EventOption> = {
     sfw: { worldbookKey: 'wb_protect_sfw' },
     nsfw: { worldbookKey: 'wb_protect_nsfw' },
     erosionGate: { corruptionAtLeast: 25 },
-    first: { ledgerKey: 'protect_first', paradigm: { worldbookKey: 'wb_protect_first' }, corruptionWeight: 6 },
+    first: { ledgerKey: 'protect_first', paradigm: { worldbookKey: 'wb_protect_first' }, corruptionWeight: 1 },
     // A4 日常侵蚀: 在外人(店主)面前 NSFW=有曝光风险
     a4: { martialBase: 3, transferRatio: 0.4, loyaltyOnFail: 2, developsPart: '小穴' },
   },
@@ -59,7 +59,7 @@ export const demoEventOptions: Record<string, EventOption> = {
   buy_condoms: {
     id: 'buy_condoms', label: '采购避孕套', period: 'day', shape: 'born_nsfw',
     nsfw: { worldbookKey: 'wb_buy_condom' },
-    first: { ledgerKey: 'buy_first', paradigm: { worldbookKey: 'wb_buy_condom_first' }, corruptionWeight: 5 },
+    first: { ledgerKey: 'buy_first', paradigm: { worldbookKey: 'wb_buy_condom_first' }, corruptionWeight: 1 },
     // A4: 公共便利店采购,有曝光风险
     a4: { martialBase: 2, transferRatio: 0.5, developsPart: '小穴' },
   },
@@ -70,11 +70,11 @@ export const demoEventOptions: Record<string, EventOption> = {
     sfw: { worldbookKey: 'wb_school_sfw' },
     needsContinuity: true,
     stages: [
-      { corruptionAtLeast: 25, ledgerKey: 'school_25', corruptionWeight: 5,
+      { corruptionAtLeast: 25, ledgerKey: 'school_25', corruptionWeight: 1,
         firstParadigm: { worldbookKey: 'wb_school25_first' }, paradigm: { worldbookKey: 'wb_school25' } },
-      { corruptionAtLeast: 50, ledgerKey: 'school_50', corruptionWeight: 5,
+      { corruptionAtLeast: 50, ledgerKey: 'school_50', corruptionWeight: 1,
         firstParadigm: { worldbookKey: 'wb_school50_first' }, paradigm: { worldbookKey: 'wb_school50' } },
-      { corruptionAtLeast: 75, ledgerKey: 'school_75', corruptionWeight: 5,
+      { corruptionAtLeast: 75, ledgerKey: 'school_75', corruptionWeight: 1,
         firstParadigm: { worldbookKey: 'wb_school75_first' }, paradigm: { worldbookKey: 'wb_school75' } },
     ],
     // A4: 校园=公共场所,有同学/讲师曝光风险
@@ -88,7 +88,7 @@ export const demoEventOptions: Record<string, EventOption> = {
     sfw: { worldbookKey: 'wb_dine_sfw' },
     nsfw: { worldbookKey: 'wb_dine' },
     erosionGate: { corruptionAtLeast: 30 },
-    first: { ledgerKey: 'dine_first', paradigm: { worldbookKey: 'wb_dine_first' }, corruptionWeight: 5 },
+    first: { ledgerKey: 'dine_first', paradigm: { worldbookKey: 'wb_dine_first' }, corruptionWeight: 1 },
     infamyReward: 1,
     // A4: 餐厅=公共场所(虽然包场,仍可能曝光)
     a4: { martialBase: 3, transferRatio: 0.4, developsPart: '小穴' },
@@ -106,7 +106,7 @@ export const demoEventOptions: Record<string, EventOption> = {
     sfw: { worldbookKey: 'wb_amusement_sfw' },
     nsfw: { worldbookKey: 'wb_amusement' },
     erosionGate: { corruptionAtLeast: 40 },
-    first: { ledgerKey: 'amusement_first', paradigm: { worldbookKey: 'wb_amusement_first' }, corruptionWeight: 5 },
+    first: { ledgerKey: 'amusement_first', paradigm: { worldbookKey: 'wb_amusement_first' }, corruptionWeight: 1 },
     needsContinuity: true,
   },
 
@@ -116,7 +116,7 @@ export const demoEventOptions: Record<string, EventOption> = {
     sfw: { worldbookKey: 'wb_beach_sfw' },
     nsfw: { worldbookKey: 'wb_beach' },
     erosionGate: { corruptionAtLeast: 40 },
-    first: { ledgerKey: 'beach_first', paradigm: { worldbookKey: 'wb_beach_first' }, corruptionWeight: 5 },
+    first: { ledgerKey: 'beach_first', paradigm: { worldbookKey: 'wb_beach_first' }, corruptionWeight: 1 },
     needsContinuity: true,
   },
 
@@ -126,7 +126,7 @@ export const demoEventOptions: Record<string, EventOption> = {
     sfw: { worldbookKey: 'wb_mall_sfw' },
     nsfw: { worldbookKey: 'wb_mall' },
     erosionGate: { corruptionAtLeast: 35 },
-    first: { ledgerKey: 'mall_first', paradigm: { worldbookKey: 'wb_mall_first' }, corruptionWeight: 5 },
+    first: { ledgerKey: 'mall_first', paradigm: { worldbookKey: 'wb_mall_first' }, corruptionWeight: 1 },
     needsContinuity: true,
   },
 
@@ -136,7 +136,7 @@ export const demoEventOptions: Record<string, EventOption> = {
     sfw: { worldbookKey: 'wb_camping_sfw' },
     nsfw: { worldbookKey: 'wb_camping' },
     erosionGate: { corruptionAtLeast: 35 },
-    first: { ledgerKey: 'camping_first', paradigm: { worldbookKey: 'wb_camping_first' }, corruptionWeight: 5 },
+    first: { ledgerKey: 'camping_first', paradigm: { worldbookKey: 'wb_camping_first' }, corruptionWeight: 1 },
     needsContinuity: true,
   },
 
@@ -146,7 +146,7 @@ export const demoEventOptions: Record<string, EventOption> = {
     sfw: { worldbookKey: 'wb_hiking_sfw' },
     nsfw: { worldbookKey: 'wb_hiking' },
     erosionGate: { corruptionAtLeast: 30 },
-    first: { ledgerKey: 'hiking_first', paradigm: { worldbookKey: 'wb_hiking_first' }, corruptionWeight: 5 },
+    first: { ledgerKey: 'hiking_first', paradigm: { worldbookKey: 'wb_hiking_first' }, corruptionWeight: 1 },
     needsContinuity: true,
   },
 
@@ -155,7 +155,7 @@ export const demoEventOptions: Record<string, EventOption> = {
     sfw: { worldbookKey: 'wb_street_sfw' },
     nsfw: { worldbookKey: 'wb_street' },
     erosionGate: { corruptionAtLeast: 30 },
-    first: { ledgerKey: 'street_first', paradigm: { worldbookKey: 'wb_street_first' }, corruptionWeight: 5 },
+    first: { ledgerKey: 'street_first', paradigm: { worldbookKey: 'wb_street_first' }, corruptionWeight: 1 },
     needsContinuity: true,
   },
 
@@ -165,7 +165,7 @@ export const demoEventOptions: Record<string, EventOption> = {
     sfw: { worldbookKey: 'wb_festival_sfw' },
     nsfw: { worldbookKey: 'wb_festival' },
     erosionGate: { corruptionAtLeast: 40 },
-    first: { ledgerKey: 'festival_first', paradigm: { worldbookKey: 'wb_festival_first' }, corruptionWeight: 5 },
+    first: { ledgerKey: 'festival_first', paradigm: { worldbookKey: 'wb_festival_first' }, corruptionWeight: 1 },
     needsContinuity: true,
   },
 
@@ -175,7 +175,7 @@ export const demoEventOptions: Record<string, EventOption> = {
     sfw: { worldbookKey: 'wb_concert_sfw' },
     nsfw: { worldbookKey: 'wb_concert' },
     erosionGate: { corruptionAtLeast: 45 },
-    first: { ledgerKey: 'concert_first', paradigm: { worldbookKey: 'wb_concert_first' }, corruptionWeight: 5 },
+    first: { ledgerKey: 'concert_first', paradigm: { worldbookKey: 'wb_concert_first' }, corruptionWeight: 1 },
     needsContinuity: true,
   },
 
@@ -185,7 +185,7 @@ export const demoEventOptions: Record<string, EventOption> = {
     sfw: { worldbookKey: 'wb_garden_sfw' },
     nsfw: { worldbookKey: 'wb_garden_dog' },
     erosionGate: { corruptionAtLeast: 45 },
-    first: { ledgerKey: 'garden_dog_first', paradigm: { worldbookKey: 'wb_garden_dog_first' }, corruptionWeight: 8 },
+    first: { ledgerKey: 'garden_dog_first', paradigm: { worldbookKey: 'wb_garden_dog_first' }, corruptionWeight: 2 },
     needsContinuity: true,
   },
 
@@ -195,7 +195,7 @@ export const demoEventOptions: Record<string, EventOption> = {
     sfw: { worldbookKey: 'wb_garden_sfw' },
     nsfw: { worldbookKey: 'wb_garden_rock' },
     erosionGate: { corruptionAtLeast: 50 },
-    first: { ledgerKey: 'garden_rock_first', paradigm: { worldbookKey: 'wb_garden_rock_first' }, corruptionWeight: 6 },
+    first: { ledgerKey: 'garden_rock_first', paradigm: { worldbookKey: 'wb_garden_rock_first' }, corruptionWeight: 1 },
     needsContinuity: true,
   },
 
@@ -204,7 +204,7 @@ export const demoEventOptions: Record<string, EventOption> = {
     sfw: { worldbookKey: 'wb_ancestor_sfw' },
     nsfw: { worldbookKey: 'wb_ancestor' },
     erosionGate: { corruptionAtLeast: 60 },
-    first: { ledgerKey: 'ancestor_first', paradigm: { worldbookKey: 'wb_ancestor_first' }, corruptionWeight: 12 },
+    first: { ledgerKey: 'ancestor_first', paradigm: { worldbookKey: 'wb_ancestor_first' }, corruptionWeight: 3 },
     needsContinuity: true,
   },
 
@@ -215,7 +215,7 @@ export const demoEventOptions: Record<string, EventOption> = {
     unlockRequires: ['studio_unlocked'],
     nsfw: { worldbookKey: 'wb_av_first' },
     first: {
-      ledgerKey: 'av_first', paradigm: { worldbookKey: 'wb_av_first' }, corruptionWeight: 15,
+      ledgerKey: 'av_first', paradigm: { worldbookKey: 'wb_av_first' }, corruptionWeight: 3,
       // 副作用: 解锁淫名机制 + 初始化 AV state
       onApply: (engine) => initAvOnUnlock(engine),
     },
@@ -241,27 +241,27 @@ export const demoEventOptions: Record<string, EventOption> = {
   serve_oral: {
     id: 'serve_oral', label: '口交侍奉', period: 'night', shape: 'born_nsfw', isServe: true,
     nsfw: { worldbookKey: 'wb_serve_oral' },
-    first: { ledgerKey: 'serve_oral_first', paradigm: { worldbookKey: 'wb_serve_oral_first' }, corruptionWeight: 8 },
+    first: { ledgerKey: 'serve_oral_first', paradigm: { worldbookKey: 'wb_serve_oral_first' }, corruptionWeight: 2 },
   },
 
   serve_vaginal: {
     id: 'serve_vaginal', label: '供奉', period: 'night', shape: 'born_nsfw', isServe: true,
     nsfw: { worldbookKey: 'wb_serve_vaginal' },
-    first: { ledgerKey: 'serve_vaginal_first', paradigm: { worldbookKey: 'wb_serve_vaginal_first' }, corruptionWeight: 10 },
+    first: { ledgerKey: 'serve_vaginal_first', paradigm: { worldbookKey: 'wb_serve_vaginal_first' }, corruptionWeight: 2 },
   },
 
   serve_anal: {
     id: 'serve_anal', label: '肛交开发', period: 'night', shape: 'born_nsfw', isServe: true,
     unlockRequires: ['anal_unlocked'],
     nsfw: { worldbookKey: 'wb_serve_anal' },
-    first: { ledgerKey: 'serve_anal_first', paradigm: { worldbookKey: 'wb_serve_anal_first' }, corruptionWeight: 12 },
+    first: { ledgerKey: 'serve_anal_first', paradigm: { worldbookKey: 'wb_serve_anal_first' }, corruptionWeight: 3 },
   },
 
   serve_violent: {
     id: 'serve_violent', label: '暴力供奉', period: 'night', shape: 'born_nsfw', isServe: true,
     unlockRequires: ['dungeon_unlocked'],
     nsfw: { worldbookKey: 'wb_violent_serve_common' },
-    first: { ledgerKey: 'serve_violent_first', paradigm: { worldbookKey: 'wb_violent_serve_common' }, corruptionWeight: 15 },
+    first: { ledgerKey: 'serve_violent_first', paradigm: { worldbookKey: 'wb_violent_serve_common' }, corruptionWeight: 3 },
     needsContinuity: true,
   },
 
@@ -271,7 +271,7 @@ export const demoEventOptions: Record<string, EventOption> = {
     sfw: { worldbookKey: 'wb_rest_sfw' },
     nsfw: { worldbookKey: 'wb_rape_living' },
     erosionGate: { corruptionAtLeast: 20 },
-    first: { ledgerKey: 'rape_living_first', paradigm: { worldbookKey: 'wb_rape_living_first' }, corruptionWeight: 8 },
+    first: { ledgerKey: 'rape_living_first', paradigm: { worldbookKey: 'wb_rape_living_first' }, corruptionWeight: 2 },
   },
 
   // ═══════════════════════════════════════════════════
@@ -281,14 +281,14 @@ export const demoEventOptions: Record<string, EventOption> = {
   condom_zero: {
     id: 'condom_zero', label: '避孕套归零·补救', period: 'any', shape: 'born_nsfw',
     nsfw: { worldbookKey: 'wb_condom_zero_1' },
-    first: { ledgerKey: 'condom_zero_1', paradigm: { worldbookKey: 'wb_condom_zero_1' }, corruptionWeight: 5 },
+    first: { ledgerKey: 'condom_zero_1', paradigm: { worldbookKey: 'wb_condom_zero_1' }, corruptionWeight: 1 },
   },
 
   /** 生育线 E2: 循环利用废套(口戴套) */
   condom_zero_2: {
     id: 'condom_zero_2', label: '避孕套归零·循环利用', period: 'any', shape: 'born_nsfw',
     nsfw: { worldbookKey: 'wb_condom_zero_2' },
-    first: { ledgerKey: 'condom_zero_2', paradigm: { worldbookKey: 'wb_condom_zero_2' }, corruptionWeight: 8 },
+    first: { ledgerKey: 'condom_zero_2', paradigm: { worldbookKey: 'wb_condom_zero_2' }, corruptionWeight: 2 },
     needsContinuity: true,
   },
 
@@ -296,14 +296,14 @@ export const demoEventOptions: Record<string, EventOption> = {
   condom_zero_3: {
     id: 'condom_zero_3', label: '避孕套归零·真播种', period: 'any', shape: 'born_nsfw',
     nsfw: { worldbookKey: 'wb_condom_zero_3' },
-    first: { ledgerKey: 'condom_zero_3', paradigm: { worldbookKey: 'wb_condom_zero_3' }, corruptionWeight: 20 },
+    first: { ledgerKey: 'condom_zero_3', paradigm: { worldbookKey: 'wb_condom_zero_3' }, corruptionWeight: 4 },
     needsContinuity: true,
   },
 
   forced_leave: {
     id: 'forced_leave', label: '强制请假轮奸', period: 'day', shape: 'born_nsfw', isServe: true,
     nsfw: { worldbookKey: 'wb_forced_leave' },
-    first: { ledgerKey: 'forced_leave_first', paradigm: { worldbookKey: 'wb_forced_leave_first' }, corruptionWeight: 15 },
+    first: { ledgerKey: 'forced_leave_first', paradigm: { worldbookKey: 'wb_forced_leave_first' }, corruptionWeight: 3 },
     needsContinuity: true,
   },
 };

@@ -6,7 +6,7 @@ import {
   markRunning, completeCurrent, currentSlot, startDay, buildForcedLeaveDay, insertEventSlot, lockSlot,
 } from '../action-grid/machine';
 import { settleSlot } from './machine';
-import { settleServe, settleDaily } from './settlement';
+import { settleServe, settleBuyCondoms, settleDaily } from './settlement';
 import {
   CONST, slidingWindowRelief, settleRecruit, dailyDesireDemand, desireOverflow, availableThugs,
 } from '../economy/machine';
@@ -91,6 +91,8 @@ export interface RunSlotResult {
   serve?: { condomUsed: number; condomShort: boolean; served: number; desireRelieved: number } | null;
   /** 招募格的即时结算（非招募格为 null）：当场招到的人数/花费 */
   recruit?: { recruited: number; cost: number; reason?: 'no_quota' | 'no_money' } | null;
+  /** 采购避孕套格的即时结算（非采购格为 null）：当场买到的套数/花费 */
+  buyCondom?: { bought: number; cost: number; reason?: 'no_money' } | null;
   /** 本格触发的临时格强制事件（如避孕套归零），null=无 */
   forcedInsert?: ForcedEvent | null;
   /** 本格的结构化日志条目（供正文留档/UI 复用） */
@@ -138,6 +140,14 @@ export async function runCurrentSlot(
     recruit = { recruited: rr.recruited, cost: rr.cost, reason: rr.reason };
   }
 
+  // 采购避孕套格：即时结算（当场加库存、扣钱）
+  let buyCondom: RunSlotResult['buyCondom'] = null;
+  if (slot.choice.optionId === 'buy_condoms') {
+    const br = settleBuyCondoms(engine);
+    engine = br.state;
+    buyCondom = { bought: br.bought, cost: br.cost, reason: br.reason };
+  }
+
   // 强制临时格扫描（如避孕套归零）：在完成当前格【前】插入，使其成为下一格立即执行。
   let dayForInsert = dayRunning;
   let forcedInsert: ForcedEvent | null = null;
@@ -178,7 +188,7 @@ export async function runCurrentSlot(
 
   return {
     state: { day: dayDone, engine },
-    settle, serve, recruit, forcedInsert, logEntry,
+    settle, serve, recruit, buyCondom, forcedInsert, logEntry,
   };
 }
 

@@ -49,6 +49,7 @@ export const useRunnerStore = defineStore('runner', () => {
   const lastSettle = ref<SettleResult | null>(null);
   const lastServe = ref<{ condomUsed: number; condomShort: boolean; served: number; desireRelieved: number } | null>(null);
   const lastRecruit = ref<{ recruited: number; cost: number; reason?: 'no_quota' | 'no_money' } | null>(null);
+  const lastBuyCondom = ref<{ bought: number; cost: number; reason?: 'no_money' } | null>(null);
   const lastNight = ref<NightSettleResult | null>(null);
   const forcedLeaveToday = ref(false);
   const forcedSeize = ref<ForcedEvent | null>(null);
@@ -133,7 +134,7 @@ export const useRunnerStore = defineStore('runner', () => {
     try {
       day.value = beginNightFn(day.value); error.value = null;
       // 推进到夜晚后,白天最后一格的快照已失效 → 清掉,避免"重生成上一格"误回退白天格
-      lastSettle.value = null; lastServe.value = null; lastRecruit.value = null; preRunSnapshot = null;
+      lastSettle.value = null; lastServe.value = null; lastRecruit.value = null; lastBuyCondom.value = null; preRunSnapshot = null;
       return true;
     } catch (e) { error.value = (e as Error).message; return false; }
   }
@@ -179,6 +180,7 @@ export const useRunnerStore = defineStore('runner', () => {
       lastSettle.value = r.settle;
       lastServe.value = r.serve ?? null;
       lastRecruit.value = r.recruit ?? null;
+      lastBuyCondom.value = r.buyCondom ?? null;
       lastNight.value = nightInfo;
     } catch (e) {
       error.value = (e as Error).message;
@@ -214,12 +216,12 @@ export const useRunnerStore = defineStore('runner', () => {
     hardFailReason.value = r.daily.hardFailReason ?? null;
     failWarnings.value = r.daily.failWarnings ?? [];
     forcedSeize.value = null;
-    lastSettle.value = null; lastServe.value = null; lastRecruit.value = null; lastNight.value = null; error.value = null;
+    lastSettle.value = null; lastServe.value = null; lastRecruit.value = null; lastBuyCondom.value = null; lastNight.value = null; error.value = null;
   }
 
   function loadState(state: RunnerState, ff: boolean) {
     day.value = state.day; engine.value = state.engine; fastForward.value = ff;
-    lastSettle.value = null; lastServe.value = null; lastRecruit.value = null; lastNight.value = null;
+    lastSettle.value = null; lastServe.value = null; lastRecruit.value = null; lastBuyCondom.value = null; lastNight.value = null;
     forcedLeaveToday.value = false; forcedSeize.value = null;
     reliefCleared.value = false; hardFail.value = false; hardFailReason.value = null; failWarnings.value = []; error.value = null;
   }
@@ -227,7 +229,7 @@ export const useRunnerStore = defineStore('runner', () => {
   return {
     day, engine, fastForward, busy, lastSettle, lastServe, lastRecruit, lastNight,
     forcedLeaveToday, forcedSeize, reliefCleared, hardFail, hardFailReason, failWarnings, error,
-    lastEmpty, lastWarn, genHint,
+    lastEmpty, lastWarn, genHint, lastBuyCondom,
     currentSlot: currentSlotRef, canRunCurrent, runnerState,
     aiMode,
     setFastForward, allocate, setChoice, clearChoice, fillEmpty,

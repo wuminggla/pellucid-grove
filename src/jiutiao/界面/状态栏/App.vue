@@ -87,6 +87,14 @@
         招募未成：{{ r.lastRecruit.reason === 'no_quota' ? '本周招募额度已用尽（每周刷新，威望越高额度越多）' : '资金不足' }}
       </div>
 
+      <!-- 采购避孕套即时反馈 -->
+      <div v-if="r.lastBuyCondom && r.lastBuyCondom.bought > 0" class="night-box" style="color:#7aa37a;border-color:#3a4a2a">
+        ◆ 采购到货：+{{ r.lastBuyCondom.bought }} 避孕套（花费 ¥{{ r.lastBuyCondom.cost }}）→ 当前库存 {{ r.engine.condomStock }}
+      </div>
+      <div v-else-if="r.lastBuyCondom && r.lastBuyCondom.reason" class="warn-box mt-sm">
+        采购未成：资金不足
+      </div>
+
       <!-- 夜晚收尾 -->
       <div v-if="r.lastNight" class="night-box">
         夜晚收尾：今日已供奉 {{ r.lastNight.servedToday }} 人 · 结余欲望 {{ r.lastNight.desireLeftover }}/{{ r.engine.desireCapacity }}

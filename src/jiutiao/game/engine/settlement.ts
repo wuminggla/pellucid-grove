@@ -2,12 +2,16 @@
 // 三层结算：单格供奉 → 夜晚收尾 → 每日收尾。settleSlot 之外的"硬经营数值"在此结算。
 
 import {
-  condomCost, condomStatus, desireRelief, desireOverflow,
+  condomCost, condomStatus, desireRelief, desireOverflow, purchaseCap, CONST,
   availableThugs, combatPower, weeklyRecruitQuota, totalPrestige, auditMoney,
 } from '../economy/machine';
 import { isAvUnlocked, auditMartial } from '../prestige/machine';
 import { combatBonus } from '../upgrade/machine';
-import { dailyYields, threatLevelFrom } from '../turf/machine';
+import { dailyYields, threatLevelFrom, totalShops } from '../turf/machine';
+
+// ⚠️暂挂开关: 地盘攻守玩法(威望主来源·task #13)未接入前,玩家结构性赚不到极道威望→
+//   威望轨硬失败必然触发,不公平。地盘 UI 接入后改回 true(并配合 #14 威望衰减)。
+const 威望轨硬失败已启用 = false;
 import { advanceCycle } from '../cycle/machine';
 import type { EngineState } from './types';
 
@@ -44,6 +48,29 @@ export function settleServe(state: EngineState, throughputMultiplier = 1): Serve
     condomShort,
     served,
     desireRelieved: relieved,
+  };
+}
+
+/** 采购避孕套即时结算：当场加库存、扣钱(玩家执行格立刻看到避孕套数变化,而非日终)。 */
+export interface BuyCondomResult {
+  state: EngineState;
+  bought: number;
+  cost: number;
+  reason?: 'no_money'; // 买到0的原因
+}
+export function settleBuyCondoms(state: EngineState): BuyCondomResult {
+  const shops = totalShops(state.regions);
+  const cap = purchaseCap(shops, state.stability ?? 100, state.purchaseUpgradeMult ?? 1);
+  const unit = CONST.避孕套单价;
+  const affordable = Math.floor(state.money / unit);
+  const bought = Math.min(cap, Math.max(0, affordable));
+  if (bought <= 0) {
+    return { state, bought: 0, cost: 0, reason: 'no_money' };
+  }
+  const cost = bought * unit;
+  return {
+    state: { ...state, condomStock: state.condomStock + bought, money: state.money - cost },
+    bought, cost,
   };
 }
 
@@ -114,11 +141,13 @@ export function settleDaily(state: EngineState, dayNumber: number): DailySettleR
   next.martialGainToday = 0;
   const moneyAudit = auditMoney(next.money, next.moneyZeroStreak ?? 0);
   next.moneyZeroStreak = moneyAudit.zeroStreak;
-  const hardFail = mAudit.hardFail || moneyAudit.hardFail;
+  // 威望轨暂挂期间不计入硬失败(也不弹威望警告),避免地盘未接入时误杀。
+  const martialFail = 威望轨硬失败已启用 && mAudit.hardFail;
+  const hardFail = martialFail || moneyAudit.hardFail;
   const hardFailReason: DailySettleResult['hardFailReason'] =
-    mAudit.hardFail ? 'martial' : (moneyAudit.hardFail ? 'money' : undefined);
+    martialFail ? 'martial' : (moneyAudit.hardFail ? 'money' : undefined);
   const failWarnings: string[] = [];
-  if (!hardFail && mAudit.martialZeroStreak === 1) {
+  if (威望轨硬失败已启用 && !hardFail && mAudit.martialZeroStreak === 1) {
     failWarnings.push('⚠ 威望停滞：这一阵没打出任何战果、也没拉到生意。再这样下去，九条会的招牌就榨不出人和钱了——明日务必去打据点/火并/收生意赚极道威望，否则东山再起的能力将彻底失去。');
   }
   if (!hardFail && moneyAudit.zeroStreak === 1) {
