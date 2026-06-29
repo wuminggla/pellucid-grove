@@ -60,6 +60,26 @@
         </div>
       </section>
 
+      <!-- ===== 设置 · 存档管理 ===== -->
+      <div v-else-if="view === '设置'" class="settings">
+        <div class="set-box">
+          <h3>存档 · 管理</h3>
+          <p class="lead">进度<b>自动保存</b>到【当前聊天】里，刷新酒馆 / 退出重进聊天都不丢。</p>
+          <div class="srow"><b>多存档 · 并行</b>：每个聊天 = 一份独立存档。在酒馆「管理聊天」里给本角色多开几个聊天，就是多个并行存档，互不影响、可随时切换。</div>
+          <div class="srow"><b>开新游戏</b>：给本角色【新建聊天】= 全新一局（空存档，从头开始）。或点下方「重开本局」清空当前这个聊天的进度。</div>
+          <div class="srow"><b>删除存档</b>：删掉某个聊天 = 删掉它的存档；删除角色卡会连同它的聊天一起清掉。存档是「聊天作用域」，不留全局残留。</div>
+          <div class="srow"><b>性能</b>：存档存在聊天的元数据里，<b>不进入发给 AI 的上下文</b>，不烧 token、不会让酒馆变卡。体积只含当前一天 + 精简记忆日志，增长很慢。</div>
+          <div class="set-btns">
+            <button class="primary-btn" @click="manualSave">立即存档</button>
+            <button class="danger-btn" @click="confirmReset">重开本局（清空当前进度）</button>
+          </div>
+        </div>
+        <div class="set-box dim-box">
+          <h3>API / 界面风格（待接）</h3>
+          <p class="lead">之后这里配置副 AI 端点、切换我们提供的其它 UI 风格。</p>
+        </div>
+      </div>
+
       <!-- ===== 其它页签：占位 ===== -->
       <div v-else class="placeholder">
         <div class="ph-t">{{ view }}</div>
@@ -184,6 +204,20 @@ function onNav(a: 'save' | 'exit') {
 }
 const saveToast = ref('');
 function closePins() { mast.value?.clearPin(); }
+
+// 设置·存档管理
+function manualSave() {
+  r.saveNow();
+  saveToast.value = r.hasTavernVars ? '✓ 进度已存档' : '⚠ 当前环境无酒馆变量，无法存档';
+  setTimeout(() => { saveToast.value = ''; }, 2600);
+}
+function confirmReset() {
+  if (window.confirm('确定清空【当前聊天】的进度、从头开始这一局？\n（其它聊天的存档不受影响。此操作不可撤销）')) {
+    r.resetGame(); selected.value = null;
+    saveToast.value = '✓ 已重开本局';
+    setTimeout(() => { saveToast.value = ''; }, 2600);
+  }
+}
 </script>
 
 <style scoped>
@@ -228,6 +262,16 @@ function closePins() { mast.value?.clearPin(); }
 .primary-btn:disabled { opacity: .45; cursor: not-allowed; }
 .ghost-btn { font-family: var(--serif); background: transparent; border: 1px solid var(--line); color: var(--text-dim); border-radius: 6px; padding: 12px 20px; font-size: 14px; cursor: pointer; }
 
+.settings { padding: 22px 28px; overflow-y: auto; }
+.set-box { border: 1px solid var(--line); border-radius: 10px; background: linear-gradient(180deg, var(--panel), var(--panel-2)); padding: 18px 20px; margin-bottom: 16px; max-width: 680px; }
+.set-box.dim-box { opacity: .6; }
+.set-box h3 { font-family: var(--brush); font-size: 24px; color: var(--gold-hi); margin-bottom: 8px; }
+.set-box .lead { font-size: 14px; color: var(--text); line-height: 1.7; margin-bottom: 12px; }
+.set-box .srow { font-size: 13px; color: var(--text-dim); line-height: 1.7; padding: 7px 0; border-top: 1px dashed var(--line); }
+.set-box .srow b { color: var(--gold); font-weight: 400; }
+.set-btns { display: flex; gap: 12px; margin-top: 16px; }
+.danger-btn { font-family: var(--serif); background: rgba(179,33,46,.12); color: var(--red-hi); border: 1px solid var(--red); border-radius: 6px; padding: 12px 22px; font-size: 14px; cursor: pointer; }
+.danger-btn:hover { background: rgba(179,33,46,.22); }
 .placeholder { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px; }
 .ph-t { font-family: var(--brush); font-size: 48px; color: var(--gold-dim); }
 .ph-s { font-size: 13px; color: var(--text-dim); letter-spacing: 2px; }
