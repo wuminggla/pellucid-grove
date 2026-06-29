@@ -69,8 +69,8 @@
           <div class="srow"><b>开新游戏</b>：给本角色【新建聊天】= 全新一局（空存档，从头开始）。或点下方「重开本局」清空当前这个聊天的进度。</div>
           <div class="srow"><b>删除存档</b>：删掉某个聊天 = 删掉它的存档；删除角色卡会连同它的聊天一起清掉。存档是「聊天作用域」，不留全局残留。</div>
           <div class="srow"><b>性能</b>：存档存在聊天的元数据里，<b>不进入发给 AI 的上下文</b>，不烧 token、不会让酒馆变卡。体积只含当前一天 + 精简记忆日志，增长很慢。</div>
+          <div class="srow" style="color:var(--green)">✓ 进度自动保存，无需手动存档。</div>
           <div class="set-btns">
-            <button class="primary-btn" @click="manualSave">立即存档</button>
             <button class="danger-btn" @click="confirmReset">重开本局（清空当前进度）</button>
           </div>
         </div>
@@ -195,22 +195,12 @@ function opts(period: SlotPeriod) {
 }
 
 const collapse = inject<(() => void) | null>('pellucidCollapse', null);
-// 退出=收起回酒馆；存读档=立即存档(进度本就自动存到聊天变量·刷新不丢，此处给手动确认)
-function onNav(a: 'save' | 'exit') {
-  if (a === 'exit') { collapse?.(); return; }
-  r.saveNow();
-  saveToast.value = r.hasTavernVars ? '✓ 进度已存档（聊天变量·刷新不丢）' : '⚠ 当前环境无酒馆变量，无法存档';
-  setTimeout(() => { saveToast.value = ''; }, 2600);
-}
+// 退出=收起回酒馆（进度本就自动存到聊天变量，无需手动存档按钮）
+function onNav(a: 'save' | 'exit') { if (a === 'exit') collapse?.(); }
 const saveToast = ref('');
 function closePins() { mast.value?.clearPin(); }
 
 // 设置·存档管理
-function manualSave() {
-  r.saveNow();
-  saveToast.value = r.hasTavernVars ? '✓ 进度已存档' : '⚠ 当前环境无酒馆变量，无法存档';
-  setTimeout(() => { saveToast.value = ''; }, 2600);
-}
 function confirmReset() {
   if (window.confirm('确定清空【当前聊天】的进度、从头开始这一局？\n（其它聊天的存档不受影响。此操作不可撤销）')) {
     r.resetGame(); selected.value = null;

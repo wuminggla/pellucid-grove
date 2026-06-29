@@ -13,7 +13,6 @@
       <span class="icn">{{ it.icn }}</span>{{ it.label }}
     </button>
     <div class="spacer"></div>
-    <button class="save" @click="$emit('action', 'save')">存 / 读 档</button>
     <button class="save exit" @click="$emit('action', 'exit')">退 出</button>
   </nav>
 </template>
