@@ -18,7 +18,7 @@ import {
   REGIONS_BY_ID, canDefeat, defeatRegion, regionState, effectiveThreshold,
   settleScout, settleBribe, SCOUT_COST,
 } from '../../game/turf/machine';
-import { canShootAv, buildAvPrompt, consumeShoot, defaultAvState } from '../../game/av/machine';
+import { canShootAv, buildAvPrompt, consumeShoot, defaultAvState, initAvOnUnlock } from '../../game/av/machine';
 import type { AvDefinition } from '../../game/av/machine';
 import type { UpgradeDef } from '../../game/upgrade/types';
 import type { NightSettleResult } from '../../game/engine/settlement';
@@ -171,6 +171,10 @@ export const useRunnerStore = defineStore('runner', () => {
     const chk = canUpgrade(def, engine.value as any);
     if (!chk.ok) { lastUpgrade.value = { ok: false, msg: `「${def.name}」无法升级：${chk.reason}` }; return; }
     engine.value = applyUpgrade(engine.value as any, def);
+    // 建成摄影室解锁 AV → 初始化周拍摄次数(否则面板显示"次数用完"),并引入淫名机制
+    if (def.effect.kind === 'unlock' && def.effect.unlockKey === 'av') {
+      engine.value = { ...engine.value, ...(initAvOnUnlock(engine.value) as any) };
+    }
     const lvl = engine.value.upgrades?.[id] ?? 1;
     lastUpgrade.value = { ok: true, msg: `「${def.name}」已升至 Lv.${lvl}（花费¥${def.cost}）。` };
   }
