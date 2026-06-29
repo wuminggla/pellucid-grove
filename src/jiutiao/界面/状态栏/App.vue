@@ -69,6 +69,10 @@
 
     <RinPanel :engine="r.engine" />
 
+    <Transition name="fade">
+      <div v-if="saveToast" class="save-toast">{{ saveToast }}</div>
+    </Transition>
+
     <div v-if="r.busy" class="gen-overlay">
       <div class="gen-box"><div class="gen-spinner"></div><div class="gen-text">{{ r.genHint }}</div>
         <div class="gen-sub">{{ r.aiMode === 'tavern' ? '调用酒馆 API（可能需数秒到数十秒）' : 'mock 模拟' }}</div></div>
@@ -171,7 +175,14 @@ function opts(period: SlotPeriod) {
 }
 
 const collapse = inject<(() => void) | null>('pellucidCollapse', null);
-function onNav(a: 'save' | 'exit') { if (a === 'exit') collapse?.(); else console.log('[nav] save'); }
+// 退出=收起回酒馆；存读档=立即存档(进度本就自动存到聊天变量·刷新不丢，此处给手动确认)
+function onNav(a: 'save' | 'exit') {
+  if (a === 'exit') { collapse?.(); return; }
+  r.saveNow();
+  saveToast.value = r.hasTavernVars ? '✓ 进度已存档（聊天变量·刷新不丢）' : '⚠ 当前环境无酒馆变量，无法存档';
+  setTimeout(() => { saveToast.value = ''; }, 2600);
+}
+const saveToast = ref('');
 function closePins() { mast.value?.clearPin(); }
 </script>
 
@@ -221,6 +232,11 @@ function closePins() { mast.value?.clearPin(); }
 .ph-t { font-family: var(--brush); font-size: 48px; color: var(--gold-dim); }
 .ph-s { font-size: 13px; color: var(--text-dim); letter-spacing: 2px; }
 
+.save-toast { position: fixed; bottom: 26px; left: 50%; transform: translateX(-50%); z-index: 210;
+  background: rgba(20,16,14,.95); border: 1px solid var(--gold-dim); color: var(--gold-hi);
+  padding: 10px 20px; border-radius: 8px; font-size: 14px; box-shadow: 0 8px 26px rgba(0,0,0,.6); }
+.fade-enter-active, .fade-leave-active { transition: opacity .3s ease, transform .3s ease; }
+.fade-enter-from, .fade-leave-to { opacity: 0; transform: translateX(-50%) translateY(8px); }
 .gen-overlay { position: fixed; inset: 0; background: rgba(10,6,8,.72); display: flex; align-items: center; justify-content: center; z-index: 200; }
 .gen-box { text-align: center; }
 .gen-spinner { width: 36px; height: 36px; margin: 0 auto 14px; border: 3px solid #3d2828; border-top-color: var(--gold-hi); border-radius: 50%; animation: spin .8s linear infinite; }

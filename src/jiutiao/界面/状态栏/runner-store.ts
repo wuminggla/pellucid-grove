@@ -226,14 +226,60 @@ export const useRunnerStore = defineStore('runner', () => {
     reliefCleared.value = false; hardFail.value = false; hardFailReason.value = null; failWarnings.value = []; error.value = null;
   }
 
+  // ─── 持久化(chat 作用域·一聊天一份存档·刷新酒馆/重开聊天不丢进度) ───
+  // 用酒馆"聊天变量"存一份存档 blob(engine+day+已生成正文随 day.slots.resultText 一起)。
+  // 任意状态变化→防抖写回; 启动时若有存档→读回, 否则落初始并写一次。
+  const SAVE_KEY = '九条会存档';
+  const hasTavernVars = typeof getVariables === 'function' && typeof insertOrAssignVariables === 'function';
+  let _loadingSave = false;
+  let _saveTimer: ReturnType<typeof setTimeout> | null = null;
+  function snapshot() {
+    return JSON.parse(JSON.stringify({ v: 1, engine: engine.value, day: day.value, fastForward: fastForward.value }));
+  }
+  function persistNow() {
+    if (_loadingSave || !hasTavernVars) return;
+    try { insertOrAssignVariables({ [SAVE_KEY]: snapshot() }, { type: 'chat' }); }
+    catch (e) { console.warn('[pellucid] 存档失败', e); }
+  }
+  function schedulePersist() { if (_saveTimer) clearTimeout(_saveTimer); _saveTimer = setTimeout(persistNow, 400); }
+  function loadSave(): boolean {
+    if (!hasTavernVars) return false;
+    try {
+      const vars = getVariables({ type: 'chat' }) || {};
+      const s = (vars as any)[SAVE_KEY];
+      if (s && s.engine && s.day) {
+        _loadingSave = true;
+        engine.value = s.engine; day.value = s.day;
+        if (typeof s.fastForward === 'boolean') fastForward.value = s.fastForward;
+        _loadingSave = false;
+        return true;
+      }
+    } catch (e) { console.warn('[pellucid] 读档失败', e); }
+    return false;
+  }
+  /** 重开新游戏(清存档→初始状态并立即写档) */
+  function resetGame() {
+    _loadingSave = true;
+    day.value = startDay(1, TOTAL_SLOTS); engine.value = initialEngine(); fastForward.value = false;
+    lastSettle.value = null; lastServe.value = null; lastRecruit.value = null; lastBuyCondom.value = null; lastNight.value = null;
+    forcedLeaveToday.value = false; forcedSeize.value = null; reliefCleared.value = false;
+    hardFail.value = false; hardFailReason.value = null; failWarnings.value = []; error.value = null;
+    _loadingSave = false; persistNow();
+  }
+
+  // 启动: 有存档→读回; 无→落初始并写一次。之后任意状态变化自动防抖存。
+  const _hadSave = loadSave();
+  if (!_hadSave) persistNow();
+  watch([day, engine, fastForward], schedulePersist, { deep: true });
+
   return {
     day, engine, fastForward, busy, lastSettle, lastServe, lastRecruit, lastNight,
     forcedLeaveToday, forcedSeize, reliefCleared, hardFail, hardFailReason, failWarnings, error,
     lastEmpty, lastWarn, genHint, lastBuyCondom,
     currentSlot: currentSlotRef, canRunCurrent, runnerState,
-    aiMode,
+    aiMode, hasSave: _hadSave, hasTavernVars,
     setFastForward, allocate, setChoice, clearChoice, fillEmpty,
     beginDay, beginNight, runCurrent, rerunLast, nextDay, loadState,
-    useMock, useTavern,
+    useMock, useTavern, saveNow: persistNow, resetGame,
   };
 });
