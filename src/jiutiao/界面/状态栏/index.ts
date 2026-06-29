@@ -1,5 +1,8 @@
 import App from './App.vue';
 import './global.css';
+import { BUILD_VERSION } from './version';
+
+console.log('[pellucid] 构建版本', BUILD_VERSION);
 
 // ============================================================
 // 入口 · "信息流只留启动按钮 + 全屏展开"

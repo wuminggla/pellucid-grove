@@ -6,7 +6,7 @@
 -->
 <template>
   <header class="masthead">
-    <div class="logo">九条会<span class="sub">JIUTIAO · 极道手账</span></div>
+    <div class="logo">九条会<span class="sub">JIUTIAO · 极道手账 · {{ BUILD_VERSION }}</span></div>
 
     <div class="stat-strip">
       <!-- 1 资金 -->
@@ -109,6 +109,7 @@
 
 <script setup lang="ts">
 import { computed, ref } from 'vue';
+import { BUILD_VERSION } from '../version';
 import { COGNITION_THRESHOLDS, REWARD_GATES } from '../../../game/corruption/machine';
 import type { EngineState } from '../../../game/engine/types';
 import type { DayState } from '../../../game/action-grid/types';
