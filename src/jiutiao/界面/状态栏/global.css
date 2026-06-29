@@ -1,32 +1,69 @@
-* {
-  box-sizing: border-box;
-  margin: 0;
-  padding: 0;
-}
+/* ============================================================
+ * 九条会 新 UI 设计系统（极道手账 · 木纹② 粗犷大纹）
+ * 视觉真相源: docs/ui-mockups/变体B-木纹方案2.html
+ * 改配色/字体/木纹只动本文件的 :root 与 wood 变量。
+ * 字体: zeoseven CDN（云峰飞云体 446 / 京华老宋体 309）。
+ * ============================================================ */
+
+/* 字体 CDN（外部 @import 由 css-loader 原样保留在产物顶部） */
+@import url("https://fontsapi.zeoseven.com/446/main/result.css"); /* 云峰飞云体 YFFYT · 毛笔水墨 标题 */
+@import url("https://fontsapi.zeoseven.com/309/main/result.css"); /* 京华老宋体 KingHwaOldSong · 正体 正文 */
 
 :root {
-  /* 九条会配色 - 极道暗金 */
-  --c-bg: #0a0608;
-  --c-surface: #1a0e12;
-  --c-surface-hi: #241318;
-  --c-border: #3d2828;
-  --c-border-soft: #2c1a20;
-  --c-text: #e8dde0;
-  --c-text-dim: #8a6b73;
-  --c-gold: #e8c87a;
-  --c-rose: #d96a8f;
-  --c-danger: #e06666;
-  --c-green: #7aa37a;
-  --font-serif: 'Noto Serif SC', serif;
+  /* —— 配色：黑金为主 + 红装饰 + 白文字 —— */
+  --ink: #0a0706;          /* 主背景近墨黑 */
+  --panel: #141010;        /* 面板 */
+  --panel-2: #1c1614;      /* 次面板 */
+  --gold: #c9a24a;         /* 主金 */
+  --gold-hi: #ecc878;      /* 亮金 */
+  --gold-dim: #7d6228;     /* 暗金 */
+  --red: #b3212e;          /* 装饰红 */
+  --red-hi: #d8404d;
+  --text: #efe6da;         /* 主文字 白 */
+  --text-dim: #a99c8d;     /* 次文字 */
+  --green: #9cba7e;        /* 成功/已结算 */
+  --line: rgba(201, 162, 74, .28);
+
+  /* —— 字体 —— */
+  --brush: "YFFYT", "KingHwaOldSong", serif;          /* 水墨标题 */
+  --serif: "KingHwaOldSong", "Songti SC", serif;      /* 正体正文 */
+
+  /* —— 木纹：方案② 粗犷大纹（无打光）—— */
+  --wood-base: #15100b;
+  --wood-h:
+    linear-gradient(180deg, rgba(0,0,0,.16), rgba(0,0,0,.44)),
+    repeating-linear-gradient(90deg,
+      #181109 0px,#251a0e 6px,#120c07 13px,#221708 20px,#0f0a06 27px,#27190c 34px);
+  --wood-v:
+    linear-gradient(90deg, rgba(0,0,0,.16), rgba(0,0,0,.46)),
+    repeating-linear-gradient(1.5deg,
+      #181109 0px,#251a0e 7px,#120c07 15px,#221708 23px,#0f0a06 31px,#27190c 39px);
 }
 
-html, body {
-  background: var(--c-bg);
-  color: var(--c-text);
-  font-family: var(--font-serif);
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html, body { height: 100%; }
+body {
+  background: var(--ink);
+  color: var(--text);
+  font-family: var(--serif);
+  -webkit-font-smoothing: antialiased;
+}
+#app { width: 100%; min-height: 100vh; }
+
+/* 极道纹样底纹（青海波·低调） */
+#app::before {
+  content: "";
+  position: fixed; inset: 0; z-index: 0; pointer-events: none; opacity: .5;
+  background-image:
+    radial-gradient(circle at 50% 100%, transparent 9px, rgba(201,162,74,.05) 10px 11px, transparent 12px),
+    radial-gradient(circle at 0% 100%,  transparent 9px, rgba(201,162,74,.05) 10px 11px, transparent 12px),
+    radial-gradient(circle at 100% 100%,transparent 9px, rgba(201,162,74,.05) 10px 11px, transparent 12px);
+  background-size: 40px 20px;
 }
 
-#app {
-  width: 100%;
-  min-height: 100vh;
-}
+/* 融合式滚动条 */
+* { scrollbar-width: thin; scrollbar-color: rgba(201,162,74,.22) transparent; }
+*::-webkit-scrollbar { width: 7px; height: 7px; }
+*::-webkit-scrollbar-track { background: transparent; }
+*::-webkit-scrollbar-thumb { background: rgba(201,162,74,.16); border-radius: 8px; }
+*::-webkit-scrollbar-thumb:hover { background: rgba(201,162,74,.34); }
