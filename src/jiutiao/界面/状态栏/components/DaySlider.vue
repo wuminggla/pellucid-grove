@@ -7,7 +7,7 @@
 <template>
   <div class="dayslider">
     <div class="dscap">早 7:00 · 拖动分配今日 {{ total }} 格 · 左白天经营 / 右夜晚供奉（白0 = 全天供奉）</div>
-    <div class="dstrackwrap" ref="wrap">
+    <div class="dstrackwrap" ref="wrap" @click="onTrackClick">
       <div class="dstrack">
         <div class="dsday" :style="{ flex: `0 0 ${pct}%` }">
           <span class="dlbl" v-show="day > 0">白天 <b>{{ day }}</b></span>
@@ -16,7 +16,8 @@
           <span class="nlbl" v-show="night > 0">夜晚 <b>{{ night }}</b></span>
         </div>
       </div>
-      <div class="dshandle" :style="{ left: `${pct}%` }" @pointerdown="onDown"></div>
+      <div class="dshandle" ref="handle" :style="{ left: `${pct}%` }"
+        @pointerdown="onDown" @pointermove="onMove" @pointerup="onUp" @pointercancel="onUp"></div>
     </div>
     <div class="dsticks">
       <span v-for="i in total - 1" :key="i" :style="{ left: `${(i / total) * 100}%` }">{{ i }}</span>
@@ -31,6 +32,7 @@ const props = defineProps<{ total: number; initialDay?: number }>();
 const emit = defineEmits<{ change: [day: number, night: number] }>();
 
 const wrap = ref<HTMLElement | null>(null);
+const handle = ref<HTMLElement | null>(null);
 const day = ref(props.initialDay ?? Math.floor(props.total / 2));
 const night = computed(() => props.total - day.value);
 const pct = computed(() => (day.value / props.total) * 100);
@@ -44,18 +46,12 @@ function setFromX(clientX: number) {
   const next = Math.round(f * props.total); // 整格吸附
   if (next !== day.value) day.value = next;
 }
-function onDown(e: PointerEvent) {
-  dragging = true;
-  (e.target as HTMLElement).setPointerCapture?.(e.pointerId);
-  window.addEventListener('pointermove', onMove);
-  window.addEventListener('pointerup', onUp);
-}
+// 指针捕获 + 元素级监听：全屏时 DOM 在顶层窗口，捕获后 move/up 直接打到手柄上(跨文档可靠)，
+// 不能用 window.addEventListener（那是楼层 iframe 的 window，收不到顶层窗口的指针事件）。
+function onDown(e: PointerEvent) { dragging = true; handle.value?.setPointerCapture?.(e.pointerId); }
 function onMove(e: PointerEvent) { if (dragging) setFromX(e.clientX); }
-function onUp() {
-  dragging = false;
-  window.removeEventListener('pointermove', onMove);
-  window.removeEventListener('pointerup', onUp);
-}
+function onUp(e: PointerEvent) { dragging = false; try { handle.value?.releasePointerCapture?.(e.pointerId); } catch { /* ignore */ } }
+function onTrackClick(e: MouseEvent) { if (e.target !== handle.value) setFromX(e.clientX); }
 
 watch(day, () => emit('change', day.value, night.value), { immediate: true });
 </script>

@@ -53,7 +53,9 @@ $(() => {
       if (!topDoc || !topDoc.body) {
         if (!inlineMounted) {
           local!.innerHTML = '<div id="pellucid-inline"></div>';
-          createApp(App).use(createPinia()).mount('#pellucid-inline');
+          const app = createApp(App);
+          app.provide('pellucidCollapse', () => { try { location.reload(); } catch { /* ignore */ } });
+          app.use(createPinia()).mount('#pellucid-inline');
           inlineMounted = true;
         }
         return;
@@ -74,22 +76,13 @@ $(() => {
       host.style.cssText = 'position:fixed;inset:0;z-index:2147483600;background:#0a0706;';
       topDoc.body.appendChild(host);
 
-      // 3) 收起按钮（回到酒馆，前端不卸载、状态保留）
-      const close = topDoc.createElement('button');
-      close.textContent = '✕ 收起';
-      close.title = '收起前端，回到酒馆界面（进度保留）';
-      close.style.cssText = [
-        'position:fixed', 'top:10px', 'right:16px', 'z-index:2147483601',
-        'font-family:"KingHwaOldSong",serif', 'background:rgba(0,0,0,.55)', 'color:#ecc878',
-        'border:1px solid #7d6228', 'border-radius:6px', 'padding:6px 13px', 'font-size:13px', 'cursor:pointer',
-      ].join(';');
-      close.onclick = () => { if (host) host.style.display = 'none'; };
-      host.appendChild(close);
-
-      // 4) 挂载 App（JS 仍在楼层 iframe 上下文 → 酒馆全局可用）
+      // 3) 挂载 App（JS 仍在楼层 iframe 上下文 → 酒馆全局可用）。
+      //    收起功能不再单独做按钮，而是 provide 给 App，由左栏「退出」按钮调用（隐藏宿主回酒馆，状态保留）。
       const mountEl = topDoc.createElement('div');
       host.appendChild(mountEl);
-      createApp(App).use(createPinia()).mount(mountEl);
+      const app = createApp(App);
+      app.provide('pellucidCollapse', () => { if (host) host.style.display = 'none'; });
+      app.use(createPinia()).mount(mountEl);
       console.log('[pellucid] 全屏前端已挂载');
     }
 

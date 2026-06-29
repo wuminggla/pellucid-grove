@@ -113,7 +113,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed } from 'vue';
+import { ref, computed, inject } from 'vue';
 import { useRunnerStore } from './runner-store';
 import Masthead from './components/Masthead.vue';
 import NavRail from './components/NavRail.vue';
@@ -162,7 +162,12 @@ function toggle(period: SlotPeriod, i: number) { const k = period + '-' + i; exp
 
 function onFF(e: Event) { r.setFastForward((e.target as HTMLInputElement).checked); }
 function onAllocate(day: number, night: number) { r.allocate(day, night); }
-function onNav(a: 'save' | 'exit') { /* TODO: 存读档 / 退出回酒馆（待接） */ console.log('[nav]', a); }
+// 收起回调由 index.ts 经 provide 注入（隐藏全屏宿主回酒馆，状态保留）。
+const collapse = inject<(() => void) | null>('pellucidCollapse', null);
+function onNav(a: 'save' | 'exit') {
+  if (a === 'exit') { collapse?.(); }     // 退出=收起前端，回酒馆
+  else { /* TODO: 存读档面板（待接） */ console.log('[nav] save'); }
+}
 function closePins() { mast.value?.clearPin(); }
 </script>
 
