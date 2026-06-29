@@ -8,11 +8,14 @@
 <template>
   <div class="strip">
     <div v-for="c in cells" :key="c.key"
-      class="cell" :class="[c.period, c.statusClass, { sel: c.key === selectedKey, cur: c.isCur }]"
+      class="cell" :class="[c.period, c.statusClass, { sel: c.key === selectedKey, cur: c.isCur, chosen: c.hasChoice }]"
       :title="c.label" @click="$emit('select', c.period, c.index)">
-      <div class="no">{{ c.cn }}</div>
-      <div class="lbl">{{ c.label }}</div>
-      <div class="st">{{ c.st }}</div>
+      <!-- 未选事件: 数标巨大明显；已选: 数标淡成背景水印 -->
+      <div class="no" :class="{ wm: c.hasChoice }">{{ c.cn }}</div>
+      <div v-if="c.hasChoice" class="fg">
+        <div class="lbl">{{ c.label }}</div>
+        <div class="st">{{ c.st }}<span v-if="c.statusClass === 'done'"> 展开查看</span></div>
+      </div>
     </div>
   </div>
 </template>
@@ -35,7 +38,7 @@ function cellOf(slot: ActionSlot, period: SlotPeriod) {
   else if (slot.status === 'running') { st = '●'; statusClass = 'running'; }
   else if (slot.status === 'planned') { st = '●'; statusClass = 'planned'; }
   const label = slot.choice?.label ?? '空';
-  return { key: period + '-' + slot.index, period, index: slot.index, cn: CN[slot.index] ?? String(slot.index + 1), label, st, statusClass, isCur };
+  return { key: period + '-' + slot.index, period, index: slot.index, cn: CN[slot.index] ?? String(slot.index + 1), label, st, statusClass, isCur, hasChoice: !!slot.choice };
 }
 
 const cells = computed(() => [
@@ -47,8 +50,9 @@ const cells = computed(() => [
 <style scoped>
 .strip { display: flex; gap: 4px; }
 .cell {
-  flex: 1 1 0; min-width: 0; cursor: pointer; text-align: center;
-  border: 1px solid var(--line); border-radius: 6px; padding: 7px 4px 6px;
+  position: relative; flex: 1 1 0; min-width: 0; cursor: pointer; text-align: center;
+  border: 1px solid var(--line); border-radius: 6px; padding: 8px 6px; min-height: 58px;
+  display: flex; flex-direction: column; align-items: center; justify-content: center; overflow: hidden;
   background: linear-gradient(180deg, rgba(0,0,0,.25), rgba(0,0,0,.4)); transition: .12s;
 }
 .cell.day { border-top: 3px solid var(--gold-dim); }
@@ -56,13 +60,16 @@ const cells = computed(() => [
 .cell:hover { background: rgba(236,200,120,.08); }
 .cell.sel { border-color: var(--gold-hi); background: rgba(201,162,74,.14); box-shadow: 0 0 0 1px var(--gold-hi); }
 .cell.cur { box-shadow: inset 0 0 0 1px var(--red-hi); }
-.cell.done { opacity: .85; }
-.no { font-family: var(--brush); font-size: 20px; color: var(--gold); line-height: 1; }
+.cell.done { opacity: .9; }
+/* 未选事件: 巨大明显数标 */
+.no { font-family: var(--brush); font-size: 30px; color: var(--gold); line-height: 1; }
 .cell.night .no { color: var(--red-hi); }
-.cell.done .no { color: var(--green); }
-.lbl { font-size: 11px; color: var(--text-dim); margin-top: 3px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.cell.sel .lbl { color: var(--text); }
-.st { font-size: 11px; margin-top: 2px; color: var(--gold-dim); }
+/* 已选事件: 数标淡化成背景水印（像淡淡花纹·几乎看不清） */
+.no.wm { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;
+  font-size: 56px; opacity: .07; pointer-events: none; z-index: 0; }
+.fg { position: relative; z-index: 1; width: 100%; }
+.lbl { font-size: 12px; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.st { font-size: 11px; margin-top: 3px; color: var(--gold-dim); }
 .cell.done .st { color: var(--green); }
 .cell.planned .st, .cell.running .st { color: var(--gold); }
 .cell.locked .st { color: var(--red-hi); }

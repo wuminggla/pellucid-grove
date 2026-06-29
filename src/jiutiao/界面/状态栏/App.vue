@@ -20,10 +20,17 @@
           <div class="tool-row">
             <span class="phase-label">{{ phaseLabel }}</span>
             <span class="ai-mode" :class="r.aiMode">{{ r.aiMode === 'tavern' ? '◆ 酒馆AI' : '○ mock' }}</span>
-            <label class="ff"><input type="checkbox" :checked="r.fastForward" @change="onFF" /> 快进</label>
+            <div class="toggles">
+              <button class="tg" :class="{ on: r.fastForward }" @click="r.setFastForward(!r.fastForward)"
+                title="快进：非特殊事件不调用 AI，直接出 CG + 总结词并更新数值。想刷数值/看结果就开；想读叙事就关。首次里程碑事件仍正常扩写。">⏩ 快进</button>
+              <button class="tg" :class="{ on: autoAdvance }" @click="autoAdvance = !autoAdvance"
+                title="自动跳转下一事件：生成正文后自动选中并展开下一格，连续推进。关闭则停留在刚生成的格子看正文，由你手动点选下一格再执行。">⤵ 自动跳转下一事件</button>
+            </div>
           </div>
 
-          <DaySlider v-if="phase === 'allocating'" :total="r.day.totalSlots" @change="onAllocate" />
+          <Transition name="collapse">
+            <DaySlider v-if="phase === 'allocating'" :total="r.day.totalSlots" @change="onAllocate" />
+          </Transition>
 
           <SlotStrip v-if="hasSlots" :day="r.day" :selectedKey="selKey" @select="onSelect" />
         </div>
@@ -88,6 +95,7 @@ import type { SlotPeriod } from '../../game/action-grid/types';
 const r = useRunnerStore();
 const view = ref('行动');
 const mast = ref<InstanceType<typeof Masthead> | null>(null);
+const autoAdvance = ref(true); // 生成后是否自动跳到下一格（开关·tool-row 按钮）
 
 const phase = computed(() => r.day.phase);
 const phaseLabel = computed(() => (({
@@ -120,7 +128,13 @@ function onPick(o: string, l: string) { const s = effSel.value; if (s) r.setChoi
 function onClear() { const s = effSel.value; if (s) r.clearChoice(s.period, s.index); }
 
 // —— 操作（执行后 selected 复位 → 自动跳到下一格 cursor）——
-async function exec() { if (r.busy || !r.canRunCurrent) return; await r.runCurrent(); selected.value = null; }
+async function exec() {
+  if (r.busy || !r.canRunCurrent) return;
+  const prev = r.day.cursor ? { period: r.day.cursor.period, index: r.day.cursor.index } : null;
+  await r.runCurrent();
+  // 自动跳转开 → selected 复位跟随新 cursor；关 → 停留在刚执行(现已结算)的格看正文
+  selected.value = autoAdvance.value ? null : prev;
+}
 async function rerun() { await r.rerunLast(); selected.value = null; }
 function startDay() { r.beginDay(); selected.value = null; }
 function toNight() { r.beginNight(); selected.value = null; }
@@ -156,7 +170,6 @@ function opts(period: SlotPeriod) {
     .map(e => ({ optionId: e.option.id, label: e.label, isNsfw: e.isNsfw }));
 }
 
-function onFF(e: Event) { r.setFastForward((e.target as HTMLInputElement).checked); }
 const collapse = inject<(() => void) | null>('pellucidCollapse', null);
 function onNav(a: 'save' | 'exit') { if (a === 'exit') collapse?.(); else console.log('[nav] save'); }
 function closePins() { mast.value?.clearPin(); }
@@ -178,7 +191,15 @@ function closePins() { mast.value?.clearPin(); }
 .ai-mode { font-size: 11px; padding: 2px 8px; border-radius: 4px; }
 .ai-mode.tavern { color: var(--green); background: rgba(122,163,122,.12); }
 .ai-mode.mock { color: #e8a87a; background: rgba(232,168,122,.12); }
-.ff { display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--text-dim); cursor: pointer; margin-left: auto; }
+.toggles { margin-left: auto; display: flex; gap: 8px; }
+.tg { font-family: var(--serif); font-size: 12px; letter-spacing: 1px; color: var(--text-dim); cursor: pointer;
+  background: rgba(0,0,0,.3); border: 1px solid var(--line); border-radius: 16px; padding: 6px 14px; transition: .12s; }
+.tg:hover { color: var(--text); border-color: var(--gold-dim); }
+.tg.on { color: #1a120a; font-weight: 700; background: linear-gradient(180deg, var(--gold-hi), var(--gold)); border-color: var(--gold); }
+/* 滑条折叠消失动画 */
+.collapse-enter-active, .collapse-leave-active { transition: max-height .35s ease, opacity .28s ease, margin-bottom .35s ease, transform .35s ease; overflow: hidden; }
+.collapse-enter-from, .collapse-leave-to { max-height: 0; opacity: 0; transform: translateY(-6px); margin-bottom: 0 !important; }
+.collapse-enter-to, .collapse-leave-from { max-height: 140px; }
 
 /* 底部状态提示栏 */
 .status-strip { flex: 1; min-width: 0; display: flex; flex-wrap: wrap; align-content: flex-start; gap: 6px; max-height: 76px; overflow-y: auto; }
