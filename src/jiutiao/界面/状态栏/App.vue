@@ -5,7 +5,7 @@
   业务调用复用 runner-store（allocate/runCurrent/rerunLast/nextDay 等）。详见 docs/UI改版工程说明.md。
 -->
 <template>
-  <div class="app" @click="closePins">
+  <div class="app pellucid-root" @click="closePins">
     <Masthead ref="mast" :engine="r.engine" :day="r.day" />
     <NavRail v-model:view="view" @action="onNav" />
 
