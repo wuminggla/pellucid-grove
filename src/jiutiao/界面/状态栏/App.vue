@@ -60,6 +60,9 @@
         </div>
       </section>
 
+      <!-- ===== 地盘 ===== -->
+      <TurfPanel v-else-if="view === '地盘'" />
+
       <!-- ===== 设置 · 存档管理 ===== -->
       <div v-else-if="view === '设置'" class="settings">
         <div class="set-box">
@@ -109,6 +112,7 @@ import DaySlider from './components/DaySlider.vue';
 import RinPanel from './components/RinPanel.vue';
 import SlotStrip from './components/SlotStrip.vue';
 import SlotDetail from './components/SlotDetail.vue';
+import TurfPanel from './components/TurfPanel.vue';
 import { buildMenu } from '../../game/events/machine';
 import { deriveEventUnlocked } from '../../game/engine/unlocked';
 import { demoEventOptions } from '../../game/engine/mock-ai';

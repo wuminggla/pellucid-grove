@@ -11,7 +11,9 @@ import {
 } from '../../game/action-grid/machine';
 import { runCurrentSlot, settleNight, advanceToNextDay, applyForcedSeizes } from '../../game/engine/day-runner';
 import type { RunnerState } from '../../game/engine/day-runner';
-import { dailyDesireDemand, availableThugs, weeklyRecruitQuota } from '../../game/economy/machine';
+import { dailyDesireDemand, availableThugs, weeklyRecruitQuota, combatPower } from '../../game/economy/machine';
+import { combatBonus } from '../../game/upgrade/machine';
+import { REGIONS_BY_ID, canDefeat, defeatRegion, reduceThreshold, regionState, effectiveThreshold } from '../../game/turf/machine';
 import type { NightSettleResult } from '../../game/engine/settlement';
 import {
   demoEventOptions, demoSummaryTemplates, demoExtractBounds, demoForcedPool, createMockAi,
@@ -81,6 +83,33 @@ export const useRunnerStore = defineStore('runner', () => {
 
   function useMock() { ai = createMockAi(); aiMode.value = 'mock'; }
   function useTavern() { ai = createTavernAi({ lorebook: demoLorebook }); aiMode.value = 'tavern'; }
+
+  // ─── 地盘(turf)·Phase1：当前武力 + 攻打/贿赂(纯数值判定·点一下出结果) ───
+  const combatPowerNow = computed(() =>
+    combatPower(availableThugs(engine.value.thugTotal, engine.value.garrison), engine.value.loyalty, combatBonus(engine.value.upgrades)));
+  const lastTurf = ref<{ ok: boolean; msg: string } | null>(null);
+
+  function attackRegion(id: string) {
+    const def = REGIONS_BY_ID[id]; if (!def) return;
+    const chk = canDefeat(def, combatPowerNow.value, engine.value.regions);
+    if (!chk.ok) { lastTurf.value = { ok: false, msg: `攻打「${def.name}」失败：${chk.reason}` }; return; }
+    // 一次性复仇·极道威望(随门槛递增);解锁后区域每日产出(条/钱/威望)由 settleDaily 接入
+    const reward = Math.max(5, Math.round(effectiveThreshold(def, regionState(engine.value.regions, id)) / 10));
+    engine.value = {
+      ...engine.value,
+      regions: defeatRegion(engine.value.regions, id),
+      martialPrestige: engine.value.martialPrestige + reward,
+      martialGainToday: (engine.value.martialGainToday ?? 0) + reward,
+    };
+    lastTurf.value = { ok: true, msg: `击败「${def.bossName}」，占据「${def.name}」！极道威望 +${reward}，每日产出已接入。` };
+  }
+  function bribeRegion(id: string) {
+    const def = REGIONS_BY_ID[id]; if (!def) return;
+    const COST = 1000, CUT = 60;
+    if (engine.value.money < COST) { lastTurf.value = { ok: false, msg: '资金不足，无法贿赂调查。' }; return; }
+    engine.value = { ...engine.value, money: engine.value.money - COST, regions: reduceThreshold(engine.value.regions, id, CUT) };
+    lastTurf.value = { ok: true, msg: `贿赂调查「${def.name}」，击败门槛 -${CUT}（花费 ¥${COST}）。` };
+  }
 
   // ─── getters(computed) ───
   const currentSlotRef = computed(() => currentSlot(day.value));
@@ -278,6 +307,7 @@ export const useRunnerStore = defineStore('runner', () => {
     lastEmpty, lastWarn, genHint, lastBuyCondom,
     currentSlot: currentSlotRef, canRunCurrent, runnerState,
     aiMode, hasSave: _hadSave, hasTavernVars,
+    combatPowerNow, lastTurf, attackRegion, bribeRegion,
     setFastForward, allocate, setChoice, clearChoice, fillEmpty,
     beginDay, beginNight, runCurrent, rerunLast, nextDay, loadState,
     useMock, useTavern, saveNow: persistNow, resetGame,
