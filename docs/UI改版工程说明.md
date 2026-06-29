@@ -36,6 +36,13 @@
 | **SlotStrip.vue** | `components/SlotStrip.vue` | 8格事件横条(对齐滑条分格)：每格=事件预览(序号/状态/标签)，点选 emit select | day |
 | **SlotDetail.vue** | `components/SlotDetail.vue` | 选中格的子页：事件选择列表 / 进行中 / 已结算正文(首字水墨+段落 pre-wrap) | App 传 slot |
 | **RinPanel.vue** | `components/RinPanel.vue` | 立绘人像 + 可折叠秘密状态（身体开发四部位/特殊性癖/生育经期） | engine |
+| **TurfPanel.vue** | `components/TurfPanel.vue` | 地盘视图(#13 Phase1)：复仇链5区域 + 攻打占据/贿赂降门槛 | engine.regions + turf模块 + combatPowerNow |
+
+**#13 地盘玩法·分阶段**(后端 turf 模块已全就绪):
+- ✅Phase1(v32): 地盘视图(复仇链可视化:状态/门槛vs武力/产出/驻防) + 攻打(canDefeat→defeatRegion+一次性极道威望) + 贿赂(reduceThreshold·¥1000降60门槛)。激活极道威望来源。攻打为直接数值判定,尚未占白天格。
+- ⬜Phase2: 攻打/守地盘集成进白天行动格(占格+出正文)。
+- ⬜Phase3: 骚扰/进攻事件接游戏循环(settleHarass/settleRaid 已就绪,接 forcedPool/每日扫描)。
+- ⬜Phase4: 复仇/扩张推进后解除「威望轨硬失败暂挂」(settlement.ts 威望轨硬失败已启用→true) + 接 #14 威望自动衰减。
 
 **「行动」视图交互(v26 重构·减少上下滚动)**: 上=工具行+(分配阶段)日夜滑条+SlotStrip横条；中=SlotDetail(仅此区滚动)；下=固定底边栏(左 status-strip 显示变量变化/警告/空回，右 操作按钮)。选中格默认跟随 cursor；执行正文后自动跳下一格(`selected` 复位)。格数增加只是横条变长，不增上下滚动。
 旧 `SlotCard.vue` 已弃用(被 Strip+Detail 取代)，保留文件备查。
