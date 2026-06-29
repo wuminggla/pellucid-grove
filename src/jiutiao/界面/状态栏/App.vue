@@ -36,7 +36,8 @@
         </div>
 
         <div class="av-detail">
-          <SlotDetail v-if="hasSlots" :slot="selSlot" :period="selPeriod" :options="selOptions"
+          <TurfPanel v-if="r.pendingMap" :selectMode="r.pendingMap.kind" @cancel="r.cancelMapSelect()" />
+          <SlotDetail v-else-if="hasSlots" :slot="selSlot" :period="selPeriod" :options="selOptions"
             @pick="onPick" @clear="onClear" />
           <div v-else class="av-empty">拖动上方滑条分配今日白天 / 夜晚行动格</div>
         </div>
@@ -62,6 +63,12 @@
 
       <!-- ===== 地盘 ===== -->
       <TurfPanel v-else-if="view === '地盘'" />
+
+      <!-- ===== 升级 ===== -->
+      <UpgradePanel v-else-if="view === '升级'" />
+
+      <!-- ===== 影业 / AV ===== -->
+      <AvPanel v-else-if="view === '影业'" />
 
       <!-- ===== 设置 · 存档管理 ===== -->
       <div v-else-if="view === '设置'" class="settings">
@@ -104,7 +111,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, inject } from 'vue';
+import { ref, computed, inject, watch } from 'vue';
 import { useRunnerStore } from './runner-store';
 import Masthead from './components/Masthead.vue';
 import NavRail from './components/NavRail.vue';
@@ -113,6 +120,8 @@ import RinPanel from './components/RinPanel.vue';
 import SlotStrip from './components/SlotStrip.vue';
 import SlotDetail from './components/SlotDetail.vue';
 import TurfPanel from './components/TurfPanel.vue';
+import UpgradePanel from './components/UpgradePanel.vue';
+import AvPanel from './components/AvPanel.vue';
 import { buildMenu } from '../../game/events/machine';
 import { deriveEventUnlocked } from '../../game/engine/unlocked';
 import { demoEventOptions } from '../../game/engine/mock-ai';
@@ -158,11 +167,16 @@ function onClear() { const s = effSel.value; if (s) r.clearChoice(s.period, s.in
 // —— 操作（执行后 selected 复位 → 自动跳到下一格 cursor）——
 async function exec() {
   if (r.busy || !r.canRunCurrent) return;
+  // 刺探/贿赂格:不调 AI,改为在主区展开地盘地图选目标(由 TurfPanel selectMode 处理)
+  const mapKind = r.currentMapKind();
+  if (mapKind) { r.beginMapSelect(mapKind); return; }
   const prev = r.day.cursor ? { period: r.day.cursor.period, index: r.day.cursor.index } : null;
   await r.runCurrent();
   // 自动跳转开 → selected 复位跟随新 cursor；关 → 停留在刚执行(现已结算)的格看正文
   selected.value = autoAdvance.value ? null : prev;
 }
+// 地图选择落子完成(pendingMap 由非空→null)后,复位 selected 跟随新 cursor
+watch(() => r.pendingMap, (cur, prev) => { if (prev && !cur) selected.value = null; });
 async function rerun() { await r.rerunLast(); selected.value = null; }
 function startDay() { r.beginDay(); selected.value = null; }
 function toNight() { r.beginNight(); selected.value = null; }

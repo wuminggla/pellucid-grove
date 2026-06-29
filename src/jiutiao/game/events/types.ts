@@ -85,8 +85,17 @@ export interface EventOption {
   irreversibleAfterErosion?: boolean;
   /** 置顶（AV玩家定制选项排菜单最前） */
   pinned?: boolean;
+  /**
+   * 地图选择型(刺探/贿赂)。执行此格时不走 AI 扩写,而是在主区展开地盘地图选目标:
+   *   'scout' = 刺探:选任一未占据关→1/4概率获情报+扣钱;
+   *   'bribe' = 贿赂:只可选已获情报的关→降其击败门槛。
+   * 由 App/runner-store 拦截执行,settleScout/settleBribe 结算。
+   */
+  mapSelect?: 'scout' | 'bribe';
   /** 供奉类（执行后扣避孕套等，对接 settlement.serveOptionIds） */
   isServe?: boolean;
+  /** 供奉但不消耗避孕套（如口交侍奉·非阴道/肛门插入，无需套） */
+  noCondom?: boolean;
   /** 极道威望奖励（每次结算给；来源=火并/据点战/复仇胜利） */
   martialReward?: number;
   /** 淫名奖励（每次结算给，仅 AV 解锁后生效；来源=AV/轮奸规模/肉体名气） */

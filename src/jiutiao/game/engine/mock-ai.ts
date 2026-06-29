@@ -28,20 +28,19 @@ export const demoEventOptions: Record<string, EventOption> = {
     sfw: { worldbookKey: 'wb_defend_turf' },
   },
 
+  // 刺探(地图选择型):执行→主区展开地盘地图→选目标关→1/4概率获情报+扣钱
   scout: {
-    id: 'scout', label: '刺探/派驻', period: 'day', shape: 'born_sfw',
+    id: 'scout', label: '刺探敌情', period: 'day', shape: 'born_sfw',
     sfw: { worldbookKey: 'wb_scout_sfw' },
+    mapSelect: 'scout',
   },
 
-  // 双面型:贿赂敌人(SFW金钱↔NSFW身体贿赂)
+  // 贿赂(地图选择型·平时隐藏,有情报才出现):执行→地图只可选已刺探关→降其击败门槛
   bribe: {
-    id: 'bribe', label: '贿赂敌人', period: 'day', shape: 'dual',
+    id: 'bribe', label: '贿赂调查', period: 'day', shape: 'born_sfw',
+    unlockRequires: ['bribe_available'],
     sfw: { worldbookKey: 'wb_bribe_sfw' },
-    nsfw: { worldbookKey: 'wb_bribe_body' },
-    erosionGate: { corruptionAtLeast: 30 },
-    irreversibleAfterErosion: true,
-    first: { ledgerKey: 'bribe_first_body', paradigm: { worldbookKey: 'wb_bribe_first' }, corruptionWeight: 2 },
-    needsContinuity: true,
+    mapSelect: 'bribe',
   },
 
   // 双面型:收保护费(SFW威风↔NSFW人前淫乱)
@@ -239,7 +238,7 @@ export const demoEventOptions: Record<string, EventOption> = {
   // ═══════════════════════════════════════════════════
 
   serve_oral: {
-    id: 'serve_oral', label: '口交侍奉', period: 'night', shape: 'born_nsfw', isServe: true,
+    id: 'serve_oral', label: '口交侍奉', period: 'night', shape: 'born_nsfw', isServe: true, noCondom: true,
     nsfw: { worldbookKey: 'wb_serve_oral' },
     first: { ledgerKey: 'serve_oral_first', paradigm: { worldbookKey: 'wb_serve_oral_first' }, corruptionWeight: 2 },
   },

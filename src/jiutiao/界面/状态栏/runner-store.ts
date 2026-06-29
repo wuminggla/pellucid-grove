@@ -8,12 +8,19 @@
 import {
   startDay, allocate as allocateFn, setChoice as setChoiceFn, clearChoice as clearChoiceFn,
   beginDay as beginDayFn, beginNight as beginNightFn, fillEmpty as fillEmptyFn, currentSlot,
+  markRunning, completeCurrent,
 } from '../../game/action-grid/machine';
 import { runCurrentSlot, settleNight, advanceToNextDay, applyForcedSeizes } from '../../game/engine/day-runner';
 import type { RunnerState } from '../../game/engine/day-runner';
 import { dailyDesireDemand, availableThugs, weeklyRecruitQuota, combatPower } from '../../game/economy/machine';
-import { combatBonus } from '../../game/upgrade/machine';
-import { REGIONS_BY_ID, canDefeat, defeatRegion, reduceThreshold, regionState, effectiveThreshold } from '../../game/turf/machine';
+import { combatBonus, UPGRADES_BY_ID, canUpgrade, applyUpgrade } from '../../game/upgrade/machine';
+import {
+  REGIONS_BY_ID, canDefeat, defeatRegion, regionState, effectiveThreshold,
+  settleScout, settleBribe, SCOUT_COST,
+} from '../../game/turf/machine';
+import { canShootAv, buildAvPrompt, consumeShoot, defaultAvState } from '../../game/av/machine';
+import type { AvDefinition } from '../../game/av/machine';
+import type { UpgradeDef } from '../../game/upgrade/types';
 import type { NightSettleResult } from '../../game/engine/settlement';
 import {
   demoEventOptions, demoSummaryTemplates, demoExtractBounds, demoForcedPool, createMockAi,
@@ -88,6 +95,8 @@ export const useRunnerStore = defineStore('runner', () => {
   const combatPowerNow = computed(() =>
     combatPower(availableThugs(engine.value.thugTotal, engine.value.garrison), engine.value.loyalty, combatBonus(engine.value.upgrades)));
   const lastTurf = ref<{ ok: boolean; msg: string } | null>(null);
+  // 地图选择模式(刺探/贿赂事件格执行中):非空时主区展开地图选目标
+  const pendingMap = ref<{ kind: 'scout' | 'bribe' } | null>(null);
 
   function attackRegion(id: string) {
     const def = REGIONS_BY_ID[id]; if (!def) return;
@@ -101,14 +110,87 @@ export const useRunnerStore = defineStore('runner', () => {
       martialPrestige: engine.value.martialPrestige + reward,
       martialGainToday: (engine.value.martialGainToday ?? 0) + reward,
     };
-    lastTurf.value = { ok: true, msg: `击败「${def.bossName}」，占据「${def.name}」！极道威望 +${reward}，每日产出已接入。` };
+    const bossLine = def.isCenter ? `击败中枢Boss「${def.bossName}」` : `攻占「${def.name}」`;
+    lastTurf.value = { ok: true, msg: `${bossLine}！极道威望 +${reward}，每日产出已接入。` };
   }
-  function bribeRegion(id: string) {
+
+  // ─── 刺探/贿赂(事件格→地图选择流程) ───
+  /** 当前格是地图选择型(刺探/贿赂)？App 据此走 beginMapSelect 而非 runCurrent。 */
+  function currentMapKind(): 'scout' | 'bribe' | null {
+    const cur = currentSlot(day.value);
+    const opt = cur?.choice ? demoEventOptions[cur.choice.optionId] : undefined;
+    return opt?.mapSelect ?? null;
+  }
+  /** 进入地图选择模式(刺探/贿赂格被执行) */
+  function beginMapSelect(kind: 'scout' | 'bribe') { pendingMap.value = { kind }; lastTurf.value = null; }
+  function cancelMapSelect() { pendingMap.value = null; }
+
+  /** 完成当前格(无AI·写总结文 + 推进 cursor + 必要时夜结) */
+  function completeMapSlot(text: string) {
+    const dayRunning = markRunning(day.value);
+    const done = completeCurrent(dayRunning, text);
+    day.value = done;
+    if (done.phase === 'night_settled') { const ns = settleNight(engine.value); engine.value = ns.state; lastNight.value = ns; }
+    pendingMap.value = null;
+  }
+
+  /** 地图选择落子(刺探或贿赂目标关) */
+  function resolveMapSlot(id: string) {
+    const kind = pendingMap.value?.kind; if (!kind) return;
     const def = REGIONS_BY_ID[id]; if (!def) return;
-    const COST = 1000, CUT = 60;
-    if (engine.value.money < COST) { lastTurf.value = { ok: false, msg: '资金不足，无法贿赂调查。' }; return; }
-    engine.value = { ...engine.value, money: engine.value.money - COST, regions: reduceThreshold(engine.value.regions, id, CUT) };
-    lastTurf.value = { ok: true, msg: `贿赂调查「${def.name}」，击败门槛 -${CUT}（花费 ¥${COST}）。` };
+    if (kind === 'scout') {
+      const r = settleScout({ money: engine.value.money, regions: engine.value.regions }, id, Math.random());
+      if (r.reason === 'no_money') {
+        lastTurf.value = { ok: false, msg: `资金不足(需¥${SCOUT_COST})，刺探无果。` };
+        completeMapSlot('打手前去刺探，却因银根吃紧无功而返。'); return;
+      }
+      engine.value = { ...engine.value, money: r.money, regions: r.regions };
+      if (r.hit) {
+        lastTurf.value = { ok: true, msg: `刺探「${def.name}」成功！已获情报，可对其贿赂降门槛（花费¥${r.paid}）。` };
+        completeMapSlot(`刺探「${def.name}」得手，摸清了守备虚实——贿赂调查的门路打开了。`);
+      } else {
+        lastTurf.value = { ok: false, msg: `刺探「${def.name}」一无所获（花费¥${r.paid}）。` };
+        completeMapSlot(`刺探「${def.name}」扑了空，只折了些打点钱。`);
+      }
+    } else {
+      const r = settleBribe(engine.value.regions, id);
+      if (!r.ok) {
+        lastTurf.value = { ok: false, msg: r.reason === 'no_intel' ? '该关尚无情报，无法贿赂。' : '该关已占据。' };
+        return; // 不消耗格,让玩家重选
+      }
+      engine.value = { ...engine.value, regions: r.regions };
+      lastTurf.value = { ok: true, msg: `贿赂调查「${def.name}」，击败门槛 -${r.cut}。` };
+      completeMapSlot(`银钱开路，「${def.name}」的守备被买通松动，击败门槛降了 ${r.cut}。`);
+    }
+  }
+
+  // ─── 升级系统 ───
+  const lastUpgrade = ref<{ ok: boolean; msg: string } | null>(null);
+  function buyUpgrade(id: string) {
+    const def: UpgradeDef | undefined = UPGRADES_BY_ID[id]; if (!def) return;
+    const chk = canUpgrade(def, engine.value as any);
+    if (!chk.ok) { lastUpgrade.value = { ok: false, msg: `「${def.name}」无法升级：${chk.reason}` }; return; }
+    engine.value = applyUpgrade(engine.value as any, def);
+    const lvl = engine.value.upgrades?.[id] ?? 1;
+    lastUpgrade.value = { ok: true, msg: `「${def.name}」已升至 Lv.${lvl}（花费¥${def.cost}）。` };
+  }
+
+  // ─── AV 系统(拍摄→排入行动格,执行时注入定制范式) ───
+  const lastAv = ref<{ ok: boolean; msg: string } | null>(null);
+  /** 把一次AV定制排入今日某空白白天格(执行该格时注入 inlinePrompt + consumeShoot) */
+  function queueAvShoot(def: AvDefinition): boolean {
+    const chk = canShootAv(engine.value, def);
+    if (!chk.ok) { lastAv.value = { ok: false, msg: chk.reason ?? '无法拍摄' }; return false; }
+    // 找今日第一个未安排的白天格
+    const idx = day.value.daySlots.findIndex(s => !s.choice && !s.locked);
+    if (idx < 0) { lastAv.value = { ok: false, msg: '今日白天没有空闲行动格，先分配/清出一格再排片。' }; return false; }
+    const prompt = buildAvPrompt(def);
+    day.value = setChoiceFn(day.value, 'day', idx, {
+      optionId: 'av_custom', label: `拍AV·${def.theme}`,
+      params: { avInlinePrompt: prompt, avDef: JSON.parse(JSON.stringify(def)) },
+    });
+    lastAv.value = { ok: true, msg: `已排入第 ${idx + 1} 个白天格：${def.theme}/${def.setting}（${def.durationHours}h）。执行该格即开拍。` };
+    return true;
   }
 
   // ─── getters(computed) ───
@@ -188,9 +270,16 @@ export const useRunnerStore = defineStore('runner', () => {
   async function execCurrentFrom(snapshot: { day: DayState; engine: EngineState }) {
     busy.value = true; error.value = null; lastEmpty.value = false; lastWarn.value = null;
     genHint.value = GEN_HINTS[Math.floor(Math.random() * GEN_HINTS.length)];
+    // 执行前记录当前格(AV拍摄消费判定用)
+    const ranSlot = currentSlot(snapshot.day);
     try {
       const r = await withTimeout(runCurrentSlot({ day: snapshot.day, engine: snapshot.engine }, settleOptions()), GEN_TIMEOUT_MS);
       let nextEngine = r.state.engine;
+      // AV 定制格执行后:消费一次拍摄(扣周次数/累加 shotCount/存档案)
+      if (ranSlot?.choice?.optionId === 'av_custom' && ranSlot.choice.params?.avDef) {
+        const av = nextEngine.av ?? defaultAvState();
+        nextEngine = { ...nextEngine, av: consumeShoot(av, ranSlot.choice.params.avDef as AvDefinition) };
+      }
       let nightInfo: NightSettleResult | null = null;
       if (r.state.day.phase === 'night_settled') {
         const ns = settleNight(nextEngine);
@@ -307,7 +396,9 @@ export const useRunnerStore = defineStore('runner', () => {
     lastEmpty, lastWarn, genHint, lastBuyCondom,
     currentSlot: currentSlotRef, canRunCurrent, runnerState,
     aiMode, hasSave: _hadSave, hasTavernVars,
-    combatPowerNow, lastTurf, attackRegion, bribeRegion,
+    combatPowerNow, lastTurf, attackRegion,
+    pendingMap, currentMapKind, beginMapSelect, cancelMapSelect, resolveMapSlot,
+    lastUpgrade, buyUpgrade, lastAv, queueAvShoot,
     setFastForward, allocate, setChoice, clearChoice, fillEmpty,
     beginDay, beginNight, runCurrent, rerunLast, nextDay, loadState,
     useMock, useTavern, saveNow: persistNow, resetGame,

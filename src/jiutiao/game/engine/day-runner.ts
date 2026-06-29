@@ -124,10 +124,12 @@ export async function runCurrentSlot(
   // 供奉类格子：执行后扣避孕套 + 当场降欲 + 计入被供奉人数（由 EventOption.isServe 判定）
   let engine = settle.state;
   let serve: RunSlotResult['serve'] = null;
-  if (opts.eventOptions[slot.choice.optionId]?.isServe) {
+  const serveOpt = opts.eventOptions[slot.choice.optionId];
+  if (serveOpt?.isServe) {
     // 强制请假轮奸日：吞吐×1.5（多服务人数，帮运营失败玩家清欲望）
     const mult = state.day.forcedLeave ? CONST.请假轮奸吞吐倍率 : 1;
-    const sr = settleServe(engine, mult);
+    // 口交等非插入供奉(noCondom)不耗避孕套
+    const sr = settleServe(engine, mult, !serveOpt.noCondom);
     engine = sr.state;
     serve = { condomUsed: sr.condomUsed, condomShort: sr.condomShort, served: sr.served, desireRelieved: sr.desireRelieved };
   }

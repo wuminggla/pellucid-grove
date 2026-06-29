@@ -1,40 +1,81 @@
 <!--
-  TurfPanel · 地盘视图（#13 Phase1）
-  职责: 把 turf 的 5 区域复仇链可视化(老宅→街区→片区→山头→小半城·会长杀父仇人)，
-        显示每区域 状态/有效门槛 vs 当前武力/每日产出/驻防需求，并提供 攻打 / 贿赂降门槛。
-  威望主来源: 攻打成功=一次性极道威望 + 解锁后每日产出(条/钱/威望·settleDaily 接入)。
-  数据: engine.regions + REGIONS(数据源) + 当前武力(runner-store.combatPowerNow)。
-  说明: Phase1 攻打/贿赂为直接数值判定(点一下出结果·设计正典「据点战纯数值判定」)，
-        尚未占白天行动格(留 Phase2 格集成)。
+  TurfPanel · 地盘地图（#13 大改：4阶段×(10小关+1中心关)≈44关）
+  两种用法:
+   1. 浏览模式(view='地盘'): 阶段选项卡 + 地图块(点亮=占据/红=未纳入/锁=未解锁)，点块弹关卡信息+攻打。
+   2. 选择模式(行动视图·刺探/贿赂格执行中, props.selectMode): 点可选块→resolveMapSlot。
+  地图规则: 阶段1开局激活;占满本阶段10小关→解锁中心关;击败中心Boss→解锁下一阶段10小关。
+  数据: engine.regions + turf 模块 + combatPowerNow。
 -->
 <template>
-  <div class="turf">
+  <div class="turf" :class="{ selecting: !!selectMode }">
     <div class="turf-head">
-      <div class="t-title">地盘 · 复仇</div>
+      <div class="t-title">{{ selectMode ? (selectMode === 'scout' ? '刺探 · 选择目标' : '贿赂 · 选择目标') : '地盘 · 复仇地图' }}</div>
       <div class="t-power">当前武力 <b>{{ Math.round(power) }}</b></div>
+      <button v-if="selectMode" class="cancel" @click="$emit('cancel')">取消</button>
     </div>
-    <div class="t-hint">击败一片地盘的 boss（你的复仇目标）即占据该区域：需 <b>武力 ≥ 击败门槛</b>。贿赂调查可降低门槛。占据后每日产出避孕套 / 资金 / 极道威望。</div>
+
+    <div class="t-hint" v-if="selectMode">
+      {{ selectMode === 'scout'
+        ? `点选一个未占据的地盘进行刺探：花费 ¥${SCOUT_COST}，约四分之一概率拿到情报（拿到后才能对其贿赂降门槛）。`
+        : '点选一个【已刺探到情报】的地盘进行贿赂：按其门槛比例降低击败门槛。高亮块为可贿赂目标。' }}
+    </div>
+    <div class="t-hint" v-else>
+      点亮=已占据 · 红=未纳入(可攻打/门槛不足) · 锁=未解锁。占满一阶段全部小关→解锁中枢Boss；击败Boss→解锁下一阶段。点地盘块查看详情与攻打。
+    </div>
 
     <div v-if="r.lastTurf" class="t-feedback" :class="{ ok: r.lastTurf.ok, bad: !r.lastTurf.ok }">{{ r.lastTurf.msg }}</div>
 
-    <div class="chain">
-      <div v-for="(c, i) in cells" :key="c.id" class="region" :class="c.state">
-        <div class="r-rail"><span class="r-dot"></span><span v-if="i < cells.length - 1" class="r-line"></span></div>
-        <div class="r-body">
-          <div class="r-top">
-            <span class="r-name">{{ c.name }}</span>
-            <span class="r-tag" :class="c.state">{{ c.tagText }}</span>
-          </div>
-          <div class="r-boss">守敌 · {{ c.bossName }}</div>
-          <div class="r-meta">
-            <span class="m">门槛 <b :class="{ red: !c.canBeat && c.state !== 'occupied' && c.state !== 'locked' }">{{ c.threshold }}</b> / 武力 {{ Math.round(power) }}</span>
-            <span class="m">产出 <b>{{ c.yieldText }}</b></span>
-            <span class="m" v-if="c.garrisonNeed">驻防需 {{ c.garrisonNeed }}</span>
-          </div>
-          <div class="r-btns" v-if="c.state !== 'occupied'">
-            <button class="atk" :disabled="!c.canBeat" @click="r.attackRegion(c.id)">{{ c.state === 'locked' ? '前置未解锁' : (c.canBeat ? '攻打占据 ▶' : '武力不足') }}</button>
-            <button class="brb" v-if="c.state !== 'locked'" :disabled="r.engine.money < 1000" @click="r.bribeRegion(c.id)" title="花 ¥1000 降低击败门槛 60">贿赂调查 -门槛</button>
-          </div>
+    <!-- 阶段选项卡 -->
+    <div class="stage-tabs">
+      <button v-for="s in stageTabs" :key="s.stage" class="tab" :class="{ active: s.stage === curStage, locked: !s.active }"
+        :disabled="!s.active" @click="curStage = s.stage">
+        <span class="tab-no">第{{ s.stage }}阶段</span>
+        <span class="tab-name">{{ s.region }}</span>
+        <span class="tab-prog" v-if="s.active">{{ s.bossDone ? '✓ 已通关' : `${s.done}/${s.total}` }}</span>
+        <span class="tab-prog" v-else>🔒</span>
+      </button>
+    </div>
+
+    <!-- 中枢Boss关 -->
+    <div class="center-row">
+      <div class="region center" :class="centerCell.display" @click="onCell(centerCell)">
+        <div class="c-badge">中枢 · Boss</div>
+        <div class="c-name">{{ centerCell.def.name }}</div>
+        <div class="c-boss">{{ centerCell.def.bossName }}</div>
+        <div class="c-meta">门槛 <b :class="{ red: centerCell.display === 'weak' }">{{ centerCell.threshold }}</b> · 产出 {{ centerCell.yieldText }}</div>
+        <div class="c-state">{{ centerCell.tag }}</div>
+      </div>
+    </div>
+
+    <!-- 10 小关 -->
+    <div class="grid">
+      <div v-for="c in smallCells" :key="c.def.id" class="region small" :class="[c.display, { pick: selectMode && c.selectable }]" @click="onCell(c)">
+        <div class="s-name">{{ shortName(c.def.name) }}</div>
+        <div class="s-thr" :class="{ red: c.display === 'weak' }">{{ c.display === 'occupied' ? '✓' : (c.display === 'locked' ? '🔒' : c.threshold) }}</div>
+        <div v-if="c.intel" class="s-intel">情</div>
+      </div>
+    </div>
+
+    <!-- 关卡信息弹窗(浏览模式) -->
+    <div v-if="popup" class="pop-mask" @click="popup = null">
+      <div class="popup" @click.stop>
+        <div class="p-head">
+          <span class="p-name">{{ popup.def.name }}</span>
+          <span class="p-tag" :class="popup.display">{{ popup.tag }}</span>
+        </div>
+        <div class="p-boss">守敌 · {{ popup.def.bossName }}</div>
+        <div class="p-rows">
+          <div class="p-row"><span>击败门槛</span><b :class="{ red: popup.display === 'weak' }">{{ popup.threshold }}</b></div>
+          <div class="p-row"><span>当前武力</span><b>{{ Math.round(power) }}</b></div>
+          <div class="p-row"><span>每日产出</span><b>{{ popup.yieldText }}</b></div>
+          <div class="p-row"><span>驻防需求</span><b>{{ popup.def.garrisonNeed }}</b></div>
+          <div class="p-row"><span>情报</span><b :class="{ gold: popup.intel }">{{ popup.intel ? '已掌握(可贿赂)' : '未刺探' }}</b></div>
+        </div>
+        <div class="p-btns">
+          <button class="atk" :disabled="popup.display !== 'attackable'" @click="doAttack(popup.def.id)">
+            {{ popup.display === 'occupied' ? '已占据' : popup.display === 'locked' ? '未解锁' : popup.display === 'weak' ? '武力不足' : '攻打占据 ▶' }}
+          </button>
+          <button class="close" @click="popup = null">关闭</button>
         </div>
       </div>
     </div>
@@ -42,70 +83,155 @@
 </template>
 
 <script setup lang="ts">
-import { computed } from 'vue';
+import { computed, ref, watch } from 'vue';
 import { useRunnerStore } from '../runner-store';
-import { REGIONS, regionState, effectiveThreshold, isRegionUnlocked } from '../../../game/turf/machine';
+import {
+  REGIONS_BY_ID, regionState, effectiveThreshold, regionDisplay, hasIntel,
+  smallsOfStage, centerOfStage, stageSmallProgress, isStageActive, isStageBossDefeated,
+  highestActiveStage, STAGE_COUNT, SCOUT_COST,
+} from '../../../game/turf/machine';
+import type { RegionDef } from '../../../game/turf/types';
+import type { RegionDisplay } from '../../../game/turf/machine';
+
+const props = defineProps<{ selectMode?: 'scout' | 'bribe' | null }>();
+const emit = defineEmits<{ cancel: [] }>();
 
 const r = useRunnerStore();
 const power = computed(() => r.combatPowerNow);
+const selectMode = computed(() => props.selectMode ?? null);
 
-const cells = computed(() => {
-  const regions = r.engine.regions;
-  return REGIONS.filter(d => d.id !== 'home').map(def => {
-    const st = regionState(regions, def.id);
-    const thr = effectiveThreshold(def, st);
-    const preOk = !def.requiresRegion || isRegionUnlocked(regions, def.requiresRegion);
-    const canBeat = !st.defeated && preOk && power.value >= thr;
-    let state: 'occupied' | 'locked' | 'ready' | 'weak' = 'weak';
-    let tagText = '';
-    if (st.defeated) { state = 'occupied'; tagText = '已占据'; }
-    else if (!preOk) { state = 'locked'; tagText = '锁定'; }
-    else if (canBeat) { state = 'ready'; tagText = '可攻打'; }
-    else { state = 'weak'; tagText = '门槛不足'; }
-    const y = def.yields;
-    const yieldText = [y.money ? `¥${y.money}` : '', y.condom ? `套${y.condom}` : '', y.martial ? `威望${y.martial}` : ''].filter(Boolean).join(' · ');
-    return { id: def.id, name: def.name, bossName: def.bossName, threshold: thr, canBeat, state, tagText, yieldText, garrisonNeed: def.garrisonNeed };
-  });
+const curStage = ref(highestActiveStage(r.engine.regions));
+watch(() => r.engine.regions, () => {
+  // 推进后若当前阶段已通关,自动定位到最高激活阶段
+  const hi = highestActiveStage(r.engine.regions);
+  if (hi > curStage.value) curStage.value = hi;
 });
+
+interface Cell { def: RegionDef; display: RegionDisplay; threshold: number; tag: string; yieldText: string; intel: boolean; selectable: boolean; }
+
+function tagOf(d: RegionDisplay): string {
+  return d === 'occupied' ? '已占据' : d === 'attackable' ? '可攻打' : d === 'weak' ? '门槛不足' : '未解锁';
+}
+function yieldOf(def: RegionDef): string {
+  const y = def.yields;
+  return [y.money ? `¥${y.money}` : '', y.condom ? `套${y.condom}` : '', y.martial ? `威${y.martial}` : ''].filter(Boolean).join('·');
+}
+function shortName(name: string): string {
+  const i = name.indexOf('·');
+  return i >= 0 ? name.slice(i + 1) : name;
+}
+function selectableOf(def: RegionDef, display: RegionDisplay): boolean {
+  if (!selectMode.value) return false;
+  const st = regionState(r.engine.regions, def.id);
+  if (st.defeated) return false;
+  if (selectMode.value === 'scout') return display !== 'locked'; // 刺探:任一可见未占据关
+  return st.intel === true; // 贿赂:仅已获情报关
+}
+function buildCell(def: RegionDef): Cell {
+  const st = regionState(r.engine.regions, def.id);
+  const display = regionDisplay(r.engine.regions, def, power.value);
+  return {
+    def, display, threshold: effectiveThreshold(def, st), tag: tagOf(display),
+    yieldText: yieldOf(def), intel: st.intel === true, selectable: selectableOf(def, display),
+  };
+}
+
+const smallCells = computed(() => smallsOfStage(curStage.value).map(buildCell));
+const centerCell = computed(() => buildCell(centerOfStage(curStage.value)!));
+
+const stageTabs = computed(() => Array.from({ length: STAGE_COUNT }, (_, i) => {
+  const stage = i + 1;
+  const p = stageSmallProgress(r.engine.regions, stage);
+  return { stage, region: centerOfStage(stage)!.name.split('·')[0], active: isStageActive(r.engine.regions, stage),
+    done: p.done, total: p.total, bossDone: isStageBossDefeated(r.engine.regions, stage) };
+}));
+
+const popup = ref<Cell | null>(null);
+
+function onCell(c: Cell) {
+  if (selectMode.value) {
+    if (c.selectable) r.resolveMapSlot(c.def.id);
+    return;
+  }
+  popup.value = c;
+}
+function doAttack(id: string) {
+  r.attackRegion(id);
+  // 刷新弹窗显示(可能已占据)
+  const def = REGIONS_BY_ID[id];
+  if (def) popup.value = buildCell(def);
+}
 </script>
 
 <style scoped>
-.turf { padding: 20px 26px; overflow-y: auto; height: 100%; }
+.turf { padding: 18px 24px; overflow-y: auto; height: 100%; }
+.turf.selecting { background: radial-gradient(circle at 50% 0, rgba(201,162,74,.06), transparent 60%); }
 .turf-head { display: flex; align-items: baseline; gap: 16px; margin-bottom: 6px; }
-.t-title { font-family: var(--brush); font-size: 30px; color: var(--gold-hi); }
+.t-title { font-family: var(--brush); font-size: 28px; color: var(--gold-hi); }
 .t-power { margin-left: auto; font-size: 14px; color: var(--text-dim); }
 .t-power b { font-size: 22px; color: var(--gold-hi); font-weight: 700; }
-.t-hint { font-size: 12px; color: var(--text-dim); line-height: 1.7; margin-bottom: 14px; max-width: 760px; }
-.t-hint b { color: var(--gold); }
-.t-feedback { margin-bottom: 14px; padding: 10px 14px; border-radius: 7px; font-size: 13px; }
+.cancel { font-family: var(--serif); background: rgba(179,33,46,.12); color: var(--red-hi); border: 1px solid var(--red); border-radius: 6px; padding: 6px 14px; font-size: 13px; cursor: pointer; }
+.t-hint { font-size: 12px; color: var(--text-dim); line-height: 1.7; margin: 4px 0 12px; max-width: 800px; }
+.t-feedback { margin-bottom: 12px; padding: 9px 14px; border-radius: 7px; font-size: 13px; }
 .t-feedback.ok { background: rgba(94,122,72,.12); border: 1px solid #3a4a2a; color: var(--green); }
 .t-feedback.bad { background: rgba(179,33,46,.1); border: 1px solid var(--red); color: var(--red-hi); }
 
-.chain { display: flex; flex-direction: column; }
-.region { display: flex; gap: 14px; }
-.r-rail { width: 16px; display: flex; flex-direction: column; align-items: center; padding-top: 6px; }
-.r-dot { width: 14px; height: 14px; border-radius: 50%; border: 2px solid var(--gold-dim); background: var(--ink); flex: none; }
-.region.occupied .r-dot { background: var(--green); border-color: var(--green); }
-.region.ready .r-dot { background: var(--gold); border-color: var(--gold-hi); box-shadow: 0 0 8px rgba(236,200,120,.5); }
-.region.weak .r-dot { border-color: var(--red); }
-.r-line { flex: 1; width: 2px; background: var(--line); margin: 4px 0; }
-.r-body { flex: 1; border: 1px solid var(--line); border-radius: 9px; background: linear-gradient(180deg, var(--panel), var(--panel-2)); padding: 13px 16px; margin-bottom: 14px; }
-.region.occupied .r-body { border-color: rgba(94,122,72,.5); }
-.region.ready .r-body { border-color: var(--gold-dim); }
-.region.locked .r-body { opacity: .5; }
-.r-top { display: flex; align-items: center; gap: 10px; }
-.r-name { font-size: 18px; color: var(--text); letter-spacing: 1px; }
-.r-tag { font-size: 11px; padding: 3px 9px; border-radius: 3px; }
-.r-tag.occupied { background: rgba(94,122,72,.18); color: var(--green); }
-.r-tag.ready { background: rgba(201,162,74,.16); color: var(--gold-hi); }
-.r-tag.weak { background: rgba(179,33,46,.16); color: var(--red-hi); }
-.r-tag.locked { background: rgba(0,0,0,.3); color: var(--text-dim); }
-.r-boss { font-size: 12px; color: var(--text-dim); margin-top: 4px; }
-.r-meta { display: flex; flex-wrap: wrap; gap: 14px; margin-top: 8px; font-size: 12px; color: var(--text-dim); }
-.r-meta b { color: var(--text); } .r-meta b.red { color: var(--red-hi); }
-.r-btns { display: flex; gap: 10px; margin-top: 12px; }
-.atk { font-family: var(--serif); background: linear-gradient(180deg, var(--gold-hi), var(--gold)); color: #1a120a; border: none; border-radius: 6px; padding: 9px 18px; font-size: 14px; font-weight: 700; cursor: pointer; }
+.stage-tabs { display: flex; gap: 8px; margin-bottom: 16px; flex-wrap: wrap; }
+.tab { display: flex; flex-direction: column; align-items: flex-start; gap: 1px; min-width: 92px;
+  font-family: var(--serif); background: rgba(0,0,0,.3); border: 1px solid var(--line); border-radius: 7px;
+  padding: 7px 12px; cursor: pointer; transition: .12s; }
+.tab .tab-no { font-size: 11px; color: var(--text-dim); letter-spacing: 1px; }
+.tab .tab-name { font-size: 14px; color: var(--text); }
+.tab .tab-prog { font-size: 11px; color: var(--gold-dim); }
+.tab.active { border-color: var(--gold); background: linear-gradient(180deg, rgba(201,162,74,.18), rgba(0,0,0,.2)); }
+.tab.active .tab-name { color: var(--gold-hi); }
+.tab.locked { opacity: .45; cursor: not-allowed; }
+
+.center-row { margin-bottom: 14px; }
+.region { cursor: pointer; border-radius: 9px; border: 1px solid var(--line); transition: .12s; position: relative; }
+.region.center { padding: 14px 18px; background: linear-gradient(180deg, rgba(30,16,18,.6), rgba(0,0,0,.3)); }
+.region.center .c-badge { font-size: 10px; letter-spacing: 2px; color: var(--red-hi); }
+.region.center .c-name { font-family: var(--brush); font-size: 24px; color: var(--text); margin-top: 2px; }
+.region.center .c-boss { font-size: 13px; color: var(--gold-dim); margin-top: 2px; }
+.region.center .c-meta { font-size: 12px; color: var(--text-dim); margin-top: 6px; }
+.region.center .c-meta b { color: var(--text); } .region.center .c-meta b.red { color: var(--red-hi); }
+.region.center .c-state { position: absolute; top: 14px; right: 18px; font-size: 12px; }
+
+/* 占据=点亮(金) / attackable=红可打 / weak=暗红 / locked=锁 */
+.region.occupied { border-color: var(--gold); background: linear-gradient(180deg, rgba(201,162,74,.2), rgba(0,0,0,.25)); box-shadow: 0 0 12px rgba(201,162,74,.18); }
+.region.attackable { border-color: var(--red); box-shadow: 0 0 8px rgba(179,33,46,.3); }
+.region.weak { border-color: rgba(179,33,46,.4); }
+.region.locked { opacity: .4; cursor: default; }
+.region.center.occupied .c-state { color: var(--gold-hi); }
+.region.center.attackable .c-state { color: var(--red-hi); }
+
+.grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 9px; }
+.region.small { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px; aspect-ratio: 1.5; padding: 6px; min-height: 56px; }
+.region.small .s-name { font-size: 12px; color: var(--text); text-align: center; line-height: 1.2; }
+.region.small .s-thr { font-size: 14px; font-weight: 700; color: var(--gold-dim); }
+.region.small .s-thr.red { color: var(--red-hi); }
+.region.small.occupied .s-thr { color: var(--gold-hi); }
+.region.small.locked .s-name { color: var(--text-dim); }
+.region.small .s-intel { position: absolute; top: 3px; right: 5px; font-size: 10px; color: var(--gold-hi); }
+.region.pick { border-color: var(--gold-hi) !important; box-shadow: 0 0 12px rgba(236,200,120,.5) !important; cursor: pointer; animation: pickpulse 1.3s ease-in-out infinite; }
+@keyframes pickpulse { 0%,100% { transform: translateY(0); } 50% { transform: translateY(-2px); } }
+.turf.selecting .region:not(.pick) { opacity: .4; }
+
+.pop-mask { position: fixed; inset: 0; background: rgba(8,5,6,.6); display: flex; align-items: center; justify-content: center; z-index: 50; }
+.popup { width: 340px; background: linear-gradient(180deg, var(--panel), var(--panel-2)); border: 1px solid var(--gold-dim); border-radius: 12px; padding: 18px 20px; box-shadow: 0 20px 60px rgba(0,0,0,.7); }
+.p-head { display: flex; align-items: center; gap: 10px; }
+.p-name { font-family: var(--brush); font-size: 22px; color: var(--gold-hi); }
+.p-tag { font-size: 11px; padding: 3px 9px; border-radius: 3px; margin-left: auto; }
+.p-tag.occupied { background: rgba(201,162,74,.18); color: var(--gold-hi); }
+.p-tag.attackable { background: rgba(179,33,46,.18); color: var(--red-hi); }
+.p-tag.weak { background: rgba(179,33,46,.12); color: #caa0a0; }
+.p-tag.locked { background: rgba(0,0,0,.3); color: var(--text-dim); }
+.p-boss { font-size: 12px; color: var(--text-dim); margin-top: 6px; }
+.p-rows { margin: 12px 0; }
+.p-row { display: flex; justify-content: space-between; padding: 6px 0; border-bottom: 1px dashed var(--line); font-size: 13px; color: var(--text-dim); }
+.p-row b { color: var(--text); } .p-row b.red { color: var(--red-hi); } .p-row b.gold { color: var(--gold-hi); }
+.p-btns { display: flex; gap: 10px; margin-top: 14px; }
+.atk { flex: 1; font-family: var(--serif); background: linear-gradient(180deg, var(--gold-hi), var(--gold)); color: #1a120a; border: none; border-radius: 6px; padding: 10px; font-size: 14px; font-weight: 700; cursor: pointer; }
 .atk:disabled { background: rgba(0,0,0,.3); color: var(--text-dim); border: 1px solid var(--line); cursor: not-allowed; }
-.brb { font-family: var(--serif); background: rgba(0,0,0,.3); color: var(--text-dim); border: 1px solid var(--line); border-radius: 6px; padding: 9px 14px; font-size: 13px; cursor: pointer; }
-.brb:disabled { opacity: .4; cursor: not-allowed; }
+.close { font-family: var(--serif); background: transparent; border: 1px solid var(--line); color: var(--text-dim); border-radius: 6px; padding: 10px 16px; font-size: 13px; cursor: pointer; }
 </style>

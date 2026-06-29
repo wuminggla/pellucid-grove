@@ -31,11 +31,12 @@ export interface ServeSettleResult {
  *  - 被供奉的人计入 servedThisNight（统计/显示用）。
  * @param throughputMultiplier 吞吐倍率（强制请假轮奸日=1.5，多服务人数同步放大扣套与降欲）
  */
-export function settleServe(state: EngineState, throughputMultiplier = 1): ServeSettleResult {
+export function settleServe(state: EngineState, throughputMultiplier = 1, consumeCondom = true): ServeSettleResult {
   const served = Math.round(state.presentCount * throughputMultiplier);
-  const need = condomCost(served, state.isDangerousPeriod);
+  // 口交等非插入供奉不耗避孕套(consumeCondom=false)
+  const need = consumeCondom ? condomCost(served, state.isDangerousPeriod) : 0;
   const used = Math.min(need, state.condomStock);
-  const condomShort = need > state.condomStock;
+  const condomShort = consumeCondom && need > state.condomStock;
   const relieved = desireRelief(served);
   return {
     state: {

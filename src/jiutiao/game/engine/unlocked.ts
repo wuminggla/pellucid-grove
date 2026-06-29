@@ -5,7 +5,7 @@
 // 这里把两路派生信号合并成单一字典,3处构造 EventContext 都调本函数。
 // 改这里 = 一次性同步所有解析路径,不会出现"菜单显示了但 settleSlot 又判定未解锁"等漂移。
 
-import { deriveTurfUnlocked } from '../turf/machine';
+import { deriveTurfUnlocked, occupyScaleAliases } from '../turf/machine';
 import type { EngineState } from './types';
 
 /**
@@ -16,5 +16,6 @@ export function deriveEventUnlocked(engine: EngineState): Record<string, boolean
   return {
     ...(engine.unlocked ?? {}),
     ...deriveTurfUnlocked(engine.regions),
+    ...occupyScaleAliases(engine.occupyScale),
   };
 }
