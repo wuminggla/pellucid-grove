@@ -33,8 +33,12 @@
 | **Masthead.vue** | `components/Masthead.vue` | logo + 顶部状态条（资金/威望/打手/欲望/避孕套/堕落度 + 悬停浮窗 + 点击钉住） | engine |
 | **NavRail.vue** | `components/NavRail.vue` | 左侧木纹导航按钮 + 存读档/设置/退出 | v-model:view |
 | **DaySlider.vue** | `components/DaySlider.vue` | 日夜分配滑动长条（整格吸附·拖拽） | emit allocate(day,night) |
-| **SlotCard.vue** | `components/SlotCard.vue` | 单个行动格（选行动/进行中/已结算展开正文） | App 传入 slot |
+| **SlotStrip.vue** | `components/SlotStrip.vue` | 8格事件横条(对齐滑条分格)：每格=事件预览(序号/状态/标签)，点选 emit select | day |
+| **SlotDetail.vue** | `components/SlotDetail.vue` | 选中格的子页：事件选择列表 / 进行中 / 已结算正文(首字水墨+段落 pre-wrap) | App 传 slot |
 | **RinPanel.vue** | `components/RinPanel.vue` | 立绘人像 + 可折叠秘密状态（身体开发四部位/特殊性癖/生育经期） | engine |
+
+**「行动」视图交互(v26 重构·减少上下滚动)**: 上=工具行+(分配阶段)日夜滑条+SlotStrip横条；中=SlotDetail(仅此区滚动)；下=固定底边栏(左 status-strip 显示变量变化/警告/空回，右 操作按钮)。选中格默认跟随 cursor；执行正文后自动跳下一格(`selected` 复位)。格数增加只是横条变长，不增上下滚动。
+旧 `SlotCard.vue` 已弃用(被 Strip+Detail 取代)，保留文件备查。
 
 导航 `view`：当前只有 `行动` 是完整可玩视图；`地盘/升级/影业/大小姐/留档/设置` 是占位面板（对应待办 #11~#15，玩法接入后逐个填）。
 

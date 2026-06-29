@@ -1,8 +1,12 @@
 <!--
   App · 新 UI 外壳（极道手账）
-  布局: CSS Grid 三列两行（顶栏跨列）= Masthead / NavRail / Stage(行动视图) / RinPanel。
-  职责: 组合各组件 + 按 view 切换页签 + 「行动」视图的完整编排（分配/逐格执行/反馈/遮罩）。
-  业务调用复用 runner-store（allocate/runCurrent/rerunLast/nextDay 等）。详见 docs/UI改版工程说明.md。
+  布局: CSS Grid 三列两行（顶栏跨列）= Masthead / NavRail / Stage / RinPanel。
+  「行动」视图(本批重构·减少上下滚动):
+    上: 工具行 +(分配阶段)日夜滑条 + 8格事件横条(SlotStrip)
+    中: 选中格子页(SlotDetail·事件选择 / 正文)，仅此区滚动
+    下: 固定底边栏 = 左状态提示栏(变量变化/警告/空回) + 右操作按钮
+  生成正文后自动跳到下一格(selected 复位为 null → 跟随 cursor)。
+  业务调用复用 runner-store。详见 docs/UI改版工程说明.md。
 -->
 <template>
   <div class="app pellucid-root" @click="closePins">
@@ -11,89 +15,43 @@
 
     <main class="stage">
       <!-- ===== 行动视图 ===== -->
-      <template v-if="view === '行动'">
-        <div class="tool-row">
-          <span class="phase-label">{{ phaseLabel }}</span>
-          <span class="ai-mode" :class="r.aiMode">{{ r.aiMode === 'tavern' ? '◆ 酒馆AI' : '○ mock' }}</span>
-          <label class="ff"><input type="checkbox" :checked="r.fastForward" @change="onFF" /> 快进</label>
-        </div>
-
-        <div v-if="r.error" class="err-box">⚠ {{ r.error }}</div>
-
-        <!-- 分配阶段：滑动长条 + 预排格子 -->
-        <template v-if="phase === 'allocating'">
-          <DaySlider :total="r.day.totalSlots" @change="onAllocate" />
-          <template v-if="allocated">
-            <div v-if="r.day.daySlots.length" class="section-head"><div class="section-title">白天 · 经营安排</div></div>
-            <div v-if="r.day.daySlots.length" class="grid">
-              <SlotCard v-for="(s, i) in r.day.daySlots" :key="'d'+i" :slot="s" period="day"
-                :options="opts('day')" :isCurrent="false" :expanded="false"
-                @pick="(o,l)=>r.setChoice('day', i, { optionId:o, label:l })" @clear="r.clearChoice('day', i)" />
-            </div>
-            <div v-if="r.day.nightSlots.length" class="section-head"><div class="section-title">夜晚 · 供奉安排</div></div>
-            <div v-if="r.day.nightSlots.length" class="grid">
-              <SlotCard v-for="(s, i) in r.day.nightSlots" :key="'n'+i" :slot="s" period="night"
-                :options="opts('night')" :isCurrent="false" :expanded="false"
-                @pick="(o,l)=>r.setChoice('night', i, { optionId:o, label:l })" @clear="r.clearChoice('night', i)" />
-            </div>
-          </template>
-        </template>
-
-        <!-- 白天执行 -->
-        <template v-if="phase === 'day_running' || phase === 'day_settled'">
-          <div class="section-head"><div class="section-title">白天 · 经营</div></div>
-          <div class="grid"><SlotCard v-for="(s, i) in r.day.daySlots" :key="'D'+i" :slot="s" period="day"
-            :options="opts('day')" :isCurrent="isCur('day', i)" :expanded="exp==='day-'+i"
-            @pick="(o,l)=>r.setChoice('day', i, { optionId:o, label:l })" @clear="r.clearChoice('day', i)"
-            @toggle="toggle('day', i)" /></div>
-        </template>
-
-        <!-- 夜晚执行 -->
-        <template v-if="phase === 'night_running' || phase === 'night_settled'">
-          <div v-if="r.day.daySlots.length" class="section-head dim"><div class="section-title">白天 · 已结算</div></div>
-          <div v-if="r.day.daySlots.length" class="grid dim"><SlotCard v-for="(s, i) in r.day.daySlots" :key="'Dd'+i" :slot="s" period="day"
-            :options="opts('day')" :isCurrent="false" :expanded="exp==='day-'+i" @toggle="toggle('day', i)" /></div>
-          <div class="section-head"><div class="section-title">夜晚 · 供奉</div>
-            <button v-if="phase==='night_running'" class="mini-btn" @click="r.fillEmpty('night', { optionId:'serve_vaginal', label:'供奉打手' })">一键全供奉</button>
+      <section v-if="view === '行动'" class="action-view">
+        <div class="av-top">
+          <div class="tool-row">
+            <span class="phase-label">{{ phaseLabel }}</span>
+            <span class="ai-mode" :class="r.aiMode">{{ r.aiMode === 'tavern' ? '◆ 酒馆AI' : '○ mock' }}</span>
+            <label class="ff"><input type="checkbox" :checked="r.fastForward" @change="onFF" /> 快进</label>
           </div>
-          <div class="grid"><SlotCard v-for="(s, i) in r.day.nightSlots" :key="'N'+i" :slot="s" period="night"
-            :options="opts('night')" :isCurrent="isCur('night', i)" :expanded="exp==='night-'+i"
-            @pick="(o,l)=>r.setChoice('night', i, { optionId:o, label:l })" @clear="r.clearChoice('night', i)"
-            @toggle="toggle('night', i)" /></div>
-        </template>
 
-        <!-- ===== 反馈区 ===== -->
-        <div v-if="r.engine.desire >= r.engine.desireCapacity" class="morning-box">
-          ⚠ 群体欲望 {{ r.engine.desire }}/{{ r.engine.desireCapacity }} 已超上限！务必在日终前安排足够供奉格压回上限以内，否则次日「白日供奉」。
-        </div>
-        <div v-for="(w, i) in r.failWarnings" :key="'w'+i" class="warn-box">{{ w }}</div>
-        <div v-if="r.lastRecruit && r.lastRecruit.recruited > 0" class="ok-box">◆ 招募即时入伙：+{{ r.lastRecruit.recruited }} 打手（¥{{ r.lastRecruit.cost }}）→ 当前 {{ r.engine.thugTotal }}，剩余额度 {{ r.engine.recruitQuota }}</div>
-        <div v-else-if="r.lastRecruit && r.lastRecruit.reason" class="warn-box">招募未成：{{ r.lastRecruit.reason === 'no_quota' ? '本周额度已用尽' : '资金不足' }}</div>
-        <div v-if="r.lastBuyCondom && r.lastBuyCondom.bought > 0" class="ok-box">◆ 采购到货：+{{ r.lastBuyCondom.bought }} 避孕套（¥{{ r.lastBuyCondom.cost }}）→ 库存 {{ r.engine.condomStock }}</div>
-        <div v-if="showSettle" class="rose-box">
-          <div v-if="r.lastSettle?.events.isFirstSpecial" style="color:var(--red-hi)">◆ 首次特殊事件！堕落度 +{{ r.lastSettle.events.corruptionGain }}<template v-if="r.lastSettle.events.cognitionAdvancedTo"> → 认知防线推进至「{{ r.lastSettle.events.cognitionAdvancedTo }}」</template></div>
-          <div v-if="r.lastSettle && r.lastSettle.events.firedGateIds.length" style="color:var(--gold-hi);margin-top:4px">◆ 堕落度奖励触发：{{ gateLabel }}（资源涌入）</div>
-        </div>
-        <div v-if="r.lastServe?.condomShort" class="err-box">⚠ 避孕套库存不足！本场出现无套内射风险（怀孕判定链）</div>
-        <div v-if="r.lastNight" class="night-box">夜晚收尾：今日已供奉 {{ r.lastNight.servedToday }} 人 · 结余欲望 {{ r.lastNight.desireLeftover }}/{{ r.engine.desireCapacity }}<span v-if="r.lastNight.overflowImminent" style="color:var(--red-hi);margin-left:8px">⚠ 结余超上限！次日「白日供奉」</span></div>
-        <div v-if="r.hardFail" class="err-box">☠ 硬失败：{{ r.hardFailReason === 'money' ? '资金连续 2 次结算为 0/负，现金流断裂。' : '极道威望连续 2 次审核进账为 0，招牌再也榨不出人和钱。' }}九条会东山再起的能力已经失去。</div>
-        <div v-if="r.lastWarn" class="warn-box reroll">⚠ {{ r.lastWarn }}<button class="mini-btn" :disabled="r.busy" @click="r.rerunLast()">↻ 重新生成</button></div>
+          <DaySlider v-if="phase === 'allocating'" :total="r.day.totalSlots" @change="onAllocate" />
 
-        <!-- 已结算正文 -->
-        <div v-if="r.lastSettle?.resultText && phase !== 'allocating'" class="prose"><span class="first">{{ proseFirst }}</span>{{ proseRest }}</div>
-
-        <!-- 底部操作 -->
-        <div class="cta">
-          <button v-if="canRerun" class="ghost-btn" @click="r.rerunLast()">↻ 重生成上一格</button>
-          <template v-if="phase === 'day_running' || phase === 'night_running'">
-            <span v-if="!r.canRunCurrent" class="dim-hint">请先为当前格选择行动</span>
-            <button class="primary-btn" :disabled="r.busy || !r.canRunCurrent" @click="r.runCurrent()">{{ r.busy ? '生成中…' : '执行当前格 ▶' }}</button>
-          </template>
-          <button v-if="phase === 'allocating' && allocated" class="primary-btn" @click="r.beginDay()">确定分配 · 开始这一天 ▶</button>
-          <button v-if="phase === 'day_settled'" class="primary-btn" @click="r.beginNight()">进入夜晚 ▶</button>
-          <button v-if="phase === 'night_settled'" class="primary-btn" @click="r.nextDay()">结束今天 · 次日 ▶</button>
+          <SlotStrip v-if="hasSlots" :day="r.day" :selectedKey="selKey" @select="onSelect" />
         </div>
-      </template>
+
+        <div class="av-detail">
+          <SlotDetail v-if="hasSlots" :slot="selSlot" :period="selPeriod" :options="selOptions"
+            @pick="onPick" @clear="onClear" />
+          <div v-else class="av-empty">拖动上方滑条分配今日白天 / 夜晚行动格</div>
+        </div>
+
+        <div class="av-bottom">
+          <div class="status-strip">
+            <template v-if="statusItems.length">
+              <span v-for="(s, i) in statusItems" :key="i" class="st-item" :class="s.tone">{{ s.t }}</span>
+            </template>
+            <span v-else class="st-empty">— 状态提示 · 变量变化 / 截断空回 会显示在这里 —</span>
+          </div>
+          <div class="actions">
+            <button v-if="canRerun" class="ghost-btn" @click="rerun">↻ 重生成上一格</button>
+            <button v-if="phase === 'allocating' && hasSlots" class="primary-btn" @click="startDay">确定分配 · 开始 ▶</button>
+            <template v-if="phase === 'day_running' || phase === 'night_running'">
+              <button class="primary-btn" :disabled="r.busy || !r.canRunCurrent" @click="exec">{{ r.busy ? '生成中…' : '执行当前格 ▶' }}</button>
+            </template>
+            <button v-if="phase === 'day_settled'" class="primary-btn" @click="toNight">进入夜晚 ▶</button>
+            <button v-if="phase === 'night_settled'" class="primary-btn" @click="toNextDay">结束今天 · 次日 ▶</button>
+          </div>
+        </div>
+      </section>
 
       <!-- ===== 其它页签：占位 ===== -->
       <div v-else class="placeholder">
@@ -104,7 +62,6 @@
 
     <RinPanel :engine="r.engine" />
 
-    <!-- 生成中遮罩 -->
     <div v-if="r.busy" class="gen-overlay">
       <div class="gen-box"><div class="gen-spinner"></div><div class="gen-text">{{ r.genHint }}</div>
         <div class="gen-sub">{{ r.aiMode === 'tavern' ? '调用酒馆 API（可能需数秒到数十秒）' : 'mock 模拟' }}</div></div>
@@ -119,7 +76,8 @@ import Masthead from './components/Masthead.vue';
 import NavRail from './components/NavRail.vue';
 import DaySlider from './components/DaySlider.vue';
 import RinPanel from './components/RinPanel.vue';
-import SlotCard from './components/SlotCard.vue';
+import SlotStrip from './components/SlotStrip.vue';
+import SlotDetail from './components/SlotDetail.vue';
 import { buildMenu } from '../../game/events/machine';
 import { deriveEventUnlocked } from '../../game/engine/unlocked';
 import { demoEventOptions } from '../../game/engine/mock-ai';
@@ -130,24 +88,64 @@ import type { SlotPeriod } from '../../game/action-grid/types';
 const r = useRunnerStore();
 const view = ref('行动');
 const mast = ref<InstanceType<typeof Masthead> | null>(null);
-const exp = ref<string | null>(null);
 
 const phase = computed(() => r.day.phase);
 const phaseLabel = computed(() => (({
   allocating: '早 7:00 · 分配今日行动', day_running: '白天进行中', day_settled: '白天结束',
   night_running: '夜晚进行中', night_settled: '今日结束',
 } as Record<string, string>)[phase.value] ?? phase.value));
-const allocated = computed(() => r.day.daySlots.length + r.day.nightSlots.length > 0);
+const hasSlots = computed(() => r.day.daySlots.length + r.day.nightSlots.length > 0);
+
+// —— 选中格（默认跟随 cursor；手动点选可覆盖；执行后复位为跟随）——
+const selected = ref<{ period: SlotPeriod; index: number } | null>(null);
+const effSel = computed<{ period: SlotPeriod; index: number } | null>(() => {
+  if (selected.value) return selected.value;
+  const c = r.day.cursor;
+  if (c) return { period: c.period, index: c.index };
+  if (r.day.daySlots.length) return { period: 'day', index: 0 };
+  if (r.day.nightSlots.length) return { period: 'night', index: 0 };
+  return null;
+});
+const selPeriod = computed<SlotPeriod>(() => effSel.value?.period ?? 'day');
+const selSlot = computed(() => {
+  const s = effSel.value; if (!s) return null;
+  const arr = s.period === 'day' ? r.day.daySlots : r.day.nightSlots;
+  return arr[s.index] ?? null;
+});
+const selKey = computed(() => effSel.value ? effSel.value.period + '-' + effSel.value.index : null);
+const selOptions = computed(() => effSel.value ? opts(effSel.value.period) : []);
+
+function onSelect(period: SlotPeriod, index: number) { selected.value = { period, index }; }
+function onPick(o: string, l: string) { const s = effSel.value; if (s) r.setChoice(s.period, s.index, { optionId: o, label: l }); }
+function onClear() { const s = effSel.value; if (s) r.clearChoice(s.period, s.index); }
+
+// —— 操作（执行后 selected 复位 → 自动跳到下一格 cursor）——
+async function exec() { if (r.busy || !r.canRunCurrent) return; await r.runCurrent(); selected.value = null; }
+async function rerun() { await r.rerunLast(); selected.value = null; }
+function startDay() { r.beginDay(); selected.value = null; }
+function toNight() { r.beginNight(); selected.value = null; }
+function toNextDay() { r.nextDay(); selected.value = null; }
+function onAllocate(day: number, night: number) { r.allocate(day, night); selected.value = null; }
 
 const canRerun = computed(() => !!r.lastSettle && !r.busy
   && ['day_running', 'night_running', 'day_settled', 'night_settled'].includes(phase.value));
-const showSettle = computed(() => !!r.lastSettle && (r.lastSettle.events.isFirstSpecial || r.lastSettle.events.firedGateIds.length > 0));
 const gateLabel = computed(() => (r.lastSettle?.events.firedGateIds ?? []).map(g => '堕落度（' + g.replace(/\D/g, '') + '）').join('、'));
 
-// 已结算正文：首字水墨
-const proseText = computed(() => (r.lastSettle?.resultText ?? '').trim());
-const proseFirst = computed(() => proseText.value.slice(0, 1));
-const proseRest = computed(() => proseText.value.slice(1));
+// —— 底部状态提示栏：汇总变量变化 / 警告 / 空回 ——
+const statusItems = computed(() => {
+  const e = r.engine; const out: Array<{ t: string; tone: string }> = [];
+  if (r.hardFail) out.push({ t: '☠ 硬失败：' + (r.hardFailReason === 'money' ? '资金断流' : '威望枯竭'), tone: 'err' });
+  r.failWarnings.forEach(w => out.push({ t: w, tone: 'warn' }));
+  if (r.lastWarn) out.push({ t: '⚠ ' + r.lastWarn, tone: 'warn' });
+  if (e.desire >= e.desireCapacity) out.push({ t: `⚠ 群体欲望 ${e.desire}/${e.desireCapacity} 超上限`, tone: 'warn' });
+  if (r.lastServe) out.push({ t: `供奉 ${r.lastServe.served}人 · 欲望-${r.lastServe.desireRelieved} · 套-${r.lastServe.condomUsed}` + (r.lastServe.condomShort ? '（库存不足!）' : ''), tone: r.lastServe.condomShort ? 'err' : 'ok' });
+  if (r.lastSettle?.events.isFirstSpecial) out.push({ t: `◆ 首次特殊 堕落+${r.lastSettle.events.corruptionGain}` + (r.lastSettle.events.cognitionAdvancedTo ? ` → ${r.lastSettle.events.cognitionAdvancedTo}` : ''), tone: 'rose' });
+  if (r.lastSettle?.events.firedGateIds.length) out.push({ t: '◆ ' + gateLabel.value + ' 奖励', tone: 'gold' });
+  if (r.lastRecruit && r.lastRecruit.recruited > 0) out.push({ t: `+${r.lastRecruit.recruited}打手 (¥${r.lastRecruit.cost})`, tone: 'ok' });
+  if (r.lastBuyCondom && r.lastBuyCondom.bought > 0) out.push({ t: `+${r.lastBuyCondom.bought}避孕套`, tone: 'ok' });
+  if (r.lastNight) out.push({ t: `夜结：供奉${r.lastNight.servedToday}人·结余${r.lastNight.desireLeftover}` + (r.lastNight.overflowImminent ? ' ⚠次日白日供奉' : ''), tone: r.lastNight.overflowImminent ? 'warn' : 'dim' });
+  return out;
+});
 
 function eventCtx(engine: EngineState): EventContext {
   return { corruption: engine.corruption, cognition: engine.cognition, infamy: engine.infamy,
@@ -157,56 +155,46 @@ function opts(period: SlotPeriod) {
   return buildMenu(Object.values(demoEventOptions), eventCtx(r.engine), period)
     .map(e => ({ optionId: e.option.id, label: e.label, isNsfw: e.isNsfw }));
 }
-function isCur(period: SlotPeriod, i: number) { return r.day.cursor?.period === period && r.day.cursor?.index === i; }
-function toggle(period: SlotPeriod, i: number) { const k = period + '-' + i; exp.value = exp.value === k ? null : k; }
 
 function onFF(e: Event) { r.setFastForward((e.target as HTMLInputElement).checked); }
-function onAllocate(day: number, night: number) { r.allocate(day, night); }
-// 收起回调由 index.ts 经 provide 注入（隐藏全屏宿主回酒馆，状态保留）。
 const collapse = inject<(() => void) | null>('pellucidCollapse', null);
-function onNav(a: 'save' | 'exit') {
-  if (a === 'exit') { collapse?.(); }     // 退出=收起前端，回酒馆
-  else { /* TODO: 存读档面板（待接） */ console.log('[nav] save'); }
-}
+function onNav(a: 'save' | 'exit') { if (a === 'exit') collapse?.(); else console.log('[nav] save'); }
 function closePins() { mast.value?.clearPin(); }
 </script>
 
 <style scoped>
 .app { position: relative; z-index: 1; display: grid; grid-template-columns: 212px 1fr 340px; grid-template-rows: auto 1fr; height: 100vh; }
 .app > :deep(header) { grid-column: 1 / 4; }
-.stage { overflow-y: auto; padding: 22px 28px; display: flex; flex-direction: column; }
+.stage { overflow: hidden; display: flex; flex-direction: column; min-height: 0; }
 
-.tool-row { display: flex; align-items: center; gap: 16px; margin-bottom: 16px; }
+.action-view { display: flex; flex-direction: column; height: 100%; padding: 18px 26px 0; min-height: 0; }
+.av-top { flex: none; }
+.av-detail { flex: 1; min-height: 0; overflow-y: auto; margin-top: 14px; }
+.av-empty { color: var(--text-dim); font-size: 14px; text-align: center; padding: 40px 0; }
+.av-bottom { flex: none; display: flex; align-items: stretch; gap: 14px; padding: 12px 0 16px; margin-top: 10px; border-top: 1px solid var(--line); }
+
+.tool-row { display: flex; align-items: center; gap: 16px; margin-bottom: 14px; }
 .phase-label { font-size: 13px; color: var(--text-dim); letter-spacing: 1px; }
 .ai-mode { font-size: 11px; padding: 2px 8px; border-radius: 4px; }
 .ai-mode.tavern { color: var(--green); background: rgba(122,163,122,.12); }
 .ai-mode.mock { color: #e8a87a; background: rgba(232,168,122,.12); }
 .ff { display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--text-dim); cursor: pointer; margin-left: auto; }
 
-:deep(.section-head) { display: flex; align-items: center; margin: 14px 0 10px; }
-:deep(.section-head.dim) { opacity: .55; }
-:deep(.section-title) { flex: 1; font-family: var(--brush); font-size: 24px; color: var(--gold-hi); border-left: 3px solid var(--red); padding-left: 10px; }
-.grid { display: flex; flex-direction: column; gap: 10px; }
-.grid.dim { opacity: .55; }
+/* 底部状态提示栏 */
+.status-strip { flex: 1; min-width: 0; display: flex; flex-wrap: wrap; align-content: flex-start; gap: 6px; max-height: 76px; overflow-y: auto; }
+.st-item { font-size: 12px; padding: 4px 10px; border-radius: 5px; border: 1px solid var(--line); background: rgba(0,0,0,.25); white-space: nowrap; }
+.st-item.ok { color: var(--green); border-color: rgba(94,122,72,.5); }
+.st-item.warn { color: #e8a87a; border-color: #e8a87a; }
+.st-item.err { color: var(--red-hi); border-color: var(--red-hi); background: rgba(179,33,46,.12); }
+.st-item.gold { color: var(--gold-hi); border-color: var(--gold-dim); }
+.st-item.rose { color: var(--red-hi); border-color: rgba(216,64,77,.5); }
+.st-item.dim { color: var(--text-dim); }
+.st-empty { font-size: 12px; color: var(--text-dim); align-self: center; }
 
-.morning-box { margin-top: 12px; padding: 10px 12px; background: rgba(232,200,122,.08); border: 1px solid #c9a24a; border-radius: 6px; color: var(--gold-hi); font-size: 13px; line-height: 1.5; }
-.warn-box { margin-top: 10px; padding: 10px 12px; background: rgba(232,168,122,.1); border: 1px solid #e8a87a; border-radius: 6px; color: #e8a87a; font-size: 13px; display: flex; align-items: center; gap: 12px; }
-.warn-box.reroll { justify-content: space-between; }
-.ok-box { margin-top: 10px; padding: 10px 12px; background: rgba(94,122,72,.1); border: 1px solid #3a4a2a; border-radius: 6px; color: var(--green); font-size: 13px; }
-.err-box { margin-top: 10px; padding: 10px 12px; background: #3a1518; border: 1px solid var(--red-hi); border-radius: 6px; color: var(--red-hi); font-size: 13px; }
-.rose-box { margin-top: 12px; padding: 12px; border-radius: 8px; background: #22141a; border: 1px solid var(--red); font-size: 13px; }
-.night-box { margin-top: 10px; padding: 10px; background: #1a1420; border: 1px solid var(--line); border-radius: 6px; font-size: 13px; color: var(--text-dim); }
-
-.prose { margin-top: 14px; padding: 18px 20px; border: 1px solid var(--line); border-radius: 8px; background: rgba(20,16,14,.7); font-size: 15px; line-height: 2; color: var(--text); }
-.prose .first { font-family: var(--brush); font-size: 30px; color: var(--gold-hi); float: left; line-height: 1; margin: 6px 10px 0 0; }
-
-.cta { margin-top: auto; padding-top: 18px; display: flex; gap: 12px; align-items: center; justify-content: flex-end; }
-.dim-hint { font-size: 12px; color: var(--text-dim); margin-right: auto; }
+.actions { flex: none; display: flex; gap: 12px; align-items: center; }
 .primary-btn { font-family: var(--serif); background: linear-gradient(180deg, var(--gold-hi), var(--gold)); color: #1a120a; border: none; border-radius: 6px; padding: 12px 26px; font-size: 15px; font-weight: 700; letter-spacing: 2px; cursor: pointer; box-shadow: 0 6px 18px rgba(201,162,74,.25); }
 .primary-btn:disabled { opacity: .45; cursor: not-allowed; }
-.ghost-btn { font-family: var(--serif); background: transparent; border: 1px solid var(--line); color: var(--text-dim); border-radius: 6px; padding: 12px 22px; font-size: 14px; letter-spacing: 1px; cursor: pointer; }
-.mini-btn { background: rgba(0,0,0,.3); color: var(--text); border: 1px solid var(--line); border-radius: 6px; padding: 5px 12px; font-size: 12px; cursor: pointer; }
-.mini-btn:disabled { opacity: .5; }
+.ghost-btn { font-family: var(--serif); background: transparent; border: 1px solid var(--line); color: var(--text-dim); border-radius: 6px; padding: 12px 20px; font-size: 14px; cursor: pointer; }
 
 .placeholder { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px; }
 .ph-t { font-family: var(--brush); font-size: 48px; color: var(--gold-dim); }
