@@ -36,18 +36,20 @@
 | **SlotStrip.vue** | `components/SlotStrip.vue` | 8格事件横条(对齐滑条分格)：每格=事件预览(序号/状态/标签)，点选 emit select | day |
 | **SlotDetail.vue** | `components/SlotDetail.vue` | 选中格的子页：事件选择列表 / 进行中 / 已结算正文(首字水墨+段落 pre-wrap) | App 传 slot |
 | **RinPanel.vue** | `components/RinPanel.vue` | 立绘人像 + 可折叠秘密状态（身体开发四部位/特殊性癖/生育经期） | engine |
-| **TurfPanel.vue** | `components/TurfPanel.vue` | 地盘视图(#13 Phase1)：复仇链5区域 + 攻打占据/贿赂降门槛 | engine.regions + turf模块 + combatPowerNow |
+| **TurfPanel.vue** | `components/TurfPanel.vue` | 地盘地图(#13 大改)：4阶段×(10小关+1中枢Boss)≈44关地图 + 点块弹窗攻打 + 刺探/贿赂选择模式 | engine.regions + turf模块 + combatPowerNow |
+| **UpgradePanel.vue** | `components/UpgradePanel.vue` | 升级视图(#16)：打手/设施/扩张三类 catalog 可视化升级(canUpgrade/applyUpgrade) | engine + upgrade模块 |
+| **AvPanel.vue** | `components/AvPanel.vue` | 影业/AV视图(#17)：题材/场景/玩法/时长定制→排入行动格执行注入范式 | engine.av + av模块 |
 
-**#13 地盘玩法·分阶段**(后端 turf 模块已全就绪):
-- ✅Phase1(v32): 地盘视图(复仇链可视化:状态/门槛vs武力/产出/驻防) + 攻打(canDefeat→defeatRegion+一次性极道威望) + 贿赂(reduceThreshold·¥1000降60门槛)。激活极道威望来源。攻打为直接数值判定,尚未占白天格。
-- ⬜Phase2: 攻打/守地盘集成进白天行动格(占格+出正文)。
-- ⬜Phase3: 骚扰/进攻事件接游戏循环(settleHarass/settleRaid 已就绪,接 forcedPool/每日扫描)。
-- ⬜Phase4: 复仇/扩张推进后解除「威望轨硬失败暂挂」(settlement.ts 威望轨硬失败已启用→true) + 接 #14 威望自动衰减。
+**#13 地盘玩法·4阶段44关地图**(后端 turf 模块大改完成·v33):
+- ✅地图(v33): REGIONS 重构为 4 阶段，每阶段 10 小关(无名据点)+1 中枢Boss关 ≈ 44 关。TurfPanel 分阶段选项卡 + 地图块(点亮=占据/红=未纳入/锁=未解锁) + 点块弹窗看详情+攻打。阶段锁：阶段1开局激活；占满本阶段10小关→解锁中枢Boss；击败Boss→解锁下一阶段10小关。中枢门槛 > 本阶段所有小关，亦 > 下阶段小关起点(第1阶段中枢比第2阶段小关更难)。
+- ✅刺探/贿赂事件格流程(v33): scout/bribe = `mapSelect` 选项。执行刺探格→主区展开地图选目标→约1/4概率获情报+扣¥800；贿赂选项平时隐藏(`bribe_available`)，有情报后出现，执行→地图只可选已刺探关→按门槛比例降击败门槛。RegionState 加 `intel` 字段。
+- ⬜攻打仍为直接数值判定(点弹窗攻打·不占白天格)。骚扰/进攻 settleHarass/settleRaid 已就绪未接循环。
+- ⬜复仇/扩张推进后解除「威望轨硬失败暂挂」(settlement.ts 威望轨硬失败已启用→true) + 接 #14 威望自动衰减。
 
 **「行动」视图交互(v26 重构·减少上下滚动)**: 上=工具行+(分配阶段)日夜滑条+SlotStrip横条；中=SlotDetail(仅此区滚动)；下=固定底边栏(左 status-strip 显示变量变化/警告/空回，右 操作按钮)。选中格默认跟随 cursor；执行正文后自动跳下一格(`selected` 复位)。格数增加只是横条变长，不增上下滚动。
 旧 `SlotCard.vue` 已弃用(被 Strip+Detail 取代)，保留文件备查。
 
-导航 `view`：当前只有 `行动` 是完整可玩视图；`地盘/升级/影业/大小姐/留档/设置` 是占位面板（对应待办 #11~#15，玩法接入后逐个填）。
+导航 `view`：`行动/地盘/升级/影业/设置` 均为完整可玩视图(v33)；`大小姐/留档` 仍占位。刺探/贿赂格在「行动」视图执行时，主区(av-detail)临时切换为 TurfPanel 选择模式(`r.pendingMap`)，落子后复位。
 
 ## 3. 数据映射 / 占位清单
 
