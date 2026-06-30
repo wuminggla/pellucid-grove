@@ -12,8 +12,8 @@ import {
 } from '../../game/action-grid/machine';
 import { runCurrentSlot, settleNight, advanceToNextDay, applyForcedSeizes } from '../../game/engine/day-runner';
 import type { RunnerState } from '../../game/engine/day-runner';
-import { dailyDesireDemand, availableThugs, weeklyRecruitQuota, combatPower } from '../../game/economy/machine';
-import { combatBonus, UPGRADES_BY_ID, canUpgrade, applyUpgrade } from '../../game/upgrade/machine';
+import { dailyDesireDemand, availableThugs, weeklyRecruitQuota, combatPower, presentCountFrom } from '../../game/economy/machine';
+import { weaponMult, baseMartialPerThug, prestigeMultiplier, UPGRADES_BY_ID, canUpgrade, applyUpgrade } from '../../game/upgrade/machine';
 import {
   REGIONS_BY_ID, canDefeat, defeatRegion, regionState, effectiveThreshold,
   settleScout, settleBribe, settleOffensiveHarass, SCOUT_COST,
@@ -47,7 +47,7 @@ function initialEngine(): EngineState {
     condomStock: 480, desire: morning, desireCapacity: 60, desireAddedThisMorning: morning,
     perSlotThroughput: 6,
     infamy: 0, martialPrestige: 0,
-    recruitQuota: weeklyRecruitQuota(0), presentCount: 18, isDangerousPeriod: false,
+    recruitQuota: weeklyRecruitQuota(0), presentCount: presentCountFrom(thugTotal, 60, 0.5), isDangerousPeriod: false,
     servedThisNight: 0,
   };
 }
@@ -65,6 +65,9 @@ export const useRunnerStore = defineStore('runner', () => {
   const lastReward = ref<{ gained: number; reason?: 'no_money' } | null>(null);
   const lastProtection = ref<{ income: number } | null>(null);
   const lastAttrition = ref<number>(0); // 昨日打手自然流失数(进次日时设)
+  // 通知历史(最近两天·可展开查看)。不进存档,纯会话UI。
+  type Notice = { t: string; tone: string };
+  const notifyLog = ref<{ day: number; label: string; notices: Notice[] }[]>([]);
   const lastAvIncome = ref<{ income: number; theme: string } | null>(null);
   const lastNight = ref<NightSettleResult | null>(null);
   const forcedLeaveToday = ref(false);
@@ -100,7 +103,10 @@ export const useRunnerStore = defineStore('runner', () => {
 
   // ─── 地盘(turf)·Phase1：当前武力 + 攻打/贿赂(纯数值判定·点一下出结果) ───
   const combatPowerNow = computed(() =>
-    combatPower(availableThugs(engine.value.thugTotal, engine.value.garrison), engine.value.loyalty, combatBonus(engine.value.upgrades)));
+    combatPower(
+      availableThugs(engine.value.thugTotal, engine.value.garrison), engine.value.presentCount, engine.value.thugTotal,
+      baseMartialPerThug(engine.value.upgrades), weaponMult(engine.value.upgrades),
+    ));
   const lastTurf = ref<{ ok: boolean; msg: string } | null>(null);
   type MapKind = 'scout' | 'bribe' | 'attack' | 'harass';
   // 地图选择模式(攻打/刺探/贿赂/骚扰事件格执行中):非空时主区展开地图选目标
@@ -110,8 +116,8 @@ export const useRunnerStore = defineStore('runner', () => {
     const def = REGIONS_BY_ID[id]; if (!def) return;
     const chk = canDefeat(def, combatPowerNow.value, engine.value.regions);
     if (!chk.ok) { lastTurf.value = { ok: false, msg: `攻打「${def.name}」失败：${chk.reason}` }; return; }
-    // 一次性复仇·极道威望(随门槛递增);解锁后区域每日产出(条/钱/威望)由 settleDaily 接入
-    const reward = Math.max(5, Math.round(effectiveThreshold(def, regionState(engine.value.regions, id)) / 10));
+    // 一次性复仇·极道威望(随门槛递增·威望增长系数加成);解锁后区域每日产出由 settleDaily 接入
+    const reward = Math.round(Math.max(5, Math.round(effectiveThreshold(def, regionState(engine.value.regions, id)) / 10)) * prestigeMultiplier(engine.value.upgrades));
     engine.value = {
       ...engine.value,
       regions: defeatRegion(engine.value.regions, id),
@@ -140,16 +146,19 @@ export const useRunnerStore = defineStore('runner', () => {
     day.value = done;
     if (done.phase === 'night_settled') { const ns = settleNight(engine.value); engine.value = ns.state; lastNight.value = ns; }
     pendingMap.value = null;
+    logNotices(`第${day.value.dayNumber}天 地盘`);
   }
 
   /** 地图选择落子(攻打/刺探/贿赂/骚扰目标关) */
   function resolveMapSlot(id: string) {
     const kind = pendingMap.value?.kind; if (!kind) return;
     const def = REGIONS_BY_ID[id]; if (!def) return;
+    // 清掉上一格残留的逐格提示,避免地盘格重复记录
+    lastServe.value = null; lastRecruit.value = null; lastBuyCondom.value = null; lastReward.value = null; lastProtection.value = null; lastAvIncome.value = null; lastSettle.value = null;
     if (kind === 'attack') {
       const chk = canDefeat(def, combatPowerNow.value, engine.value.regions);
       if (!chk.ok) { lastTurf.value = { ok: false, msg: `攻打「${def.name}」失败：${chk.reason}` }; return; }
-      const reward = Math.max(5, Math.round(effectiveThreshold(def, regionState(engine.value.regions, id)) / 10));
+      const reward = Math.round(Math.max(5, Math.round(effectiveThreshold(def, regionState(engine.value.regions, id)) / 10)) * prestigeMultiplier(engine.value.upgrades));
       engine.value = {
         ...engine.value,
         regions: defeatRegion(engine.value.regions, id),
@@ -212,6 +221,13 @@ export const useRunnerStore = defineStore('runner', () => {
       engine.value = { ...engine.value, av: upgradeAvQuota(engine.value.av ?? defaultAvState(), 1) };
     } else if (id === 'av_duration') {
       engine.value = { ...engine.value, av: upgradeAvDuration(engine.value.av ?? defaultAvState(), 1) };
+    } else if (id === 'sex_stamina') {
+      // 性爱持续时间增强:供奉吞吐略降(×0.7)、AV单部时长上限+24h
+      engine.value = {
+        ...engine.value,
+        perSlotThroughput: Math.max(1, Math.round((engine.value.perSlotThroughput ?? 6) * 0.7)),
+        av: upgradeAvDuration(engine.value.av ?? defaultAvState(), 1),
+      };
     }
     const lvl = engine.value.upgrades?.[id] ?? 1;
     lastUpgrade.value = { ok: true, msg: `「${def.name}」已升至 Lv.${lvl}（花费¥${def.cost}）。` };
@@ -311,6 +327,7 @@ export const useRunnerStore = defineStore('runner', () => {
   // 真正执行一格(供 runCurrent 首次 + rerunLast 复用)。snapshot 是执行前状态。
   async function execCurrentFrom(snapshot: { day: DayState; engine: EngineState }) {
     busy.value = true; error.value = null; lastEmpty.value = false; lastWarn.value = null;
+    lastTurf.value = null; // 清掉地盘格残留提示,避免普通格重复记录
     genHint.value = GEN_HINTS[Math.floor(Math.random() * GEN_HINTS.length)];
     // 执行前记录当前格(AV拍摄消费判定用)
     const ranSlot = currentSlot(snapshot.day);
@@ -349,6 +366,9 @@ export const useRunnerStore = defineStore('runner', () => {
       lastProtection.value = r.protection ?? null;
       lastAvIncome.value = avIncome;
       lastNight.value = nightInfo;
+      const sl = ranSlot ? `${ranSlot.period === 'day' ? '昼' : '夜'}#${ranSlot.index + 1}` : '';
+      const extra: Notice[] = nightInfo ? [{ t: `夜结：供奉${nightInfo.servedToday}人·结余${nightInfo.desireLeftover}` + (nightInfo.overflowImminent ? ' ⚠次日白日供奉' : ''), tone: nightInfo.overflowImminent ? 'warn' : 'dim' }] : [];
+      logNotices(`第${day.value.dayNumber}天 ${sl}`, extra);
     } catch (e) {
       error.value = (e as Error).message;
     } finally {
@@ -384,6 +404,16 @@ export const useRunnerStore = defineStore('runner', () => {
     failWarnings.value = r.daily.failWarnings ?? [];
     lastAttrition.value = r.daily.thugsLost ?? 0;
     forcedSeize.value = null;
+    // 日终通知入历史(流失/硬失败/预警)
+    {
+      const ex: Notice[] = [];
+      if (r.daily.thugsLost > 0) ex.push({ t: `打手流失 -${r.daily.thugsLost}（忠诚低·被挖角/出走）`, tone: 'warn' });
+      (r.daily.failWarnings ?? []).forEach(w => ex.push({ t: w, tone: 'warn' }));
+      if (r.daily.hardFail) ex.push({ t: '☠ 硬失败：' + (r.daily.hardFailReason === 'money' ? '资金断流' : '威望枯竭'), tone: 'err' });
+      if (r.forcedLeave) ex.push({ t: '⚠ 欲望溢出 → 次日白日供奉（霸全）', tone: 'warn' });
+      const d = day.value.dayNumber;
+      if (ex.length) notifyLog.value = [...notifyLog.value, { day: d, label: `第${d}天 日终`, notices: ex }].filter(x => x.day >= d - 1).slice(-60);
+    }
     lastSettle.value = null; lastServe.value = null; lastRecruit.value = null; lastBuyCondom.value = null; lastReward.value = null; lastProtection.value = null; lastAvIncome.value = null; lastNight.value = null; error.value = null;
   }
 
@@ -435,6 +465,28 @@ export const useRunnerStore = defineStore('runner', () => {
     _loadingSave = false; persistNow();
   }
 
+  // ─── 通知:当前格提示(只此一格) + 历史日志(最近两天) ───
+  function buildSlotNotices(): Notice[] {
+    const out: Notice[] = [];
+    if (lastEmpty.value && lastWarn.value) out.push({ t: '⚠ ' + lastWarn.value, tone: 'warn' });
+    if (lastServe.value) out.push({ t: `供奉 ${lastServe.value.served}人 · 欲望-${lastServe.value.desireRelieved} · 套-${lastServe.value.condomUsed}` + (lastServe.value.condomShort ? '（库存不足!）' : ''), tone: lastServe.value.condomShort ? 'err' : 'ok' });
+    if (lastSettle.value?.events.isFirstSpecial) out.push({ t: `◆ 首次特殊 堕落+${lastSettle.value.events.corruptionGain}` + (lastSettle.value.events.cognitionAdvancedTo ? ` → ${lastSettle.value.events.cognitionAdvancedTo}` : ''), tone: 'rose' });
+    if (lastSettle.value?.events.firedGateIds.length) out.push({ t: '◆ ' + lastSettle.value.events.firedGateIds.map(g => '堕落度（' + g.replace(/\D/g, '') + '）').join('、') + ' 奖励', tone: 'gold' });
+    if (lastRecruit.value && lastRecruit.value.recruited > 0) out.push({ t: `+${lastRecruit.value.recruited}打手 (¥${lastRecruit.value.cost})`, tone: 'ok' });
+    if (lastBuyCondom.value && lastBuyCondom.value.bought > 0) out.push({ t: `+${lastBuyCondom.value.bought}避孕套`, tone: 'ok' });
+    if (lastReward.value && lastReward.value.gained > 0) out.push({ t: `犒赏打手 · 极道忠诚 +${lastReward.value.gained}`, tone: 'gold' });
+    if (lastProtection.value && lastProtection.value.income > 0) out.push({ t: `收保护费 +¥${lastProtection.value.income.toLocaleString()}`, tone: 'ok' });
+    if (lastAvIncome.value && lastAvIncome.value.income > 0) out.push({ t: `AV销售 +¥${lastAvIncome.value.income.toLocaleString()}（${lastAvIncome.value.theme}）`, tone: 'gold' });
+    if (lastTurf.value) out.push({ t: lastTurf.value.msg, tone: lastTurf.value.ok ? 'ok' : 'warn' });
+    return out;
+  }
+  function logNotices(label: string, extra: Notice[] = []) {
+    const notices = [...extra, ...buildSlotNotices()];
+    if (!notices.length) return;
+    const d = day.value.dayNumber;
+    notifyLog.value = [...notifyLog.value, { day: d, label, notices }].filter(x => x.day >= d - 1).slice(-60);
+  }
+
   // 启动: 有存档→读回; 无→落初始并写一次。之后任意状态变化自动防抖存。
   const _hadSave = loadSave();
   if (!_hadSave) persistNow();
@@ -442,7 +494,7 @@ export const useRunnerStore = defineStore('runner', () => {
 
   return {
     day, engine, fastForward, busy, lastSettle, lastServe, lastRecruit, lastNight,
-    lastReward, lastProtection, lastAvIncome, lastAttrition,
+    lastReward, lastProtection, lastAvIncome, lastAttrition, notifyLog,
     forcedLeaveToday, forcedSeize, reliefCleared, hardFail, hardFailReason, failWarnings, error,
     lastEmpty, lastWarn, genHint, lastBuyCondom,
     currentSlot: currentSlotRef, canRunCurrent, runnerState,

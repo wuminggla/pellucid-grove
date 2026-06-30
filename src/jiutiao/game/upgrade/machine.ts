@@ -47,8 +47,36 @@ export const EXPANSION_UPGRADES: UpgradeDef[] = [
   { id: 'av_duration', category: 'expansion', name: 'AV时长扩容', desc: '更大场地与排班，提升单部AV时长上限(+24h/级)', cost: 4000, maxLevel: 5, requires: [{ upgradeId: 'studio', minLevel: 1 }], effect: { kind: 'unlock' } },
 ];
 
-/** 全部升级项（三类合并） */
-export const UPGRADES: UpgradeDef[] = [...THUG_UPGRADES, ...FACILITY_UPGRADES, ...EXPANSION_UPGRADES];
+// ───────────────────────────────────────
+// catalog · 九条宅技能树（叙事:九条会沉寂多年,宅邸功能不全,凛赚钱后逐间修缮重启)
+// 主页「九条宅」的房间修缮节点 → 解锁对应子页(道场/摄影房/地下室/纪念室/庭院/日常淫具化…)
+// 巨量内容待世界书完善后填充,这里先搭框架 + 示例分支,留接口。
+// ───────────────────────────────────────
+export const HOUSE_UPGRADES: UpgradeDef[] = [
+  // —— 九条宅(主页·房间修缮=解锁子页) ——
+  { id: 'room_dojo', category: 'expansion', name: '重启道场', desc: '清理荒废的练武堂，打手得以操练——解锁「道场」升级页', cost: 3000, maxLevel: 1, effect: { kind: 'unlock', unlockKey: 'dojo_page' } },
+  { id: 'room_shrine', category: 'expansion', name: '修缮纪念室', desc: '先代与祖辈的牌位重见天日——解锁「纪念室」（祖堂相关·待填）', cost: 4000, maxLevel: 1, requires: [{ occupyAtLeast: 1 }], effect: { kind: 'unlock', unlockKey: 'shrine' } },
+  { id: 'room_dailytoy', category: 'expansion', name: '日常淫具化改造', desc: '把宅邸日常起居处处改成淫具温床——解锁「日常淫具化」（待填）', cost: 5000, maxLevel: 1, requires: [{ upgradeId: 'basement', minLevel: 1 }], effect: { kind: 'unlock', unlockKey: 'dailytoy' } },
+
+  // —— 凛自己(主页旁·永远可用·经营核心) ——
+  { id: 'prestige_mult', category: 'facility', name: '威望增长系数', desc: '凛亲自打理名声经营，一切威望进账 +25%/级', cost: 4000, maxLevel: 3, effect: { kind: 'prestigeMult', perLevel: 0.25 } },
+
+  // —— 道场示例分支(前置:重启道场) ——
+  { id: 'phys_train', category: 'thug', name: '打手体能训练', desc: '提高打手每人基础武力值(+0.2/级·与在场/武器乘区相乘)', cost: 2500, maxLevel: 1, requires: [{ upgradeId: 'room_dojo', minLevel: 1 }], effect: { kind: 'baseMartial', perLevel: 0.2 } },
+  { id: 'phys_train2', category: 'thug', name: '打手体能训练·二段', desc: '更高强度的操练，基础武力 +0.2', cost: 3500, maxLevel: 1, requires: [{ upgradeId: 'phys_train', minLevel: 1 }], effect: { kind: 'baseMartial', perLevel: 0.2 } },
+  { id: 'phys_train3', category: 'thug', name: '打手体能训练·三段', desc: '榨干潜能，基础武力 +0.2', cost: 4500, maxLevel: 1, requires: [{ upgradeId: 'phys_train2', minLevel: 1 }], effect: { kind: 'baseMartial', perLevel: 0.2 } },
+  { id: 'sex_stamina', category: 'thug', name: '性爱持续时间增强', desc: '打手更持久：供奉吞吐略降，但AV单部时长上限+24h', cost: 3500, maxLevel: 1, requires: [{ upgradeId: 'phys_train', minLevel: 1 }], effect: { kind: 'unlock', unlockKey: 'sex_stamina' } },
+  { id: 'lust_beast', category: 'thug', name: '性欲野兽', desc: '打手欲求暴涨：欲望增长×1.5，解锁日常事件的NSFW版本(前置)', cost: 5000, maxLevel: 1, requires: [{ upgradeId: 'sex_stamina', minLevel: 1 }], effect: { kind: 'unlock', unlockKey: 'lust_beast' } },
+
+  // —— 摄影房示例(前置:摄影室) ——
+  { id: 'av_play', category: 'expansion', name: 'AV玩法编排扩容', desc: '更专业的策划，单部AV同时可选玩法tag上限 +1/级', cost: 5000, maxLevel: 3, requires: [{ upgradeId: 'studio', minLevel: 1 }], effect: { kind: 'avPlayCap', perLevel: 1 } },
+
+  // —— 地下室示例(前置:地下室) ——
+  { id: 'dungeon_gear', category: 'expansion', name: '地下室刑具扩充', desc: '更多拘禁与调教器具(暴力供奉相关·待填)', cost: 4000, maxLevel: 1, requires: [{ upgradeId: 'basement', minLevel: 1 }], effect: { kind: 'unlock', unlockKey: 'dungeon_gear' } },
+];
+
+/** 全部升级项（合并） */
+export const UPGRADES: UpgradeDef[] = [...THUG_UPGRADES, ...FACILITY_UPGRADES, ...EXPANSION_UPGRADES, ...HOUSE_UPGRADES];
 
 /** 按 id 索引 */
 export const UPGRADES_BY_ID: Record<string, UpgradeDef> =
@@ -120,7 +148,10 @@ export function applyUpgrade<S extends UpgradeState>(state: S, def: UpgradeDef):
     upgrades: { ...(state.upgrades ?? {}), [def.id]: lvl + 1 },
   };
   switch (e.kind) {
-    case 'combat': break; // 派生，不写字段
+    case 'combat': break;      // 派生(武器乘区)，不写字段
+    case 'baseMartial': break; // 派生(每人基础武力)，不写字段
+    case 'avPlayCap': break;   // 派生(AV玩法tag上限)，不写字段
+    case 'prestigeMult': break;// 派生(威望增长系数)，不写字段
     case 'throughput':   patch.perSlotThroughput = (state.perSlotThroughput ?? 6) + d; break;
     case 'desireCap':    patch.desireCapacity = (state.desireCapacity ?? 60) + d; break;
     case 'actionSlots':  patch.totalSlots = (state.totalSlots ?? BASE_ACTION_SLOTS) + d; break;
@@ -134,11 +165,44 @@ export function applyUpgrade<S extends UpgradeState>(state: S, def: UpgradeDef):
   return { ...state, ...patch } as S;
 }
 
-/** 打手升级总战力加成（派生：Σ 各 combat 项等级×每级比例）。combatPower 乘 (1+此值)。 */
+/** 武器乘区加成（派生：Σ 各 combat 项等级×每级比例）。武力乘 (1+此值)。 */
 export function combatBonus(upgrades: Record<string, number> | undefined): number {
   let bonus = 0;
   for (const def of UPGRADES) {
     if (def.effect.kind === 'combat') bonus += getLevel(upgrades, def.id) * (def.effect.perLevel ?? 0);
   }
   return bonus;
+}
+/** 武器乘区 = 1 + combatBonus（武力的一个独立乘区） */
+export function weaponMult(upgrades: Record<string, number> | undefined): number {
+  return 1 + combatBonus(upgrades);
+}
+/** 每人基础武力值 = 1 + Σ baseMartial 项（派生·与在场乘区相乘） */
+export function baseMartialPerThug(upgrades: Record<string, number> | undefined): number {
+  let bonus = 0;
+  for (const def of UPGRADES) {
+    if (def.effect.kind === 'baseMartial') bonus += getLevel(upgrades, def.id) * (def.effect.perLevel ?? 0);
+  }
+  return 1 + bonus;
+}
+/** AV 同时可选玩法tag上限 = 基础 + Σ avPlayCap 项 */
+export const BASE_AV_PLAY_CAP = 2;
+export function avPlayCap(upgrades: Record<string, number> | undefined): number {
+  let bonus = 0;
+  for (const def of UPGRADES) {
+    if (def.effect.kind === 'avPlayCap') bonus += getLevel(upgrades, def.id) * (def.effect.perLevel ?? 0);
+  }
+  return BASE_AV_PLAY_CAP + bonus;
+}
+/** 威望增长系数 = 1 + Σ prestigeMult 项（威望进账乘此值） */
+export function prestigeMultiplier(upgrades: Record<string, number> | undefined): number {
+  let bonus = 0;
+  for (const def of UPGRADES) {
+    if (def.effect.kind === 'prestigeMult') bonus += getLevel(upgrades, def.id) * (def.effect.perLevel ?? 0);
+  }
+  return 1 + bonus;
+}
+/** 欲望增长乘区（性欲野兽解锁后 ×1.5） */
+export function desireGrowthMult(unlocked: Record<string, boolean> | undefined): number {
+  return unlocked?.lust_beast ? 1.5 : 1;
 }

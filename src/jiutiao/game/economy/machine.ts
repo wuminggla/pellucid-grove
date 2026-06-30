@@ -14,6 +14,7 @@ export const CONST = {
   犒赏忠诚加成: 6,            // 一次犒赏 → 极道忠诚 +6
   供奉忠诚加成: 1,            // 一场供奉 → 淫乱忠诚 +1
   忠诚流失基准: 1000,         // 每日打手自然流失数 = round(总打手 × (100-忠诚)/基准)。忠诚0→10%/日
+  忠诚日衰减: 2,             // 忠诚度每日自然衰减(不维护就滑落,需持续发钱/供奉)
   欲望基础增量: 2,            // [旧夜结模型]每个未供奉打手每晚 +2(已被晨间累积模型取代,保留兼容)
   欲望连续翻倍倍率: 2,        // 单打手连续3晚未供奉，其贡献翻倍
   欲望连续阈值天数: 3,
@@ -138,13 +139,47 @@ export function slidingWindowRelief(
 }
 
 // ───────────────────────────────────────
-// 武力
+// 在场打手数（忠诚驱动·每格刷新）
 // ───────────────────────────────────────
 
-/** 武力 = 可用打手 × (忠诚度 / 基准) × (1 + 打手升级战力加成)。忠诚低则武力打折。 */
-export function combatPower(availableThugs: number, loyalty: number, upgradeBonus = 0): number {
-  const base = availableThugs * (Math.max(0, loyalty) / CONST.忠诚武力系数基准);
-  return Math.round(base * (1 + Math.max(0, upgradeBonus)));
+/**
+ * 在场比率(忠诚越高越易刷高)。期望随忠诚线性，叠加随机抖动。
+ * 忠诚0→期望~0.35，忠诚100→期望~0.95；抖动±0.1。
+ */
+export function presentRatio(loyalty: number, rng = 0.5): number {
+  const expected = 0.35 + 0.6 * Math.max(0, Math.min(100, loyalty)) / 100;
+  const jitter = (rng - 0.5) * 0.2;
+  return Math.max(0.1, Math.min(1, expected + jitter));
+}
+/** 在场打手数 = 总人数 × 在场比率(四舍五入)。每个行动格结算后刷新。 */
+export function presentCountFrom(thugTotal: number, loyalty: number, rng = 0.5): number {
+  return Math.max(0, Math.round(thugTotal * presentRatio(loyalty, rng)));
+}
+
+// ───────────────────────────────────────
+// 武力（多乘区：基础武力值 × 在场乘区 × 武器乘区）
+// ───────────────────────────────────────
+
+/**
+ * 在场乘区(来源:忠诚→在场比率)。内部解释:半数在场=认真出手(×1)，全员在场=倾尽全力(×2)。
+ * = 2 × (在场人数 / 总人数)，封顶 ×2。
+ */
+export function presenceMultiplier(presentCount: number, thugTotal: number): number {
+  if (thugTotal <= 0) return 0;
+  return 2 * Math.min(1, presentCount / thugTotal);
+}
+
+/**
+ * 武力 = 可用打手 × 基础武力值/人 × 在场乘区 × 武器等其它乘区。
+ * @param available 可用打手(总-驻守) @param presentCount 在场人数 @param thugTotal 总打手
+ * @param baseMartialPerThug 每人基础武力(初始1·可升级) @param weaponMult 武器等乘区(初始1·升级带来)
+ */
+export function combatPower(
+  available: number, presentCount: number, thugTotal: number,
+  baseMartialPerThug = 1, weaponMult = 1,
+): number {
+  const pm = presenceMultiplier(presentCount, thugTotal);
+  return Math.round(Math.max(0, available) * Math.max(0, baseMartialPerThug) * pm * Math.max(0, weaponMult));
 }
 
 /** 可用打手 = 总数 - 驻守占用 */

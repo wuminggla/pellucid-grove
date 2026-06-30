@@ -17,7 +17,10 @@ export type UpgradeEffectKind =
   | 'purchaseMult'  // 避孕套采购扩容倍率
   | 'turfFortify'   // 据点加固（地盘稳定/防守）
   | 'unlock'        // 通用解锁：买后置 unlocked[unlockKey]=true（地下室/摄影室/庭院/任何区域系统）
-  | 'occupyScale';  // 地盘扩张：抬升占据规模档（门控扩张日常选项）
+  | 'occupyScale'   // 地盘扩张：抬升占据规模档（门控扩张日常选项）
+  | 'baseMartial'   // 每人基础武力值 +（派生·与在场乘区/武器乘区相乘）
+  | 'avPlayCap'     // AV 同时可选玩法tag上限 +（派生·防一次性拉满收益）
+  | 'prestigeMult'; // 威望增长系数 +（派生·结算时威望进账×(1+此值)）
 
 export interface UpgradeEffect {
   kind: UpgradeEffectKind;

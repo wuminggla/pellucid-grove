@@ -9,9 +9,10 @@ import { settleSlot } from './machine';
 import { settleServe, settleBuyCondoms, settleDaily } from './settlement';
 import {
   CONST, slidingWindowRelief, settleRecruit, dailyDesireDemand, desireOverflow, availableThugs,
-  gainLoyalty, settleRewardThugs, settleProtectionFee,
+  gainLoyalty, settleRewardThugs, settleProtectionFee, presentCountFrom,
 } from '../economy/machine';
 import { totalShops } from '../turf/machine';
+import { desireGrowthMult } from '../upgrade/machine';
 import { scanForced } from '../events/machine';
 import { appendLog, appendContinuity } from '../memory/machine';
 import { deriveEventUnlocked } from './unlocked';
@@ -215,6 +216,9 @@ export async function runCurrentSlot(
 
   const dayDone = completeCurrent(dayForInsert, settle.resultText);
 
+  // 在场打手数刷新(每格结算后·忠诚越高越易刷高)。本格已用旧值,新值供下一格。
+  engine = { ...engine, presentCount: presentCountFrom(engine.thugTotal, engine.loyalty, (opts.rng ?? Math.random)()) };
+
   return {
     state: { day: dayDone, engine },
     settle, serve, recruit, buyCondom, reward, protection, forcedInsert, logEntry,
@@ -256,14 +260,15 @@ export function advanceToNextDay(
   //    pendingForcedLeave 是个别事件可能置的旁路信号，一并消费。
   const overflow = desireOverflow(next.desire, next.desireCapacity) || !!next.pendingForcedLeave;
 
-  // —— 次日晨间欲望累积(按可用打手数) + 重置今日供奉计数 ——
-  const influx = dailyDesireDemand(availableThugs(next.thugTotal, next.garrison));
+  // —— 次日晨间欲望累积(按可用打手数·性欲野兽×1.5) + 重置今日供奉计数 ——
+  const influx = Math.round(dailyDesireDemand(availableThugs(next.thugTotal, next.garrison)) * desireGrowthMult(next.unlocked));
   next = {
     ...next,
     desire: next.desire + influx,
     desireAddedThisMorning: influx,
     servedThisNight: 0,
     pendingForcedLeave: false, // 判定已消费
+    presentCount: presentCountFrom(next.thugTotal, next.loyalty, Math.random()), // 次日晨刷新在场
   };
 
   const newDayNumber = currentDayNumber + 1;

@@ -5,6 +5,7 @@
 import { resolveEvent, markMilestone } from '../events/machine';
 import { gainCorruption, attitudeForStage } from '../corruption/machine';
 import { gainMartialPrestige, gainInfamy, isAvUnlocked } from '../prestige/machine';
+import { prestigeMultiplier } from '../upgrade/machine';
 import { deriveEventUnlocked } from './unlocked';
 import { applyA4, advanceBodyDevelopment } from '../intrusion/machine';
 import type { BodyPart } from '../intrusion/machine';
@@ -109,11 +110,10 @@ export async function settleSlot(
     rejected = s.rejected;
   }
 
-  // —— 应用叙事数值（在场人数等，来自 extract；快进时无）——
+  // —— 应用叙事数值 ——
+  // 注:在场人数(presentCount)已改为"忠诚驱动·每格刷新"的游戏数值(见 day-runner),不再由 AI extract 覆盖。
   let next: EngineState = { ...state };
-  if (typeof extracted.presentCount === 'number') {
-    next.presentCount = extracted.presentCount;
-  }
+  void extracted;
 
   // —— 堕落结算（仅首次里程碑）——
   let cognitionAdvancedTo = null as SettleResult['events']['cognitionAdvancedTo'];
@@ -145,18 +145,21 @@ export async function settleSlot(
   // —— 威望进账（每次结算都给）：战斗→极道威望 / AV·轮奸规模→淫名(仅AV解锁后) ——
   let martialGain = 0;
   let infamyGain = 0;
+  const pm = prestigeMultiplier(next.upgrades); // 威望增长系数(升级)
   if (option.martialReward) {
+    const amt = Math.round(option.martialReward * pm);
     const g = gainMartialPrestige(
       { martialPrestige: next.martialPrestige, martialGainToday: next.martialGainToday ?? 0 },
-      option.martialReward,
+      amt,
     );
     next.martialPrestige = g.martialPrestige;
     next.martialGainToday = g.martialGainToday;
-    martialGain = option.martialReward;
+    martialGain = amt;
   }
   if (option.infamyReward && isAvUnlocked(next.unlocked)) {
-    next.infamy = gainInfamy(next.infamy, option.infamyReward);
-    infamyGain = option.infamyReward;
+    const amt = Math.round(option.infamyReward * pm);
+    next.infamy = gainInfamy(next.infamy, amt);
+    infamyGain = amt;
   }
 
   // —— A4 日常侵蚀(可选·NSFW 态且事件标 a4 时触发) ——

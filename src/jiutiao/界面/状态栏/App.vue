@@ -42,12 +42,27 @@
           <div v-else class="av-empty">拖动上方滑条分配今日白天 / 夜晚行动格</div>
         </div>
 
+        <!-- 通知历史(最近两天·可展开) -->
+        <Transition name="collapse">
+          <div v-if="showHistory" class="notify-history">
+            <div class="nh-head"><span>通知历史 · 最近两天</span><button class="nh-close" @click="showHistory = false">收起 ▴</button></div>
+            <div v-if="!r.notifyLog.length" class="nh-empty">暂无记录。</div>
+            <div v-for="(g, gi) in historyView" :key="gi" class="nh-grp">
+              <div class="nh-label">{{ g.label }}</div>
+              <div class="nh-items">
+                <span v-for="(s, i) in g.notices" :key="i" class="st-item" :class="s.tone">{{ s.t }}</span>
+              </div>
+            </div>
+          </div>
+        </Transition>
+
         <div class="av-bottom">
           <div class="status-strip">
             <template v-if="statusItems.length">
               <span v-for="(s, i) in statusItems" :key="i" class="st-item" :class="s.tone">{{ s.t }}</span>
             </template>
-            <span v-else class="st-empty">— 状态提示 · 变量变化 / 截断空回 会显示在这里 —</span>
+            <span v-else class="st-empty">— 状态提示 · 仅显示当前格 · 点右侧「历史」看最近两天 —</span>
+            <button class="hist-btn" @click="showHistory = !showHistory" :title="'查看最近两天的全部通知/警告'">历史 {{ showHistory ? '▴' : '▾' }}<span v-if="r.notifyLog.length" class="hb-n">{{ r.notifyLog.length }}</span></button>
           </div>
           <div class="actions">
             <button v-if="canRerun" class="ghost-btn" @click="rerun">↻ 重生成上一格</button>
@@ -133,6 +148,8 @@ const r = useRunnerStore();
 const view = ref('行动');
 const mast = ref<InstanceType<typeof Masthead> | null>(null);
 const autoAdvance = ref(true); // 生成后是否自动跳到下一格（开关·tool-row 按钮）
+const showHistory = ref(false);
+const historyView = computed(() => [...r.notifyLog].reverse());
 
 const phase = computed(() => r.day.phase);
 const phaseLabel = computed(() => (({
@@ -268,6 +285,16 @@ function confirmReset() {
 .st-item.rose { color: var(--red-hi); border-color: rgba(216,64,77,.5); }
 .st-item.dim { color: var(--text-dim); }
 .st-empty { font-size: 12px; color: var(--text-dim); align-self: center; }
+.hist-btn { margin-left: auto; align-self: center; font-family: var(--serif); font-size: 12px; color: var(--text-dim); background: rgba(0,0,0,.3); border: 1px solid var(--line); border-radius: 14px; padding: 4px 12px; cursor: pointer; white-space: nowrap; }
+.hist-btn:hover { color: var(--gold-hi); border-color: var(--gold-dim); }
+.hist-btn .hb-n { margin-left: 6px; font-size: 10px; color: var(--gold-dim); }
+.notify-history { border: 1px solid var(--line); border-radius: 9px; background: rgba(10,7,6,.7); padding: 10px 14px; margin-bottom: 8px; max-height: 240px; overflow-y: auto; }
+.nh-head { display: flex; align-items: center; justify-content: space-between; font-size: 12px; color: var(--gold); letter-spacing: 1px; margin-bottom: 8px; border-bottom: 1px dashed var(--line); padding-bottom: 6px; }
+.nh-close { font-family: var(--serif); font-size: 11px; color: var(--text-dim); background: transparent; border: none; cursor: pointer; }
+.nh-empty { font-size: 12px; color: var(--text-dim); padding: 8px 0; }
+.nh-grp { margin-bottom: 9px; }
+.nh-label { font-size: 11px; color: var(--gold-dim); margin-bottom: 4px; }
+.nh-items { display: flex; flex-wrap: wrap; gap: 6px; }
 
 .actions { flex: none; display: flex; gap: 12px; align-items: center; }
 .primary-btn { font-family: var(--serif); background: linear-gradient(180deg, var(--gold-hi), var(--gold)); color: #1a120a; border: none; border-radius: 6px; padding: 12px 26px; font-size: 15px; font-weight: 700; letter-spacing: 2px; cursor: pointer; box-shadow: 0 6px 18px rgba(201,162,74,.25); }

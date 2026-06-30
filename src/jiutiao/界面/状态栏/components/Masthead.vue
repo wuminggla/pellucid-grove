@@ -56,12 +56,13 @@
         <div class="v" :style="{ color: loyaltyColor }">{{ e.loyalty }}</div>
         <div class="pop">
           <h4>忠诚度 · {{ loyaltyBiasText }}（{{ loyaltyStageNo }}/5）</h4>
-          <div class="prow loyal-quote">「{{ loyaltyQuote }}」</div>
-          <div class="prow">忠诚影响 <b>战斗力</b>（系数 = 忠诚/50：50→×1，100→×2，0→×0）与 <b>自然流失</b>（每日流失率 =（100-忠诚)/10 %，忠诚越低走得越多：被挖角/不满待遇/看不到前景）。</div>
-          <div class="row"><span>战力系数</span><b>×{{ (e.loyalty / 50).toFixed(2) }}</b></div>
+          <div class="loyal-quote">「{{ loyaltyQuote }}」</div>
+          <div class="frow">忠诚越高，<b>在场打手比率</b>越容易刷高（在场人数 = 总人数 × 比率），间接抬升战斗力。</div>
+          <div class="frow">每日自然流失率 =（100 − 忠诚）÷ 10 %。</div>
+          <div class="frow">忠诚每日自然衰减 −{{ 2 }}（不维护就滑落）。</div>
           <div class="row"><span>预计日流失率</span><b>{{ ((100 - e.loyalty) / 10).toFixed(1) }}%</b></div>
           <div class="row"><span>极道忠诚 · 淫乱忠诚</span><b>{{ e.loyaltyMartial ?? 0 }} · {{ e.loyaltyInfamy ?? 0 }}</b></div>
-          <div class="hint">发钱「犒赏打手」→极道忠诚；夜晚「供奉」→淫乱忠诚。偏向取两者较大者。</div>
+          <div class="hint">发钱「犒赏打手」→极道忠诚；夜晚「供奉」→淫乱忠诚。颜色按两者占比金↔绯红渐变。</div>
         </div>
       </div>
 
@@ -156,7 +157,12 @@ const LOYAL_QUOTES: Record<'极道' | '淫乱', string[]> = {
 const loyaltyBiasText = computed(() => loyaltyBias(props.engine.loyaltyMartial ?? 0, props.engine.loyaltyInfamy ?? 0));
 const loyaltyStageNo = computed(() => loyaltyStage(props.engine.loyalty));
 const loyaltyQuote = computed(() => LOYAL_QUOTES[loyaltyBiasText.value][loyaltyStageNo.value - 1]);
-const loyaltyColor = computed(() => loyaltyBiasText.value === '极道' ? mixGoldRose(0) : mixGoldRose(1));
+// 忠诚颜色:按极道/淫乱成分比例金↔绯红渐变(同威望)
+const loyaltyRoseRatio = computed(() => {
+  const m = props.engine.loyaltyMartial ?? 0, inf = props.engine.loyaltyInfamy ?? 0;
+  const t = m + inf; return t <= 0 ? 0.5 : inf / t;
+});
+const loyaltyColor = computed(() => mixGoldRose(loyaltyRoseRatio.value));
 
 // —— 避孕套消耗折线图（无数据则不画）——
 const condomChart = computed(() => props.engine.condomHistory ?? []);
@@ -249,5 +255,7 @@ const ledger = computed(() => [] as Array<{ t: string; d: number }>);
 .chart-inline svg { width: 100%; height: 64px; display: block; }
 .chart-inline .chart-empty { font-size: 11px; color: var(--text-dim); padding: 14px 0; text-align: center; }
 .chart-warn { font-size: 11px; color: var(--rose-hi); line-height: 1.6; margin: 8px 0; padding: 7px 9px; background: rgba(210,74,106,.08); border-left: 2px solid var(--rose); border-radius: 4px; }
-.loyal-quote { color: var(--gold-hi); font-size: 13px; font-style: italic; border-bottom: none !important; }
+.loyal-quote { color: var(--gold-hi); font-size: 16px; font-weight: 700; line-height: 1.5; padding: 8px 0 10px; text-align: center; border-bottom: 1px dashed var(--line); margin-bottom: 6px; }
+.pop .frow { font-size: 12px; color: var(--text-dim); line-height: 1.65; padding: 4px 0; }
+.pop .frow b { color: var(--gold); }
 </style>

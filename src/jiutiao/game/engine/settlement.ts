@@ -6,7 +6,7 @@ import {
   availableThugs, combatPower, weeklyRecruitQuota, totalPrestige, auditMoney, thugAttrition,
 } from '../economy/machine';
 import { isAvUnlocked, auditMartial } from '../prestige/machine';
-import { combatBonus } from '../upgrade/machine';
+import { weaponMult, baseMartialPerThug } from '../upgrade/machine';
 import { dailyYields, threatLevelFrom, totalShops } from '../turf/machine';
 
 // ⚠️暂挂开关: 地盘攻守玩法(威望主来源·task #13)未接入前,玩家结构性赚不到极道威望→
@@ -32,7 +32,9 @@ export interface ServeSettleResult {
  * @param throughputMultiplier 吞吐倍率（强制请假轮奸日=1.5，多服务人数同步放大扣套与降欲）
  */
 export function settleServe(state: EngineState, throughputMultiplier = 1, consumeCondom = true): ServeSettleResult {
-  const served = Math.round(state.presentCount * throughputMultiplier);
+  // 服务人数 = min(在场打手数, 供奉格吞吐上限×倍率)。在场少则取在场,在场多则被吞吐封顶。
+  const cap = Math.round((state.perSlotThroughput ?? 6) * throughputMultiplier);
+  const served = Math.max(0, Math.min(state.presentCount, cap));
   // 口交等非插入供奉不耗避孕套(consumeCondom=false)
   const need = consumeCondom ? condomCost(served, state.isDangerousPeriod) : 0;
   const used = Math.min(need, state.condomStock);
@@ -134,10 +136,15 @@ export function settleDaily(state: EngineState, dayNumber: number): DailySettleR
       next.av = { ...next.av, weeklyQuota: next.av.weeklyQuotaMax };
     }
   }
+  // 忠诚度每日自然衰减(不维护就滑落) — 在流失判定前先衰减
+  if ((next.loyalty ?? 0) > 0) next.loyalty = Math.max(0, next.loyalty - CONST.忠诚日衰减);
   // 打手自然流失(忠诚越低走得越多·被挖角/不满待遇/看不到前景)
   const thugsLost = thugAttrition(next.thugTotal, next.loyalty, Math.random());
   if (thugsLost > 0) next.thugTotal = Math.max(0, next.thugTotal - thugsLost);
-  const power = combatPower(availableThugs(next.thugTotal, next.garrison), next.loyalty, combatBonus(next.upgrades));
+  const power = combatPower(
+    availableThugs(next.thugTotal, next.garrison), next.presentCount, next.thugTotal,
+    baseMartialPerThug(next.upgrades), weaponMult(next.upgrades),
+  );
   // 硬失败·双轨再生力审核(设计补遗_A)。各轨连续2次坏审核→硬失败;第1次坏审核弹警告(留1回合缓冲)。
   //  威望轨: 极道威望进账连续2次为0(纯摆烂/A面崩盘者)。审核后重置今日流量。
   //  资金轨: 资金余额连续2次≤0(存量·用户定·非进账流,不误杀"亏一天赚一天"玩家)。

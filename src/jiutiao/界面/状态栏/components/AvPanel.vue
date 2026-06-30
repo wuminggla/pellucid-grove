@@ -40,9 +40,11 @@
           </div>
         </div>
         <div class="field">
-          <label>玩法<span class="hint">(可多选·至少1)</span></label>
+          <label>玩法<span class="hint">(已选 {{ def.plays.length }}/{{ playCap }} · 升级可提升上限)</span></label>
           <div class="chips">
-            <button v-for="p in PLAYS" :key="p" class="chip" :class="{ on: def.plays.includes(p) }" @click="togglePlay(p)">{{ p }}</button>
+            <button v-for="p in PLAYS" :key="p" class="chip"
+              :class="{ on: def.plays.includes(p), dis: !def.plays.includes(p) && def.plays.length >= playCap }"
+              @click="togglePlay(p)">{{ p }}</button>
           </div>
         </div>
         <div class="field" v-if="def.setting.includes('角色扮演')">
@@ -82,6 +84,7 @@
 import { computed, reactive } from 'vue';
 import { useRunnerStore } from '../runner-store';
 import { defaultAvState, isAvSystemUnlocked, canShootAv, avSalesIncome } from '../../../game/av/machine';
+import { avPlayCap } from '../../../game/upgrade/machine';
 import type { AvTheme, AvSetting, AvPlay, AvDefinition } from '../../../game/av/machine';
 
 const r = useRunnerStore();
@@ -94,10 +97,11 @@ const PLAYS: AvPlay[] = ['口', '手', '足', '小穴', '臀', '深喉', '颜射
 
 const def = reactive<AvDefinition>({ theme: '本格性爱', setting: '学校', plays: ['小穴'], durationHours: 8, setupNote: '', custom: '' });
 
+const playCap = computed(() => avPlayCap(r.engine.upgrades));
 function togglePlay(p: AvPlay) {
   const i = def.plays.indexOf(p);
   if (i >= 0) { if (def.plays.length > 1) def.plays.splice(i, 1); }
-  else def.plays.push(p);
+  else if (def.plays.length < playCap.value) def.plays.push(p);
 }
 
 const ready = computed(() => canShootAv(r.engine, def as AvDefinition));
@@ -135,6 +139,7 @@ function onShoot() {
 .chip { font-family: var(--serif); font-size: 13px; color: var(--text-dim); background: rgba(0,0,0,.3); border: 1px solid var(--line); border-radius: 16px; padding: 6px 14px; cursor: pointer; transition: .12s; }
 .chip:hover { color: var(--text); border-color: var(--gold-dim); }
 .chip.on { color: #1a120a; font-weight: 700; background: linear-gradient(180deg, var(--gold-hi), var(--gold)); border-color: var(--gold); }
+.chip.dis { opacity: .35; cursor: not-allowed; }
 .text-in { width: 100%; background: rgba(0,0,0,.3); border: 1px solid var(--line); border-radius: 6px; padding: 8px 12px; color: var(--text); font-family: var(--serif); font-size: 13px; box-sizing: border-box; }
 .text-in.area { resize: vertical; line-height: 1.6; }
 .range { width: 100%; accent-color: var(--gold); }

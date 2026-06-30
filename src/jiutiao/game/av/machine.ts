@@ -9,6 +9,7 @@
 // 核心数据结构: AvDefinition(题材/场景/玩法/时长)→ buildAvPrompt 组装成 inlinePrompt
 
 import { AV_UNLOCK_KEY } from '../prestige/machine';
+import { avPlayCap } from '../upgrade/machine';
 import type { EngineState } from '../engine/types';
 import type { ParadigmRef } from '../events/types';
 
@@ -77,6 +78,8 @@ export function canShootAv(engine: EngineState, def: AvDefinition): { ok: boolea
   if (def.durationHours <= 0) return { ok: false, reason: '时长必须 > 0' };
   if (def.durationHours > av.durationCap) return { ok: false, reason: `时长超出上限 ${av.durationCap}h` };
   if (def.plays.length === 0) return { ok: false, reason: '至少选一项玩法' };
+  const cap = avPlayCap(engine.upgrades);
+  if (def.plays.length > cap) return { ok: false, reason: `同时玩法tag上限 ${cap}（升级可提升）` };
   return { ok: true };
 }
 
