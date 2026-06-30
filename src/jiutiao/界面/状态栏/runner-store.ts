@@ -473,7 +473,7 @@ export const useRunnerStore = defineStore('runner', () => {
   function buildSlotNotices(): Notice[] {
     const out: Notice[] = [];
     if (lastEmpty.value && lastWarn.value) out.push({ t: '⚠ ' + lastWarn.value, tone: 'warn' });
-    if (lastServe.value) out.push({ t: `供奉 ${lastServe.value.served}人 · 欲望-${lastServe.value.desireRelieved} · 套-${lastServe.value.condomUsed}` + (lastServe.value.condomShort ? '（库存不足!）' : ''), tone: lastServe.value.condomShort ? 'err' : 'ok' });
+    if (lastServe.value) out.push({ t: `供奉 ${lastServe.value.served}人 · 欲望-${lastServe.value.desireRelieved} · 套-${lastServe.value.condomUsed}` + (lastServe.value.condomShort ? '（库存不足!）' : ''), tone: lastServe.value.condomShort ? 'err' : 'rose' });
     if (lastSettle.value?.events.isFirstSpecial) out.push({ t: `◆ 首次特殊 堕落+${lastSettle.value.events.corruptionGain}` + (lastSettle.value.events.cognitionAdvancedTo ? ` → ${lastSettle.value.events.cognitionAdvancedTo}` : ''), tone: 'rose' });
     if (lastSettle.value?.events.firedGateIds.length) out.push({ t: '◆ ' + lastSettle.value.events.firedGateIds.map(g => '堕落度（' + g.replace(/\D/g, '') + '）').join('、') + ' 奖励', tone: 'gold' });
     if (lastRecruit.value && lastRecruit.value.recruited > 0) out.push({ t: `+${lastRecruit.value.recruited}打手 (¥${lastRecruit.value.cost})`, tone: 'ok' });

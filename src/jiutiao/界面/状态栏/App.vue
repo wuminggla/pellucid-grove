@@ -62,8 +62,8 @@
               <span v-for="(s, i) in statusItems" :key="i" class="st-item" :class="s.tone">{{ s.t }}</span>
             </template>
             <span v-else class="st-empty">— 状态提示 · 仅显示当前格 · 点右侧「历史」看最近两天 —</span>
-            <button class="hist-btn" @click="showHistory = !showHistory" :title="'查看最近两天的全部通知/警告'">历史 {{ showHistory ? '▴' : '▾' }}<span v-if="r.notifyLog.length" class="hb-n">{{ r.notifyLog.length }}</span></button>
           </div>
+          <button class="hist-btn" @click="showHistory = !showHistory" :title="'查看最近两天的全部通知/警告'">历史 {{ showHistory ? '▴' : '▾' }}<span v-if="r.notifyLog.length" class="hb-n">{{ r.notifyLog.length }}</span></button>
           <div class="actions">
             <button v-if="canRerun" class="ghost-btn" @click="rerun">↻ 重生成上一格</button>
             <button v-if="phase === 'allocating' && hasSlots" class="primary-btn" @click="startDay">确定分配 · 开始 ▶</button>
@@ -214,7 +214,7 @@ const statusItems = computed(() => {
   if (!r.hardFail && (e.martialZeroStreak ?? 0) >= 1 && (e.martialGainToday ?? 0) <= 0) out.push({ t: '⚠ 威望停滞：今日尚无极道进账，去打据点/骚扰/收生意，否则连续两日威望枯竭', tone: 'warn' });
   if (r.lastWarn) out.push({ t: '⚠ ' + r.lastWarn, tone: 'warn' });
   if (e.desire >= e.desireCapacity) out.push({ t: `⚠ 群体欲望 ${e.desire}/${e.desireCapacity} 超上限`, tone: 'warn' });
-  if (r.lastServe) out.push({ t: `供奉 ${r.lastServe.served}人 · 欲望-${r.lastServe.desireRelieved} · 套-${r.lastServe.condomUsed}` + (r.lastServe.condomShort ? '（库存不足!）' : ''), tone: r.lastServe.condomShort ? 'err' : 'ok' });
+  if (r.lastServe) out.push({ t: `供奉 ${r.lastServe.served}人 · 欲望-${r.lastServe.desireRelieved} · 套-${r.lastServe.condomUsed}` + (r.lastServe.condomShort ? '（库存不足!）' : ''), tone: r.lastServe.condomShort ? 'err' : 'rose' });
   if (r.lastSettle?.events.isFirstSpecial) out.push({ t: `◆ 首次特殊 堕落+${r.lastSettle.events.corruptionGain}` + (r.lastSettle.events.cognitionAdvancedTo ? ` → ${r.lastSettle.events.cognitionAdvancedTo}` : ''), tone: 'rose' });
   if (r.lastSettle?.events.firedGateIds.length) out.push({ t: '◆ ' + gateLabel.value + ' 奖励', tone: 'gold' });
   if (r.lastRecruit && r.lastRecruit.recruited > 0) out.push({ t: `+${r.lastRecruit.recruited}打手 (¥${r.lastRecruit.cost})`, tone: 'ok' });
@@ -285,10 +285,10 @@ function confirmReset() {
 .st-item.warn { color: #e8a87a; border-color: #e8a87a; }
 .st-item.err { color: var(--red-hi); border-color: var(--red-hi); background: rgba(179,33,46,.12); }
 .st-item.gold { color: var(--gold-hi); border-color: var(--gold-dim); }
-.st-item.rose { color: var(--red-hi); border-color: rgba(216,64,77,.5); }
+.st-item.rose { color: var(--rose-hi); border-color: rgba(240,106,138,.55); background: rgba(210,74,106,.1); }
 .st-item.dim { color: var(--text-dim); }
 .st-empty { font-size: 12px; color: var(--text-dim); align-self: center; }
-.hist-btn { margin-left: auto; align-self: center; font-family: var(--serif); font-size: 12px; color: var(--text-dim); background: rgba(0,0,0,.3); border: 1px solid var(--line); border-radius: 14px; padding: 4px 12px; cursor: pointer; white-space: nowrap; }
+.hist-btn { flex: none; align-self: center; font-family: var(--serif); font-size: 12px; color: var(--text-dim); background: rgba(0,0,0,.3); border: 1px solid var(--line); border-radius: 14px; padding: 8px 14px; cursor: pointer; white-space: nowrap; }
 .hist-btn:hover { color: var(--gold-hi); border-color: var(--gold-dim); }
 .hist-btn .hb-n { margin-left: 6px; font-size: 10px; color: var(--gold-dim); }
 .notify-history { border: 1px solid var(--line); border-radius: 9px; background: rgba(10,7,6,.7); padding: 10px 14px; margin-bottom: 8px; max-height: 240px; overflow-y: auto; }
