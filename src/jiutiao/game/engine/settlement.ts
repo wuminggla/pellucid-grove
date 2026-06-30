@@ -3,7 +3,7 @@
 
 import {
   condomCost, condomStatus, desireRelief, desireOverflow, purchaseCap, CONST,
-  availableThugs, combatPower, weeklyRecruitQuota, totalPrestige, auditMoney,
+  availableThugs, combatPower, weeklyRecruitQuota, totalPrestige, auditMoney, thugAttrition,
 } from '../economy/machine';
 import { isAvUnlocked, auditMartial } from '../prestige/machine';
 import { combatBonus } from '../upgrade/machine';
@@ -107,6 +107,7 @@ export interface DailySettleResult {
   /** 第1次坏审核的预警(设计补遗_A：给玩家1回合缓冲+明确为什么快输了)。空=无预警。 */
   failWarnings: string[];
   yields: { condom: number; money: number; martial: number }; // 据点每日产出
+  thugsLost: number;        // 今日打手自然流失数(忠诚越低流失越多)
 }
 
 /**
@@ -133,6 +134,9 @@ export function settleDaily(state: EngineState, dayNumber: number): DailySettleR
       next.av = { ...next.av, weeklyQuota: next.av.weeklyQuotaMax };
     }
   }
+  // 打手自然流失(忠诚越低走得越多·被挖角/不满待遇/看不到前景)
+  const thugsLost = thugAttrition(next.thugTotal, next.loyalty, Math.random());
+  if (thugsLost > 0) next.thugTotal = Math.max(0, next.thugTotal - thugsLost);
   const power = combatPower(availableThugs(next.thugTotal, next.garrison), next.loyalty, combatBonus(next.upgrades));
   // 硬失败·双轨再生力审核(设计补遗_A)。各轨连续2次坏审核→硬失败;第1次坏审核弹警告(留1回合缓冲)。
   //  威望轨: 极道威望进账连续2次为0(纯摆烂/A面崩盘者)。审核后重置今日流量。
@@ -154,13 +158,16 @@ export function settleDaily(state: EngineState, dayNumber: number): DailySettleR
   if (!hardFail && moneyAudit.zeroStreak === 1) {
     failWarnings.push('⚠ 资金见底：账上余额已归零或为负。明日再不开源转正，九条会就要断了现金流——去打钱/收保护费/卖货补上。');
   }
+  // 避孕套消耗折线图:今日消耗入历史(保留最近14天)·重置今日累计
+  next.condomHistory = [...(next.condomHistory ?? []), next.condomUsedToday ?? 0].slice(-14);
+  next.condomUsedToday = 0;
   // 由稳定度派生威胁等级（驱动 forced events 骚扰强占）
   next.threatLevel = threatLevelFrom(next.stability ?? 100, next.turfFortifyBonus ?? 0);
   // 经期推进(每日一步,翻转危险期→次日套消耗×1.5/受孕率↑)
   const cyc = advanceCycle(next.cycleDay ?? 0);
   next.cycleDay = cyc.cycleDay;
   next.isDangerousPeriod = cyc.isDangerousPeriod;
-  return { state: next, recruitRefreshed, combatPower: power, hardFail, hardFailReason, failWarnings, yields: y };
+  return { state: next, recruitRefreshed, combatPower: power, hardFail, hardFailReason, failWarnings, yields: y, thugsLost };
 }
 
 /** 便捷：避孕套库存状态标签（UI 用） */

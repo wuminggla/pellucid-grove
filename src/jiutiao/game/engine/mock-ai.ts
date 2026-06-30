@@ -18,13 +18,26 @@ export const demoEventOptions: Record<string, EventOption> = {
     sfw: { worldbookKey: 'wb_recruit_sfw' },
   },
 
+  // 攻打(地图选择型):执行→主区展开地盘地图→选可攻打关→武力判定占据
   attack: {
     id: 'attack', label: '攻打据点', period: 'day', shape: 'born_sfw',
-    sfw: { worldbookKey: 'wb_attack' }, martialReward: 5,
+    sfw: { worldbookKey: 'wb_attack' }, mapSelect: 'attack',
+  },
+
+  // 骚扰(地图选择型):执行→地图选未占据关→概率减员(2-3起·随阶段↑)换取随机降门槛
+  harass: {
+    id: 'harass', label: '骚扰敌据点', period: 'day', shape: 'born_sfw',
+    sfw: { worldbookKey: 'wb_attack' }, mapSelect: 'harass',
+  },
+
+  // 犒赏打手(发钱→极道忠诚)
+  reward_thugs: {
+    id: 'reward_thugs', label: '犒赏打手', period: 'day', shape: 'born_sfw',
+    sfw: { worldbookKey: 'wb_reward_thugs' },
   },
 
   defend_turf: {
-    id: 'defend_turf', label: '地盘骚扰·驱逐', period: 'day', shape: 'born_sfw',
+    id: 'defend_turf', label: '地盘防卫·驱逐', period: 'day', shape: 'born_sfw',
     sfw: { worldbookKey: 'wb_defend_turf' },
   },
 
@@ -221,16 +234,18 @@ export const demoEventOptions: Record<string, EventOption> = {
     infamyReward: 5,  // 首次AV直接给5淫名(钩到淫名引入)
     needsContinuity: true,
     pinned: true,
+    oncePerGame: true, // 首次AV一次性,触发后从菜单消失(避免重复浪费格)
   },
 
-  // 玩家定制AV: 解锁 av 后开,paradigm 由 UI 调 buildAvParadigm 动态生成
-  // 此处仅占位 worldbookKey,实际 dispatch 时 UI 用 buildAvParadigm 注入 inlinePrompt
+  // 玩家定制AV: 仅由影业面板下单(queueAvShoot)置入行动格·受周次数限·注入定制范式
+  // hiddenInMenu=不进玩家菜单(防绕过周限/范式直接选)。收益:高金钱(AV销售)+淫名。
   av_custom: {
     id: 'av_custom', label: '拍 AV', period: 'day', shape: 'born_nsfw',
     unlockRequires: ['av'],
     nsfw: { worldbookKey: 'wb_av_custom' },
     infamyReward: 3,
     pinned: true,
+    hiddenInMenu: true,
   },
 
   // ═══════════════════════════════════════════════════
@@ -300,10 +315,11 @@ export const demoEventOptions: Record<string, EventOption> = {
   },
 
   forced_leave: {
-    id: 'forced_leave', label: '强制请假轮奸', period: 'day', shape: 'born_nsfw', isServe: true,
+    id: 'forced_leave', label: '白日供奉', period: 'day', shape: 'born_nsfw', isServe: true,
     nsfw: { worldbookKey: 'wb_forced_leave' },
     first: { ledgerKey: 'forced_leave_first', paradigm: { worldbookKey: 'wb_forced_leave_first' }, corruptionWeight: 3 },
     needsContinuity: true,
+    hiddenInMenu: true, // 只由欲望溢出强制霸全触发,绝不出现在玩家可选菜单
   },
 };
 
@@ -343,14 +359,16 @@ export const demoSummaryTemplates: Record<string, string> = {
   serve_violent: '暴力供奉已完成',
   rest: '凛回房歇下，养精蓄锐。',
   recruit: '招募事宜处理完毕。',
-  scout: '刺探/派驻已完成。',
+  scout: '刺探已完成。',
   buy_condoms: '采购了一批避孕套。',
   attack: '据点战事已了结。',
+  harass: '骚扰行动已结束。',
   bribe: '贿赂之事已办妥。',
+  reward_thugs: '犒赏了麾下打手，人心稍定。',
   protection: '保护费已收讫。',
   school: '大小姐处理了学校事务。',
   dine: '外出用餐完毕。',
-  forced_leave: '（已结算请假轮奸）',
+  forced_leave: '（已结算白日供奉）',
   condom_zero_2: '大小姐在打手的指使下，循环利用了几个用过的避孕套。',
   condom_zero_3: '——避孕套用完了。打手们对视而笑。',
 };

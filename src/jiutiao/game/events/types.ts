@@ -91,7 +91,11 @@ export interface EventOption {
    *   'bribe' = 贿赂:只可选已获情报的关→降其击败门槛。
    * 由 App/runner-store 拦截执行,settleScout/settleBribe 结算。
    */
-  mapSelect?: 'scout' | 'bribe';
+  mapSelect?: 'scout' | 'bribe' | 'attack' | 'harass';
+  /** 永不出现在玩家可选菜单(只由系统/其它界面置入,如 av_custom 由影业面板下单 / forced_leave 强制霸全) */
+  hiddenInMenu?: boolean;
+  /** 一次性:其 first.ledgerKey 已触发后从菜单消失(如首次AV·避免重复浪费格) */
+  oncePerGame?: boolean;
   /** 供奉类（执行后扣避孕套等，对接 settlement.serveOptionIds） */
   isServe?: boolean;
   /** 供奉但不消耗避孕套（如口交侍奉·非阴道/肛门插入，无需套） */

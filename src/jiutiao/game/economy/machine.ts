@@ -8,7 +8,12 @@
 export const CONST = {
   避孕套每人消耗: 3,          // 每打手每场消耗
   危险期套消耗倍率: 1.5,       // 经期=危险期时
-  忠诚武力系数基准: 100,       // 武力 = 可用打手 × (忠诚/基准)
+  忠诚武力系数基准: 50,        // 武力 = 可用打手 × (忠诚/基准)。50→×1, 100→×2, 0→×0(用户定·线性)
+  // —— 忠诚度(双成分:发钱→极道忠诚/供奉→淫乱忠诚) ——
+  犒赏单价: 1500,             // 一次"犒赏打手"发钱(占1格)花费
+  犒赏忠诚加成: 6,            // 一次犒赏 → 极道忠诚 +6
+  供奉忠诚加成: 1,            // 一场供奉 → 淫乱忠诚 +1
+  忠诚流失基准: 1000,         // 每日打手自然流失数 = round(总打手 × (100-忠诚)/基准)。忠诚0→10%/日
   欲望基础增量: 2,            // [旧夜结模型]每个未供奉打手每晚 +2(已被晨间累积模型取代,保留兼容)
   欲望连续翻倍倍率: 2,        // 单打手连续3晚未供奉，其贡献翻倍
   欲望连续阈值天数: 3,
@@ -145,6 +150,57 @@ export function combatPower(availableThugs: number, loyalty: number, upgradeBonu
 /** 可用打手 = 总数 - 驻守占用 */
 export function availableThugs(total: number, garrison: number): number {
   return Math.max(0, total - garrison);
+}
+
+// ───────────────────────────────────────
+// 忠诚度（双成分：发钱→极道忠诚 / 供奉→淫乱忠诚）
+// ───────────────────────────────────────
+
+/** 忠诚阶段(1-5,按总忠诚值分档·UI文案用) */
+export function loyaltyStage(loyalty: number): 1 | 2 | 3 | 4 | 5 {
+  const v = Math.max(0, Math.min(100, loyalty));
+  if (v < 20) return 1; if (v < 40) return 2; if (v < 60) return 3; if (v < 80) return 4; return 5;
+}
+/** 忠诚偏向(极道/淫乱·按两成分累计量谁大) */
+export function loyaltyBias(martialPart: number, infamyPart: number): '极道' | '淫乱' {
+  return martialPart >= infamyPart ? '极道' : '淫乱';
+}
+/** 加忠诚(clamp 0-100)。返回新总值。 */
+export function gainLoyalty(loyalty: number, amount: number): number {
+  return Math.max(0, Math.min(100, loyalty + amount));
+}
+
+/**
+ * 每日打手自然流失（被挖角/不满待遇/看不到前景出走）。
+ * 流失概率/比例 = (100-忠诚)/10 %。忠诚0→10%/日；忠诚100→0。
+ * 返回流失人数(对总打手取该比例·四舍五入·至少在概率命中时走1人)。
+ * @param rng 0..1 用于"是否触发"的概率掷骰(让小队伍也有流失波动)
+ */
+export function thugAttrition(thugTotal: number, loyalty: number, rng = 0.5): number {
+  if (thugTotal <= 0) return 0;
+  const rate = Math.max(0, (100 - Math.max(0, Math.min(100, loyalty))) / 100); // 0..1
+  const expected = thugTotal * rate * 0.1; // (100-忠诚)/10 % = rate*0.1
+  const whole = Math.floor(expected);
+  const frac = expected - whole;
+  return whole + (rng < frac ? 1 : 0);
+}
+
+/** 犒赏打手即时结算：花 犒赏单价 → 极道忠诚 +犒赏忠诚加成。资金不足则无效。 */
+export interface RewardResult { money: number; loyalty: number; martialPart: number; gained: number; reason?: 'no_money'; }
+export function settleRewardThugs(money: number, loyalty: number, martialPart: number): RewardResult {
+  if (money < CONST.犒赏单价) return { money, loyalty, martialPart, gained: 0, reason: 'no_money' };
+  const g = CONST.犒赏忠诚加成;
+  return { money: money - CONST.犒赏单价, loyalty: gainLoyalty(loyalty, g), martialPart: martialPart + g, gained: g };
+}
+
+/**
+ * 收保护费即时结算：按已解锁店铺数 × 单店保护费 进账(占1白天格,执行即到账)。
+ * @param shops 控制店铺数(totalShops) @param stability 稳定度(影响收取率)
+ */
+export const 单店保护费 = 220;
+export function settleProtectionFee(shops: number, stabilityPercent: number): number {
+  const stab = Math.max(0, Math.min(100, stabilityPercent)) / 100;
+  return Math.round(Math.max(1, shops) * 单店保护费 * (0.5 + 0.5 * stab)); // 稳定越高收得越足
 }
 
 // ───────────────────────────────────────

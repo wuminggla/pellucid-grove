@@ -40,7 +40,7 @@ export function startDay(dayNumber: number, totalSlots: number): DayState {
  */
 export function buildForcedLeaveDay(
   dayNumber: number, totalSlots: number, serveChoice: SlotChoice,
-  eventName = '强制请假轮奸',
+  eventName = '白日供奉',
 ): DayState {
   const dayCount = Math.floor(totalSlots / 2);
   const nightCount = totalSlots - dayCount;

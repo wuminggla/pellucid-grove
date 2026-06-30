@@ -152,6 +152,8 @@ export function buildMenu(
   const entries: MenuEntry[] = [];
   for (const opt of options) {
     if (opt.period !== 'any' && opt.period !== period) continue;
+    if (opt.hiddenInMenu) continue; // 只由系统/其它界面置入,不进玩家菜单
+    if (opt.oncePerGame && opt.first && ctx.triggeredLedger[opt.first.ledgerKey] === true) continue; // 一次性已触发
     if (!isUnlocked(opt, ctx)) continue;
     const res = resolveEvent(opt, ctx, false);
     entries.push({

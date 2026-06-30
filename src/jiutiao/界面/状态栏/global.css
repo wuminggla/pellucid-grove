@@ -19,6 +19,8 @@
   --ink: #0a0706; --panel: #141010; --panel-2: #1c1614;
   --gold: #c9a24a; --gold-hi: #ecc878; --gold-dim: #7d6228;
   --red: #b3212e; --red-hi: #d8404d;
+  /* —— 绯红：比正红偏粉一点，用于淫名/堕落度/秘密状态（淫乱风味）—— */
+  --rose: #d24a6a; --rose-hi: #f06a8a;
   --text: #efe6da; --text-dim: #a99c8d; --green: #9cba7e;
   --line: rgba(201, 162, 74, .28);
   /* —— 字体 —— */

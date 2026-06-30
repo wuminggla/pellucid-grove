@@ -20,19 +20,17 @@
         </div>
       </div>
 
-      <!-- 2 威望 双色条 -->
-      <div class="stat wide pinnable" :class="{ pinned: pin === 'prestige' }" @click.stop="toggle('prestige')">
+      <!-- 2 威望 单数值(色随偏向)·悬停出占比条 -->
+      <div class="stat pinnable" :class="{ pinned: pin === 'prestige' }" @click.stop="toggle('prestige')">
         <div class="k">威 望</div>
-        <div class="prestige">
-          <div class="pbar"><span class="pg" :style="{ width: goldPct + '%' }"></span><span class="pr" :style="{ width: redPct + '%' }"></span></div>
-          <div class="pnum"><b style="color:var(--gold-hi)">极 {{ e.martialPrestige }}</b> · <b style="color:var(--red-hi)">淫 {{ e.infamy }}</b></div>
-        </div>
+        <div class="v" :style="{ color: prestigeColor }">{{ prestigeTotal }}</div>
         <div class="pop">
-          <h4>威望 = 极道 + 淫名</h4>
-          <div class="row"><span>极道威望（金）</span><b>{{ e.martialPrestige }}</b></div>
-          <div class="row"><span>淫名（红）</span><b>{{ e.infamy }}</b></div>
-          <div class="row"><span>占比风味</span><b>{{ e.martialPrestige >= e.infamy ? '偏极道' : '偏淫名' }}</b></div>
-          <div class="hint">两者之和决定招募额度；占比决定叙事/配色风味</div>
+          <h4>威望 = 极道 + 淫名{{ avUnlocked ? '' : '（淫名未解锁）' }}</h4>
+          <div class="pbar"><span class="pg" :style="{ width: goldPct + '%' }"></span><span class="pr" :style="{ width: redPct + '%' }"></span></div>
+          <div class="row" style="margin-top:8px"><span style="color:var(--gold-hi)">极道威望</span><b>{{ e.martialPrestige }}</b></div>
+          <div class="row"><span :style="{ color: 'var(--rose-hi)' }">淫名{{ avUnlocked ? '' : '（不计入）' }}</span><b>{{ e.infamy }}</b></div>
+          <div class="row"><span>占比风味</span><b>{{ prestigeBias }}</b></div>
+          <div class="hint">{{ avUnlocked ? '两者之和决定招募额度；颜色越偏极道越金、越偏淫名越绯红。' : '拍第一部AV解锁淫名后，淫名才计入总威望。当前威望=极道威望。' }}</div>
         </div>
       </div>
 
@@ -49,6 +47,21 @@
           <div class="row"><span>本周招募额度</span><b>{{ e.recruitQuota }}</b></div>
           <div class="row"><span>单次招募</span><b>3-4 人（可升级）</b></div>
           <div class="hint">额度随威望提升；上限随设施升级</div>
+        </div>
+      </div>
+
+      <!-- 3.5 忠诚度(色随偏向·极道金/淫乱绯红) -->
+      <div class="stat pinnable" :class="{ pinned: pin === 'loyalty' }" @click.stop="toggle('loyalty')">
+        <div class="k">忠 诚</div>
+        <div class="v" :style="{ color: loyaltyColor }">{{ e.loyalty }}</div>
+        <div class="pop">
+          <h4>忠诚度 · {{ loyaltyBiasText }}（{{ loyaltyStageNo }}/5）</h4>
+          <div class="prow loyal-quote">「{{ loyaltyQuote }}」</div>
+          <div class="prow">忠诚影响 <b>战斗力</b>（系数 = 忠诚/50：50→×1，100→×2，0→×0）与 <b>自然流失</b>（每日流失率 =（100-忠诚)/10 %，忠诚越低走得越多：被挖角/不满待遇/看不到前景）。</div>
+          <div class="row"><span>战力系数</span><b>×{{ (e.loyalty / 50).toFixed(2) }}</b></div>
+          <div class="row"><span>预计日流失率</span><b>{{ ((100 - e.loyalty) / 10).toFixed(1) }}%</b></div>
+          <div class="row"><span>极道忠诚 · 淫乱忠诚</span><b>{{ e.loyaltyMartial ?? 0 }} · {{ e.loyaltyInfamy ?? 0 }}</b></div>
+          <div class="hint">发钱「犒赏打手」→极道忠诚；夜晚「供奉」→淫乱忠诚。偏向取两者较大者。</div>
         </div>
       </div>
 
@@ -72,15 +85,13 @@
         <div class="pop wide-pop">
           <h4>避孕套 · 库存与消耗</h4>
           <div class="row"><span>库存</span><b>{{ e.condomStock }}</b></div>
-          <div class="row"><span>昨日消耗</span><b class="minus">—</b></div>
-          <div class="row"><span>今日消耗（随行动变化）</span><b class="minus">—</b></div>
+          <div class="chart-warn">安全措施保障，避孕套消耗殆尽的话，不难猜到欲望上头的打手们会做出什么事。</div>
           <div class="chart-inline">
-            <div class="ci-t">消耗趋势（待接逐日追踪）</div>
-            <svg viewBox="0 0 280 72" preserveAspectRatio="none">
-              <line x1="0" y1="60" x2="280" y2="60" stroke="rgba(201,162,74,.14)" stroke-width="1"/>
-              <polyline points="0,55 70,50 140,40 210,30 280,18" fill="none" stroke="#d8404d" stroke-width="2" stroke-dasharray="4 3"/>
+            <div class="ci-t">消耗趋势</div>
+            <svg v-if="condomChart.length >= 2" viewBox="0 0 280 72" preserveAspectRatio="none">
+              <polyline :points="condomChartPoints" fill="none" stroke="var(--rose-hi)" stroke-width="2"/>
             </svg>
-            <div class="chart-cap">数值叙事：随打手膨胀，每日避孕套消耗逐日攀升——这条上扬曲线就是滑向深渊的刻度。</div>
+            <div v-else class="chart-empty">暂无消耗记录——开始供奉/采购后这里按日统计。</div>
           </div>
         </div>
       </div>
@@ -111,11 +122,50 @@
 import { computed, ref } from 'vue';
 import { BUILD_VERSION } from '../version';
 import { COGNITION_THRESHOLDS, REWARD_GATES } from '../../../game/corruption/machine';
+import { isAvUnlocked } from '../../../game/prestige/machine';
+import { loyaltyStage, loyaltyBias } from '../../../game/economy/machine';
 import type { EngineState } from '../../../game/engine/types';
 import type { DayState } from '../../../game/action-grid/types';
 
 const props = defineProps<{ engine: EngineState; day: DayState }>();
 const e = computed(() => props.engine); // 模板里 e.xxx 自动解包，engine 整体替换即响应
+
+// 金↔绯红 线性插值(t:0=金,1=绯红)
+function mixGoldRose(t: number): string {
+  const g = [236, 200, 120], rr = [240, 106, 138]; // --gold-hi / --rose-hi
+  const c = g.map((gv, i) => Math.round(gv + (rr[i] - gv) * Math.max(0, Math.min(1, t))));
+  return `rgb(${c[0]},${c[1]},${c[2]})`;
+}
+
+// —— 威望：单值 + 颜色随偏向（AV 解锁前淫名不计入）——
+const avUnlocked = computed(() => isAvUnlocked(props.engine.unlocked ?? {}));
+const prestigeTotal = computed(() => props.engine.martialPrestige + (avUnlocked.value ? props.engine.infamy : 0));
+const prestigeRedRatio = computed(() => {
+  if (!avUnlocked.value) return 0;
+  const t = props.engine.martialPrestige + props.engine.infamy;
+  return t <= 0 ? 0 : props.engine.infamy / t;
+});
+const prestigeColor = computed(() => mixGoldRose(prestigeRedRatio.value));
+const prestigeBias = computed(() => !avUnlocked.value ? '纯极道' : (prestigeRedRatio.value > 0.5 ? '偏淫名' : '偏极道'));
+
+// —— 忠诚：颜色随偏向 + 五阶段两套文案 ——
+const LOYAL_QUOTES: Record<'极道' | '淫乱', string[]> = {
+  极道: ['打手们对九条会毫不上心', '打手们不看好九条会的前景', '打手们至少不会临阵叛变', '打手们向九条会献上忠诚', '打手们为大小姐赴汤蹈火'],
+  淫乱: ['打手们把九条宅当作免费妓院', '打手们觉得老大的性器还不错', '打手们团结在名器身边', '打手们用精液向大小姐宣誓忠诚', '九条家的肉棒贤婿们'],
+};
+const loyaltyBiasText = computed(() => loyaltyBias(props.engine.loyaltyMartial ?? 0, props.engine.loyaltyInfamy ?? 0));
+const loyaltyStageNo = computed(() => loyaltyStage(props.engine.loyalty));
+const loyaltyQuote = computed(() => LOYAL_QUOTES[loyaltyBiasText.value][loyaltyStageNo.value - 1]);
+const loyaltyColor = computed(() => loyaltyBiasText.value === '极道' ? mixGoldRose(0) : mixGoldRose(1));
+
+// —— 避孕套消耗折线图（无数据则不画）——
+const condomChart = computed(() => props.engine.condomHistory ?? []);
+const condomChartPoints = computed(() => {
+  const h = condomChart.value; if (h.length < 2) return '';
+  const max = Math.max(1, ...h);
+  const W = 280, H = 64;
+  return h.map((v, i) => `${(i / (h.length - 1)) * W},${H - (v / max) * (H - 8)}`).join(' ');
+});
 
 // 钉住浮窗
 const pin = ref<string | null>(null);
@@ -123,10 +173,11 @@ function toggle(k: string) { pin.value = pin.value === k ? null : k; }
 function clearPin() { pin.value = null; }
 defineExpose({ clearPin });
 
-// 威望双色条占比
+// 威望双色条占比（淫名仅 AV 解锁后计入）
 const goldPct = computed(() => {
+  if (!avUnlocked.value) return 100;
   const t = props.engine.martialPrestige + props.engine.infamy;
-  return t <= 0 ? 50 : (props.engine.martialPrestige / t) * 100;
+  return t <= 0 ? 100 : (props.engine.martialPrestige / t) * 100;
 });
 const redPct = computed(() => 100 - goldPct.value);
 
@@ -169,13 +220,13 @@ const ledger = computed(() => [] as Array<{ t: string; d: number }>);
 .stat:hover { background: rgba(236,200,120,.06); }
 .stat .k { font-size: 11px; color: var(--text-dim); letter-spacing: 2px; }
 .stat .v { font-size: 20px; color: var(--gold-hi); font-weight: 700; }
-.stat .v.red { color: var(--red-hi); } .stat .v.white { color: var(--text); }
+.stat .v.red { color: var(--rose-hi); } .stat .v.white { color: var(--text); }
 .stat .v .sub-n { font-size: 13px; color: var(--text-dim); }
 .stat.wide { min-width: 158px; }
 .prestige { margin-top: 3px; }
 .pbar { display: flex; height: 8px; border-radius: 4px; overflow: hidden; border: 1px solid rgba(201,162,74,.3); background: #0a0706; }
 .pbar .pg { background: linear-gradient(180deg, var(--gold-hi), var(--gold)); }
-.pbar .pr { background: linear-gradient(180deg, var(--red-hi), var(--red)); }
+.pbar .pr { background: linear-gradient(180deg, var(--rose-hi), var(--rose)); }
 .pnum { font-size: 12px; margin-top: 3px; color: var(--text-dim); }
 .pnum b { font-weight: 700; font-size: 13px; }
 /* 浮窗 */
@@ -196,5 +247,7 @@ const ledger = computed(() => [] as Array<{ t: string; d: number }>);
 .chart-inline { margin-top: 9px; border-top: 1px dashed var(--line); padding-top: 9px; }
 .chart-inline .ci-t { font-size: 11px; color: var(--gold); margin-bottom: 6px; }
 .chart-inline svg { width: 100%; height: 64px; display: block; }
-.chart-inline .chart-cap { font-size: 11px; color: var(--gold-dim); margin-top: 7px; font-style: italic; line-height: 1.6; }
+.chart-inline .chart-empty { font-size: 11px; color: var(--text-dim); padding: 14px 0; text-align: center; }
+.chart-warn { font-size: 11px; color: var(--rose-hi); line-height: 1.6; margin: 8px 0; padding: 7px 9px; background: rgba(210,74,106,.08); border-left: 2px solid var(--rose); border-radius: 4px; }
+.loyal-quote { color: var(--gold-hi); font-size: 13px; font-style: italic; border-bottom: none !important; }
 </style>

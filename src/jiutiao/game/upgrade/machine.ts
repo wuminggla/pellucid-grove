@@ -41,6 +41,10 @@ export const EXPANSION_UPGRADES: UpgradeDef[] = [
   { id: 'courtyard', category: 'expansion', name: '假山庭院放风区', desc: '露天放风/遛母狗等NSFW区域', cost: 5000, maxLevel: 1, requires: [{ occupyAtLeast: 2 }], effect: { kind: 'unlock', unlockKey: 'courtyard' } },
   // AV设备升级：前置=先建摄影室，体现解锁带来新升级任务
   { id: 'av_gear', category: 'expansion', name: 'AV设备升级', desc: '专业器材与场地，提升AV规模(前置:摄影室)', cost: 4000, maxLevel: 1, requires: [{ upgradeId: 'studio', minLevel: 1 }], effect: { kind: 'unlock', unlockKey: 'av_advanced' } },
+  // AV 周产能：每级 +1 本周可拍摄部数(前置:摄影室)。AV 单部收益高,靠周次数限制平衡。
+  { id: 'av_quota', category: 'expansion', name: 'AV周产能扩充', desc: '雇佣班底，每周可多拍一部AV(单部收益高·靠周次数平衡)', cost: 7000, maxLevel: 4, requires: [{ upgradeId: 'studio', minLevel: 1 }], effect: { kind: 'unlock' } },
+  // AV 时长扩容：每级 +24h 上限(前置:摄影室)
+  { id: 'av_duration', category: 'expansion', name: 'AV时长扩容', desc: '更大场地与排班，提升单部AV时长上限(+24h/级)', cost: 4000, maxLevel: 5, requires: [{ upgradeId: 'studio', minLevel: 1 }], effect: { kind: 'unlock' } },
 ];
 
 /** 全部升级项（三类合并） */

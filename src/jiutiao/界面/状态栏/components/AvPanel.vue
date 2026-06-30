@@ -50,6 +50,10 @@
           <input v-model="def.setupNote" class="text-in" placeholder="如：继兄设定 / 精灵俘虏 / 某二次元角色…" />
         </div>
         <div class="field">
+          <label>自由编辑<span class="hint">(玩家自定意见·优先满足·可留空)</span></label>
+          <textarea v-model="def.custom" class="text-in area" rows="2" placeholder="想加的剧情/玩法/台词/服装等，直接写。会拼进本部AV的拍摄范式。"></textarea>
+        </div>
+        <div class="field">
           <label>时长 <b class="dur">{{ def.durationHours }}h</b><span class="hint">(上限 {{ av.durationCap }}h)</span></label>
           <input type="range" min="1" :max="av.durationCap" v-model.number="def.durationHours" class="range" />
         </div>
@@ -77,18 +81,18 @@
 <script setup lang="ts">
 import { computed, reactive } from 'vue';
 import { useRunnerStore } from '../runner-store';
-import { defaultAvState, isAvSystemUnlocked, canShootAv, buildAvPrompt } from '../../../game/av/machine';
+import { defaultAvState, isAvSystemUnlocked, canShootAv, avSalesIncome } from '../../../game/av/machine';
 import type { AvTheme, AvSetting, AvPlay, AvDefinition } from '../../../game/av/machine';
 
 const r = useRunnerStore();
 const unlocked = computed(() => isAvSystemUnlocked(r.engine));
 const av = computed(() => r.engine.av ?? defaultAvState());
 
-const THEMES: AvTheme[] = ['玩具调教', '高潮挑战', '男M', '女M', '本格性爱', '目隐NTR', '目前NTR', '人数挑战', '时长挑战'];
-const SETTINGS: AvSetting[] = ['学校', '职场', '医院', '伦理乱伦', '奇幻角色扮演', '二次元角色扮演', '偶像'];
-const PLAYS: AvPlay[] = ['口', '手', '足', '小穴', '臀'];
+const THEMES: AvTheme[] = ['玩具调教', '高潮挑战', '男M', '女M', '本格性爱', '目隐NTR', '目前NTR', '人数挑战', '时长挑战', '淫语调教', '公开处刑', '灌精挑战', '阿黑颜定格', '寸止折磨', '道具贯穿', '失禁奇观', '强制发情', '训练成果展示'];
+const SETTINGS: AvSetting[] = ['学校', '职场', '医院', '伦理乱伦', '奇幻角色扮演', '二次元角色扮演', '偶像', '神社巫女', '婚礼新娘', '公共厕所', '监禁地下室', '温泉旅馆', '拍卖会', '直播间', '异种族交配', '庆功宴酒席'];
+const PLAYS: AvPlay[] = ['口', '手', '足', '小穴', '臀', '深喉', '颜射', '中出', '潮吹', '双插', '乳交', '捆绑', '道具', '露出', '灌肠扩张', '坐脸', '多P拓扑', '群交围操'];
 
-const def = reactive<AvDefinition>({ theme: '本格性爱', setting: '学校', plays: ['小穴'], durationHours: 8, setupNote: '' });
+const def = reactive<AvDefinition>({ theme: '本格性爱', setting: '学校', plays: ['小穴'], durationHours: 8, setupNote: '', custom: '' });
 
 function togglePlay(p: AvPlay) {
   const i = def.plays.indexOf(p);
@@ -97,12 +101,12 @@ function togglePlay(p: AvPlay) {
 }
 
 const ready = computed(() => canShootAv(r.engine, def as AvDefinition));
-const previewLine = computed(() => `${def.theme} × ${def.setting} · ${def.plays.join('/')} · ${def.durationHours}h`);
+const estIncome = computed(() => avSalesIncome(def as AvDefinition, r.engine.infamy));
+const previewLine = computed(() => `${def.theme} × ${def.setting} · ${def.plays.join('/')} · ${def.durationHours}h · 预计收入 ¥${estIncome.value.toLocaleString()}`);
 const recent = computed(() => av.value.customs.slice(-8).reverse());
 
 function onShoot() {
-  const ok = r.queueAvShoot(JSON.parse(JSON.stringify(def)));
-  void buildAvPrompt; void ok; // prompt 由 store 注入行动格
+  r.queueAvShoot(JSON.parse(JSON.stringify(def)));
 }
 </script>
 
@@ -131,7 +135,8 @@ function onShoot() {
 .chip { font-family: var(--serif); font-size: 13px; color: var(--text-dim); background: rgba(0,0,0,.3); border: 1px solid var(--line); border-radius: 16px; padding: 6px 14px; cursor: pointer; transition: .12s; }
 .chip:hover { color: var(--text); border-color: var(--gold-dim); }
 .chip.on { color: #1a120a; font-weight: 700; background: linear-gradient(180deg, var(--gold-hi), var(--gold)); border-color: var(--gold); }
-.text-in { width: 100%; background: rgba(0,0,0,.3); border: 1px solid var(--line); border-radius: 6px; padding: 8px 12px; color: var(--text); font-family: var(--serif); font-size: 13px; }
+.text-in { width: 100%; background: rgba(0,0,0,.3); border: 1px solid var(--line); border-radius: 6px; padding: 8px 12px; color: var(--text); font-family: var(--serif); font-size: 13px; box-sizing: border-box; }
+.text-in.area { resize: vertical; line-height: 1.6; }
 .range { width: 100%; accent-color: var(--gold); }
 .actions { display: flex; align-items: center; gap: 14px; margin-top: 6px; border-top: 1px solid var(--line); padding-top: 12px; }
 .preview { flex: 1; font-size: 12px; color: var(--text-dim); }

@@ -41,7 +41,7 @@
 
           <div class="group-t">生育 · 经期</div>
           <div class="mini">
-            <div><div class="k">怀孕</div><div class="v" :style="{ color: engine.pregnant ? 'var(--red-hi)' : 'var(--green)' }">{{ engine.pregnant ? '已孕' : '未孕' }}</div></div>
+            <div><div class="k">怀孕</div><div class="v" :style="{ color: engine.pregnant ? 'var(--rose-hi)' : 'var(--green)' }">{{ engine.pregnant ? '已孕' : '未孕' }}</div></div>
             <div><div class="k">生育记录</div><div class="v white">0</div></div>
             <div><div class="k">经期</div><div class="v white">{{ engine.isDangerousPeriod ? '危险期' : '安全' }}</div></div>
           </div>
@@ -93,18 +93,18 @@ const parts = computed(() => {
 .rin-scroll { flex: 1; min-height: 0; overflow-y: auto; padding: 0 16px 18px; }
 .secret > summary { list-style: none; cursor: pointer; display: flex; align-items: center; gap: 10px; padding: 11px 13px; border: 1px solid var(--gold-dim); border-radius: 10px; background: linear-gradient(180deg, #211512, #160e0c); }
 .secret > summary::-webkit-details-marker { display: none; }
-.secret > summary .lock { font-family: var(--brush); font-size: 20px; color: var(--red-hi); }
+.secret > summary .lock { font-family: var(--brush); font-size: 20px; color: var(--rose-hi); }
 .secret > summary .t { font-family: var(--brush); font-size: 22px; color: var(--gold-hi); }
 .secret > summary .sub { font-size: 11px; color: var(--text-dim); letter-spacing: 1px; }
 .secret > summary .arr { margin-left: auto; color: var(--gold-dim); font-size: 12px; transition: .2s; }
 .secret[open] > summary .arr { transform: rotate(90deg); }
 .secret[open] > summary { border-radius: 10px 10px 0 0; border-bottom: none; }
 .sbody { border: 1px solid var(--gold-dim); border-top: none; border-radius: 0 0 10px 10px; padding: 13px; background: rgba(18,12,11,.7); }
-.inner-voice { margin: 0 0 10px; padding: 9px 11px; border-left: 3px solid var(--red); background: rgba(179,33,46,.07); font-size: 13px; line-height: 1.75; color: #d9cfc5; font-style: italic; }
+.inner-voice { margin: 0 0 10px; padding: 9px 11px; border-left: 3px solid var(--rose); background: rgba(210,74,106,.08); font-size: 13px; line-height: 1.75; color: #d9cfc5; font-style: italic; }
 .group-t { font-size: 11px; color: var(--gold-dim); letter-spacing: 3px; margin: 12px 0 8px; border-bottom: 1px dashed var(--line); padding-bottom: 4px; }
 .dots { display: flex; gap: 3px; }
 .dots i { width: 10px; height: 10px; border-radius: 50%; border: 1px solid var(--gold-dim); background: transparent; }
-.dots i.on { background: var(--red); border-color: var(--red-hi); box-shadow: 0 0 5px rgba(216,64,77,.45); }
+.dots i.on { background: var(--rose); border-color: var(--rose-hi); box-shadow: 0 0 5px rgba(240,106,138,.45); }
 .part { margin-bottom: 6px; border: 1px solid var(--line); border-radius: 7px; overflow: hidden; background: rgba(0,0,0,.2); }
 .part > summary { list-style: none; cursor: pointer; display: flex; align-items: center; gap: 10px; padding: 9px 11px; }
 .part > summary::-webkit-details-marker { display: none; }

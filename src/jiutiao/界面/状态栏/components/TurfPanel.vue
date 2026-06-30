@@ -9,18 +9,14 @@
 <template>
   <div class="turf" :class="{ selecting: !!selectMode }">
     <div class="turf-head">
-      <div class="t-title">{{ selectMode ? (selectMode === 'scout' ? '刺探 · 选择目标' : '贿赂 · 选择目标') : '地盘 · 复仇地图' }}</div>
+      <div class="t-title">{{ selectMode ? selectTitle : '地盘 · 复仇地图' }}</div>
       <div class="t-power">当前武力 <b>{{ Math.round(power) }}</b></div>
       <button v-if="selectMode" class="cancel" @click="$emit('cancel')">取消</button>
     </div>
 
-    <div class="t-hint" v-if="selectMode">
-      {{ selectMode === 'scout'
-        ? `点选一个未占据的地盘进行刺探：花费 ¥${SCOUT_COST}，约四分之一概率拿到情报（拿到后才能对其贿赂降门槛）。`
-        : '点选一个【已刺探到情报】的地盘进行贿赂：按其门槛比例降低击败门槛。高亮块为可贿赂目标。' }}
-    </div>
+    <div class="t-hint" v-if="selectMode">{{ selectHint }}</div>
     <div class="t-hint" v-else>
-      点亮=已占据 · 红=未纳入(可攻打/门槛不足) · 锁=未解锁。占满一阶段全部小关→解锁中枢Boss；击败Boss→解锁下一阶段。点地盘块查看详情与攻打。
+      点亮=已占据 · 红=未纳入(可攻打/门槛不足) · 锁=未解锁。占满一阶段全部小关→解锁中枢Boss；击败Boss→解锁下一阶段。攻打/骚扰/刺探/贿赂均在【行动格】中选择对应动作后于此地图选目标。点地盘块查看详情。
     </div>
 
     <div v-if="r.lastTurf" class="t-feedback" :class="{ ok: r.lastTurf.ok, bad: !r.lastTurf.ok }">{{ r.lastTurf.msg }}</div>
@@ -71,10 +67,8 @@
           <div class="p-row"><span>驻防需求</span><b>{{ popup.def.garrisonNeed }}</b></div>
           <div class="p-row"><span>情报</span><b :class="{ gold: popup.intel }">{{ popup.intel ? '已掌握(可贿赂)' : '未刺探' }}</b></div>
         </div>
+        <div class="p-note">攻打 / 骚扰 / 刺探 / 贿赂 请在【行动格】中选择对应动作，再于地图上点选此关。</div>
         <div class="p-btns">
-          <button class="atk" :disabled="popup.display !== 'attackable'" @click="doAttack(popup.def.id)">
-            {{ popup.display === 'occupied' ? '已占据' : popup.display === 'locked' ? '未解锁' : popup.display === 'weak' ? '武力不足' : '攻打占据 ▶' }}
-          </button>
           <button class="close" @click="popup = null">关闭</button>
         </div>
       </div>
@@ -86,19 +80,32 @@
 import { computed, ref, watch } from 'vue';
 import { useRunnerStore } from '../runner-store';
 import {
-  REGIONS_BY_ID, regionState, effectiveThreshold, regionDisplay, hasIntel,
+  regionState, effectiveThreshold, regionDisplay,
   smallsOfStage, centerOfStage, stageSmallProgress, isStageActive, isStageBossDefeated,
   highestActiveStage, STAGE_COUNT, SCOUT_COST,
 } from '../../../game/turf/machine';
 import type { RegionDef } from '../../../game/turf/types';
 import type { RegionDisplay } from '../../../game/turf/machine';
 
-const props = defineProps<{ selectMode?: 'scout' | 'bribe' | null }>();
+const props = defineProps<{ selectMode?: 'scout' | 'bribe' | 'attack' | 'harass' | null }>();
 const emit = defineEmits<{ cancel: [] }>();
 
 const r = useRunnerStore();
 const power = computed(() => r.combatPowerNow);
 const selectMode = computed(() => props.selectMode ?? null);
+
+const selectTitle = computed(() => ({
+  attack: '攻打 · 选择目标', harass: '骚扰 · 选择目标', scout: '刺探 · 选择目标', bribe: '贿赂 · 选择目标',
+} as Record<string, string>)[selectMode.value ?? ''] ?? '选择目标');
+const selectHint = computed(() => {
+  switch (selectMode.value) {
+    case 'attack': return '点选一个【武力已达标】的高亮地盘发起攻打：成功即占据，获极道威望。门槛不足的关需先贿赂/骚扰降门槛或提升武力。';
+    case 'harass': return '点选一个未占据的地盘骚扰：随机降低其击败门槛，但有概率折损打手（初期2~3，随阶段上升）。';
+    case 'scout': return `点选一个未占据的地盘刺探：花费 ¥${SCOUT_COST}，约四分之一概率拿到情报（拿到后才能对其贿赂降门槛）。`;
+    case 'bribe': return '点选一个【已刺探到情报】的高亮地盘贿赂：固定花门路钱，按门槛比例降低击败门槛。';
+    default: return '';
+  }
+});
 
 const curStage = ref(highestActiveStage(r.engine.regions));
 watch(() => r.engine.regions, () => {
@@ -124,8 +131,9 @@ function selectableOf(def: RegionDef, display: RegionDisplay): boolean {
   if (!selectMode.value) return false;
   const st = regionState(r.engine.regions, def.id);
   if (st.defeated) return false;
-  if (selectMode.value === 'scout') return display !== 'locked'; // 刺探:任一可见未占据关
-  return st.intel === true; // 贿赂:仅已获情报关
+  if (selectMode.value === 'attack') return display === 'attackable'; // 攻打:武力达标的关
+  if (selectMode.value === 'bribe') return st.intel === true;          // 贿赂:仅已获情报关
+  return display !== 'locked'; // 刺探/骚扰:任一可见未占据关
 }
 function buildCell(def: RegionDef): Cell {
   const st = regionState(r.engine.regions, def.id);
@@ -154,12 +162,6 @@ function onCell(c: Cell) {
     return;
   }
   popup.value = c;
-}
-function doAttack(id: string) {
-  r.attackRegion(id);
-  // 刷新弹窗显示(可能已占据)
-  const def = REGIONS_BY_ID[id];
-  if (def) popup.value = buildCell(def);
 }
 </script>
 
@@ -230,7 +232,8 @@ function doAttack(id: string) {
 .p-rows { margin: 12px 0; }
 .p-row { display: flex; justify-content: space-between; padding: 6px 0; border-bottom: 1px dashed var(--line); font-size: 13px; color: var(--text-dim); }
 .p-row b { color: var(--text); } .p-row b.red { color: var(--red-hi); } .p-row b.gold { color: var(--gold-hi); }
-.p-btns { display: flex; gap: 10px; margin-top: 14px; }
+.p-note { font-size: 11px; color: var(--gold-dim); line-height: 1.6; margin-top: 10px; padding: 7px 9px; background: rgba(201,162,74,.06); border-radius: 5px; }
+.p-btns { display: flex; gap: 10px; margin-top: 12px; }
 .atk { flex: 1; font-family: var(--serif); background: linear-gradient(180deg, var(--gold-hi), var(--gold)); color: #1a120a; border: none; border-radius: 6px; padding: 10px; font-size: 14px; font-weight: 700; cursor: pointer; }
 .atk:disabled { background: rgba(0,0,0,.3); color: var(--text-dim); border: 1px solid var(--line); cursor: not-allowed; }
 .close { font-family: var(--serif); background: transparent; border: 1px solid var(--line); color: var(--text-dim); border-radius: 6px; padding: 10px 16px; font-size: 13px; cursor: pointer; }

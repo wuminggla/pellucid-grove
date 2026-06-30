@@ -199,6 +199,10 @@ const statusItems = computed(() => {
   if (r.lastSettle?.events.firedGateIds.length) out.push({ t: '◆ ' + gateLabel.value + ' 奖励', tone: 'gold' });
   if (r.lastRecruit && r.lastRecruit.recruited > 0) out.push({ t: `+${r.lastRecruit.recruited}打手 (¥${r.lastRecruit.cost})`, tone: 'ok' });
   if (r.lastBuyCondom && r.lastBuyCondom.bought > 0) out.push({ t: `+${r.lastBuyCondom.bought}避孕套`, tone: 'ok' });
+  if (r.lastReward && r.lastReward.gained > 0) out.push({ t: `犒赏打手 · 极道忠诚 +${r.lastReward.gained}`, tone: 'gold' });
+  if (r.lastProtection && r.lastProtection.income > 0) out.push({ t: `收保护费 +¥${r.lastProtection.income.toLocaleString()}`, tone: 'ok' });
+  if (r.lastAvIncome && r.lastAvIncome.income > 0) out.push({ t: `AV销售 +¥${r.lastAvIncome.income.toLocaleString()}（${r.lastAvIncome.theme}）`, tone: 'gold' });
+  if (r.lastAttrition > 0) out.push({ t: `打手流失 -${r.lastAttrition}（忠诚低·被挖角/出走）`, tone: 'warn' });
   if (r.lastNight) out.push({ t: `夜结：供奉${r.lastNight.servedToday}人·结余${r.lastNight.desireLeftover}` + (r.lastNight.overflowImminent ? ' ⚠次日白日供奉' : ''), tone: r.lastNight.overflowImminent ? 'warn' : 'dim' });
   return out;
 });

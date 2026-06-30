@@ -9,7 +9,9 @@ import { settleSlot } from './machine';
 import { settleServe, settleBuyCondoms, settleDaily } from './settlement';
 import {
   CONST, slidingWindowRelief, settleRecruit, dailyDesireDemand, desireOverflow, availableThugs,
+  gainLoyalty, settleRewardThugs, settleProtectionFee,
 } from '../economy/machine';
+import { totalShops } from '../turf/machine';
 import { scanForced } from '../events/machine';
 import { appendLog, appendContinuity } from '../memory/machine';
 import { deriveEventUnlocked } from './unlocked';
@@ -93,6 +95,10 @@ export interface RunSlotResult {
   recruit?: { recruited: number; cost: number; reason?: 'no_quota' | 'no_money' } | null;
   /** 采购避孕套格的即时结算（非采购格为 null）：当场买到的套数/花费 */
   buyCondom?: { bought: number; cost: number; reason?: 'no_money' } | null;
+  /** 犒赏打手格的即时结算（非犒赏格为 null）：忠诚加成/花费 */
+  reward?: { gained: number; reason?: 'no_money' } | null;
+  /** 收保护费格的即时结算（非保护费格为 null）：到账金钱 */
+  protection?: { income: number } | null;
   /** 本格触发的临时格强制事件（如避孕套归零），null=无 */
   forcedInsert?: ForcedEvent | null;
   /** 本格的结构化日志条目（供正文留档/UI 复用） */
@@ -132,6 +138,11 @@ export async function runCurrentSlot(
     const sr = settleServe(engine, mult, !serveOpt.noCondom);
     engine = sr.state;
     serve = { condomUsed: sr.condomUsed, condomShort: sr.condomShort, served: sr.served, desireRelieved: sr.desireRelieved };
+    // 供奉 → 淫乱忠诚 +（打手被肉体收买）
+    const lg = CONST.供奉忠诚加成;
+    engine = { ...engine, loyalty: gainLoyalty(engine.loyalty, lg), loyaltyInfamy: (engine.loyaltyInfamy ?? 0) + lg };
+    // 折线图:今日避孕套消耗累加
+    if (sr.condomUsed > 0) engine = { ...engine, condomUsedToday: (engine.condomUsedToday ?? 0) + sr.condomUsed };
   }
 
   // 招募格：即时结算（当场招人、扣钱、扣额度，玩家立刻看到打手数变化，而非日终）
@@ -148,6 +159,22 @@ export async function runCurrentSlot(
     const br = settleBuyCondoms(engine);
     engine = br.state;
     buyCondom = { bought: br.bought, cost: br.cost, reason: br.reason };
+  }
+
+  // 犒赏打手格：即时结算（发钱 → 极道忠诚 +）
+  let reward: RunSlotResult['reward'] = null;
+  if (slot.choice.optionId === 'reward_thugs') {
+    const rr = settleRewardThugs(engine.money, engine.loyalty, engine.loyaltyMartial ?? 0);
+    engine = { ...engine, money: rr.money, loyalty: rr.loyalty, loyaltyMartial: rr.martialPart };
+    reward = { gained: rr.gained, reason: rr.reason };
+  }
+
+  // 收保护费格：即时结算（按店铺数到账金钱）
+  let protection: RunSlotResult['protection'] = null;
+  if (slot.choice.optionId === 'protection') {
+    const income = settleProtectionFee(totalShops(engine.regions), engine.stability ?? 100);
+    engine = { ...engine, money: engine.money + income };
+    protection = { income };
   }
 
   // 强制临时格扫描（如避孕套归零）：在完成当前格【前】插入，使其成为下一格立即执行。
@@ -190,7 +217,7 @@ export async function runCurrentSlot(
 
   return {
     state: { day: dayDone, engine },
-    settle, serve, recruit, buyCondom, forcedInsert, logEntry,
+    settle, serve, recruit, buyCondom, reward, protection, forcedInsert, logEntry,
   };
 }
 

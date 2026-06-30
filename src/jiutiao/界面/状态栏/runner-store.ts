@@ -16,9 +16,12 @@ import { dailyDesireDemand, availableThugs, weeklyRecruitQuota, combatPower } fr
 import { combatBonus, UPGRADES_BY_ID, canUpgrade, applyUpgrade } from '../../game/upgrade/machine';
 import {
   REGIONS_BY_ID, canDefeat, defeatRegion, regionState, effectiveThreshold,
-  settleScout, settleBribe, SCOUT_COST,
+  settleScout, settleBribe, settleOffensiveHarass, SCOUT_COST,
 } from '../../game/turf/machine';
-import { canShootAv, buildAvPrompt, consumeShoot, defaultAvState, initAvOnUnlock } from '../../game/av/machine';
+import {
+  canShootAv, buildAvPrompt, consumeShoot, defaultAvState, initAvOnUnlock,
+  avSalesIncome, upgradeAvQuota, upgradeAvDuration,
+} from '../../game/av/machine';
 import type { AvDefinition } from '../../game/av/machine';
 import type { UpgradeDef } from '../../game/upgrade/types';
 import type { NightSettleResult } from '../../game/engine/settlement';
@@ -31,7 +34,7 @@ import type { ForcedEvent } from '../../game/events/machine';
 import type { DayState, SlotChoice, SlotPeriod } from '../../game/action-grid/types';
 import type { EngineState, SettleOptions, SettleResult, AiPort } from '../../game/engine/types';
 
-const DEFAULT_FORCED_LEAVE_CHOICE: SlotChoice = { optionId: 'serve_vaginal', label: '供奉（强制请假轮奸）' };
+const DEFAULT_FORCED_LEAVE_CHOICE: SlotChoice = { optionId: 'serve_vaginal', label: '供奉（白日供奉）' };
 const TOTAL_SLOTS = 8;
 
 function initialEngine(): EngineState {
@@ -40,7 +43,7 @@ function initialEngine(): EngineState {
   return {
     triggeredSpecials: {}, unlocked: {},
     corruption: 0, cognition: '死撑', claimedGates: {},
-    money: 8000, thugTotal, garrison, loyalty: 60,
+    money: 8000, thugTotal, garrison, loyalty: 60, loyaltyMartial: 30, loyaltyInfamy: 30,
     condomStock: 480, desire: morning, desireCapacity: 60, desireAddedThisMorning: morning,
     perSlotThroughput: 6,
     infamy: 0, martialPrestige: 0,
@@ -59,6 +62,10 @@ export const useRunnerStore = defineStore('runner', () => {
   const lastServe = ref<{ condomUsed: number; condomShort: boolean; served: number; desireRelieved: number } | null>(null);
   const lastRecruit = ref<{ recruited: number; cost: number; reason?: 'no_quota' | 'no_money' } | null>(null);
   const lastBuyCondom = ref<{ bought: number; cost: number; reason?: 'no_money' } | null>(null);
+  const lastReward = ref<{ gained: number; reason?: 'no_money' } | null>(null);
+  const lastProtection = ref<{ income: number } | null>(null);
+  const lastAttrition = ref<number>(0); // 昨日打手自然流失数(进次日时设)
+  const lastAvIncome = ref<{ income: number; theme: string } | null>(null);
   const lastNight = ref<NightSettleResult | null>(null);
   const forcedLeaveToday = ref(false);
   const forcedSeize = ref<ForcedEvent | null>(null);
@@ -95,8 +102,9 @@ export const useRunnerStore = defineStore('runner', () => {
   const combatPowerNow = computed(() =>
     combatPower(availableThugs(engine.value.thugTotal, engine.value.garrison), engine.value.loyalty, combatBonus(engine.value.upgrades)));
   const lastTurf = ref<{ ok: boolean; msg: string } | null>(null);
-  // 地图选择模式(刺探/贿赂事件格执行中):非空时主区展开地图选目标
-  const pendingMap = ref<{ kind: 'scout' | 'bribe' } | null>(null);
+  type MapKind = 'scout' | 'bribe' | 'attack' | 'harass';
+  // 地图选择模式(攻打/刺探/贿赂/骚扰事件格执行中):非空时主区展开地图选目标
+  const pendingMap = ref<{ kind: MapKind } | null>(null);
 
   function attackRegion(id: string) {
     const def = REGIONS_BY_ID[id]; if (!def) return;
@@ -114,15 +122,15 @@ export const useRunnerStore = defineStore('runner', () => {
     lastTurf.value = { ok: true, msg: `${bossLine}！极道威望 +${reward}，每日产出已接入。` };
   }
 
-  // ─── 刺探/贿赂(事件格→地图选择流程) ───
-  /** 当前格是地图选择型(刺探/贿赂)？App 据此走 beginMapSelect 而非 runCurrent。 */
-  function currentMapKind(): 'scout' | 'bribe' | null {
+  // ─── 攻打/刺探/贿赂/骚扰(事件格→地图选择流程) ───
+  /** 当前格是地图选择型？App 据此走 beginMapSelect 而非 runCurrent。 */
+  function currentMapKind(): MapKind | null {
     const cur = currentSlot(day.value);
     const opt = cur?.choice ? demoEventOptions[cur.choice.optionId] : undefined;
-    return opt?.mapSelect ?? null;
+    return (opt?.mapSelect as MapKind) ?? null;
   }
-  /** 进入地图选择模式(刺探/贿赂格被执行) */
-  function beginMapSelect(kind: 'scout' | 'bribe') { pendingMap.value = { kind }; lastTurf.value = null; }
+  /** 进入地图选择模式(地图选择格被执行) */
+  function beginMapSelect(kind: MapKind) { pendingMap.value = { kind }; lastTurf.value = null; }
   function cancelMapSelect() { pendingMap.value = null; }
 
   /** 完成当前格(无AI·写总结文 + 推进 cursor + 必要时夜结) */
@@ -134,10 +142,34 @@ export const useRunnerStore = defineStore('runner', () => {
     pendingMap.value = null;
   }
 
-  /** 地图选择落子(刺探或贿赂目标关) */
+  /** 地图选择落子(攻打/刺探/贿赂/骚扰目标关) */
   function resolveMapSlot(id: string) {
     const kind = pendingMap.value?.kind; if (!kind) return;
     const def = REGIONS_BY_ID[id]; if (!def) return;
+    if (kind === 'attack') {
+      const chk = canDefeat(def, combatPowerNow.value, engine.value.regions);
+      if (!chk.ok) { lastTurf.value = { ok: false, msg: `攻打「${def.name}」失败：${chk.reason}` }; return; }
+      const reward = Math.max(5, Math.round(effectiveThreshold(def, regionState(engine.value.regions, id)) / 10));
+      engine.value = {
+        ...engine.value,
+        regions: defeatRegion(engine.value.regions, id),
+        martialPrestige: engine.value.martialPrestige + reward,
+        martialGainToday: (engine.value.martialGainToday ?? 0) + reward,
+      };
+      const bossLine = def.isCenter ? `击败中枢Boss「${def.bossName}」` : `攻占「${def.name}」`;
+      lastTurf.value = { ok: true, msg: `${bossLine}！极道威望 +${reward}。` };
+      completeMapSlot(`一场据点战，${bossLine}。九条会的旗插了上去，极道威望 +${reward}。`);
+      return;
+    }
+    if (kind === 'harass') {
+      const r = settleOffensiveHarass(engine.value.regions, id, Math.random(), Math.random());
+      if (!r.ok) { lastTurf.value = { ok: false, msg: r.reason === 'already' ? '该关已占据。' : '该关不可骚扰。' }; return; }
+      const lost = Math.min(r.thugLost, engine.value.thugTotal);
+      engine.value = { ...engine.value, thugTotal: engine.value.thugTotal - lost, regions: r.regions };
+      lastTurf.value = { ok: true, msg: `骚扰「${def.name}」：门槛 -${r.cut}` + (lost > 0 ? `，折损 ${lost} 名打手。` : '，全身而退。') };
+      completeMapSlot(`打手们去搅了「${def.name}」一场，砸场子放狠话，守备松了门槛降 ${r.cut}` + (lost > 0 ? `；混战中折了 ${lost} 人。` : '；这回没伤着人。'));
+      return;
+    }
     if (kind === 'scout') {
       const r = settleScout({ money: engine.value.money, regions: engine.value.regions }, id, Math.random());
       if (r.reason === 'no_money') {
@@ -174,6 +206,12 @@ export const useRunnerStore = defineStore('runner', () => {
     // 建成摄影室解锁 AV → 初始化周拍摄次数(否则面板显示"次数用完"),并引入淫名机制
     if (def.effect.kind === 'unlock' && def.effect.unlockKey === 'av') {
       engine.value = { ...engine.value, ...(initAvOnUnlock(engine.value) as any) };
+    }
+    // AV 专项升级:周产能 / 时长上限(在 av 子状态上生效)
+    if (id === 'av_quota') {
+      engine.value = { ...engine.value, av: upgradeAvQuota(engine.value.av ?? defaultAvState(), 1) };
+    } else if (id === 'av_duration') {
+      engine.value = { ...engine.value, av: upgradeAvDuration(engine.value.av ?? defaultAvState(), 1) };
     }
     const lvl = engine.value.upgrades?.[id] ?? 1;
     lastUpgrade.value = { ok: true, msg: `「${def.name}」已升至 Lv.${lvl}（花费¥${def.cost}）。` };
@@ -279,10 +317,14 @@ export const useRunnerStore = defineStore('runner', () => {
     try {
       const r = await withTimeout(runCurrentSlot({ day: snapshot.day, engine: snapshot.engine }, settleOptions()), GEN_TIMEOUT_MS);
       let nextEngine = r.state.engine;
-      // AV 定制格执行后:消费一次拍摄(扣周次数/累加 shotCount/存档案)
+      // AV 定制格执行后:消费一次拍摄(扣周次数/累加 shotCount/存档案) + 高额销售进账
+      let avIncome: { income: number; theme: string } | null = null;
       if (ranSlot?.choice?.optionId === 'av_custom' && ranSlot.choice.params?.avDef) {
+        const avDef = ranSlot.choice.params.avDef as AvDefinition;
         const av = nextEngine.av ?? defaultAvState();
-        nextEngine = { ...nextEngine, av: consumeShoot(av, ranSlot.choice.params.avDef as AvDefinition) };
+        const income = avSalesIncome(avDef, nextEngine.infamy);
+        nextEngine = { ...nextEngine, av: consumeShoot(av, avDef), money: nextEngine.money + income };
+        avIncome = { income, theme: avDef.theme };
       }
       let nightInfo: NightSettleResult | null = null;
       if (r.state.day.phase === 'night_settled') {
@@ -303,6 +345,9 @@ export const useRunnerStore = defineStore('runner', () => {
       lastServe.value = r.serve ?? null;
       lastRecruit.value = r.recruit ?? null;
       lastBuyCondom.value = r.buyCondom ?? null;
+      lastReward.value = r.reward ?? null;
+      lastProtection.value = r.protection ?? null;
+      lastAvIncome.value = avIncome;
       lastNight.value = nightInfo;
     } catch (e) {
       error.value = (e as Error).message;
@@ -337,13 +382,14 @@ export const useRunnerStore = defineStore('runner', () => {
     hardFail.value = r.daily.hardFail;
     hardFailReason.value = r.daily.hardFailReason ?? null;
     failWarnings.value = r.daily.failWarnings ?? [];
+    lastAttrition.value = r.daily.thugsLost ?? 0;
     forcedSeize.value = null;
-    lastSettle.value = null; lastServe.value = null; lastRecruit.value = null; lastBuyCondom.value = null; lastNight.value = null; error.value = null;
+    lastSettle.value = null; lastServe.value = null; lastRecruit.value = null; lastBuyCondom.value = null; lastReward.value = null; lastProtection.value = null; lastAvIncome.value = null; lastNight.value = null; error.value = null;
   }
 
   function loadState(state: RunnerState, ff: boolean) {
     day.value = state.day; engine.value = state.engine; fastForward.value = ff;
-    lastSettle.value = null; lastServe.value = null; lastRecruit.value = null; lastBuyCondom.value = null; lastNight.value = null;
+    lastSettle.value = null; lastServe.value = null; lastRecruit.value = null; lastBuyCondom.value = null; lastReward.value = null; lastProtection.value = null; lastAvIncome.value = null; lastNight.value = null;
     forcedLeaveToday.value = false; forcedSeize.value = null;
     reliefCleared.value = false; hardFail.value = false; hardFailReason.value = null; failWarnings.value = []; error.value = null;
   }
@@ -383,7 +429,7 @@ export const useRunnerStore = defineStore('runner', () => {
   function resetGame() {
     _loadingSave = true;
     day.value = startDay(1, TOTAL_SLOTS); engine.value = initialEngine(); fastForward.value = false;
-    lastSettle.value = null; lastServe.value = null; lastRecruit.value = null; lastBuyCondom.value = null; lastNight.value = null;
+    lastSettle.value = null; lastServe.value = null; lastRecruit.value = null; lastBuyCondom.value = null; lastReward.value = null; lastProtection.value = null; lastAvIncome.value = null; lastNight.value = null;
     forcedLeaveToday.value = false; forcedSeize.value = null; reliefCleared.value = false;
     hardFail.value = false; hardFailReason.value = null; failWarnings.value = []; error.value = null;
     _loadingSave = false; persistNow();
@@ -396,6 +442,7 @@ export const useRunnerStore = defineStore('runner', () => {
 
   return {
     day, engine, fastForward, busy, lastSettle, lastServe, lastRecruit, lastNight,
+    lastReward, lastProtection, lastAvIncome, lastAttrition,
     forcedLeaveToday, forcedSeize, reliefCleared, hardFail, hardFailReason, failWarnings, error,
     lastEmpty, lastWarn, genHint, lastBuyCondom,
     currentSlot: currentSlotRef, canRunCurrent, runnerState,

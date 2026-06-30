@@ -292,6 +292,31 @@ export function settleBribe(
   return { regions: reduceThreshold(regions, id, cut), cut, ok: true };
 }
 
+/** 骚扰结果(进攻型·消耗打手换降门槛) */
+export interface OffensiveHarassResult {
+  regions: Record<string, RegionState>;
+  thugLost: number;   // 概率减员(2-3起·随阶段↑)
+  cut: number;        // 随机降门槛量
+  ok: boolean;
+  reason?: 'already' | 'locked';
+}
+/**
+ * 骚扰敌据点(事件格→地图选未占据关)。与贿赂类似但代价是【概率减员】而非固定金钱,成果(降门槛)亦随机。
+ * 减员: 约 65% 概率发生,数量 = 阶段+1 (+0~1)，初期(阶段1)2~3，随阶段上升。
+ * 降门槛: 按目标门槛 10%~45% 随机削减(封顶 BRIBE_CUT_MAX)。
+ */
+export function settleOffensiveHarass(
+  regions: Record<string, RegionState> | undefined, id: string, rng1: number, rng2: number,
+): OffensiveHarassResult {
+  const def = REGIONS_BY_ID[id];
+  const st = regionState(regions, id);
+  if (!def) return { regions: regions ?? {}, thugLost: 0, cut: 0, ok: false, reason: 'locked' };
+  if (st.defeated) return { regions: regions ?? {}, thugLost: 0, cut: 0, ok: false, reason: 'already' };
+  const thugLost = rng1 < 0.65 ? (def.stage + 1 + (rng2 < 0.5 ? 0 : 1)) : 0;
+  const cut = Math.min(BRIBE_CUT_MAX, Math.round(def.defeatThreshold * (0.1 + rng2 * 0.35)));
+  return { regions: reduceThreshold(regions, id, cut), thugLost, cut, ok: true };
+}
+
 /**
  * 派生 turf 解锁键(给 EventOption.unlockRequires 用)。
  * 设计目的: 让扩张日常事件(餐厅/游乐园等)的 unlockRequires 能匹配上 region 击败状态。

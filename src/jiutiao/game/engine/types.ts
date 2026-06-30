@@ -21,8 +21,12 @@ export interface EngineState {
   money: number;
   thugTotal: number;          // 打手总数
   garrison: number;           // 驻守占用打手
-  loyalty: number;            // 打手忠诚度 0~100
+  loyalty: number;            // 打手忠诚度 0~100(总值·战力/流失用)
+  loyaltyMartial?: number;    // 极道忠诚累计(发钱犒赏来源·决定偏向)
+  loyaltyInfamy?: number;     // 淫乱忠诚累计(供奉来源·决定偏向)
   condomStock: number;        // 避孕套库存
+  condomUsedToday?: number;    // 今日累计避孕套消耗(供奉格累加·日终入历史)
+  condomHistory?: number[];    // 每日消耗历史(折线图·保留最近~14天·无数据则空)
   desire: number;             // 打手欲望值(晨间按可用打手累积·供奉格实时降·结余≥上限触发请假轮奸)
   desireCapacity: number;     // 欲望承载上限（设施可提）
   desireAddedThisMorning?: number; // 今晨累积的欲望量(UI 提示用·流量)
