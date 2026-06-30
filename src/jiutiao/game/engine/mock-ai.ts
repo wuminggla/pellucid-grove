@@ -193,7 +193,7 @@ export const demoEventOptions: Record<string, EventOption> = {
 
   garden_dog: {
     id: 'garden_dog', label: '庭院遛母狗', period: 'day', shape: 'dual',
-    unlockRequires: ['courtyard_unlocked'],
+    unlockRequires: ['courtyard'],
     sfw: { worldbookKey: 'wb_garden_sfw' },
     nsfw: { worldbookKey: 'wb_garden_dog' },
     erosionGate: { corruptionAtLeast: 45 },
@@ -203,7 +203,7 @@ export const demoEventOptions: Record<string, EventOption> = {
 
   garden_rock: {
     id: 'garden_rock', label: '假山野战', period: 'day', shape: 'dual',
-    unlockRequires: ['courtyard_unlocked'],
+    unlockRequires: ['courtyard'],
     sfw: { worldbookKey: 'wb_garden_sfw' },
     nsfw: { worldbookKey: 'wb_garden_rock' },
     erosionGate: { corruptionAtLeast: 50 },
@@ -213,10 +213,33 @@ export const demoEventOptions: Record<string, EventOption> = {
 
   ancestor: {
     id: 'ancestor', label: '参拜先祖', period: 'day', shape: 'dual',
+    unlockRequires: ['shrine'],
     sfw: { worldbookKey: 'wb_ancestor_sfw' },
     nsfw: { worldbookKey: 'wb_ancestor' },
     erosionGate: { corruptionAtLeast: 60 },
     first: { ledgerKey: 'ancestor_first', paradigm: { worldbookKey: 'wb_ancestor_first' }, corruptionWeight: 3 },
+    needsContinuity: true,
+  },
+
+  // 双面型:宅内日常淫具化(吃喝拉撒坐卧被淫具化·需「日常淫具化改造」升级)
+  daily_toy: {
+    id: 'daily_toy', label: '日常起居', period: 'any', shape: 'dual',
+    unlockRequires: ['dailytoy'],
+    sfw: { worldbookKey: 'wb_dailytoy_sfw' },
+    nsfw: { worldbookKey: 'wb_dailytoy' },
+    erosionGate: { corruptionAtLeast: 45 },
+    first: { ledgerKey: 'dailytoy_first', paradigm: { worldbookKey: 'wb_dailytoy_first' }, corruptionWeight: 2 },
+    needsContinuity: true,
+  },
+
+  // 双面型:让手下扫除→垃圾堆淫乱(宅邸沦陷)
+  garbage: {
+    id: 'garbage', label: '让手下扫除', period: 'any', shape: 'dual',
+    unlockRequires: ['dailytoy'],
+    sfw: { worldbookKey: 'wb_garbage_sfw' },
+    nsfw: { worldbookKey: 'wb_garbage' },
+    erosionGate: { corruptionAtLeast: 50 },
+    first: { ledgerKey: 'garbage_first', paradigm: { worldbookKey: 'wb_garbage_first' }, corruptionWeight: 2 },
     needsContinuity: true,
   },
 
@@ -271,11 +294,70 @@ export const demoEventOptions: Record<string, EventOption> = {
     first: { ledgerKey: 'serve_anal_first', paradigm: { worldbookKey: 'wb_serve_anal_first' }, corruptionWeight: 3 },
   },
 
+  // 暴力供奉(地下室·受虐癖线)。建成地下室即可;细分刑具按受虐癖/深堕落逐档解锁。
   serve_violent: {
     id: 'serve_violent', label: '暴力供奉', period: 'night', shape: 'born_nsfw', isServe: true,
-    unlockRequires: ['dungeon_unlocked'],
+    unlockRequires: ['basement'],
     nsfw: { worldbookKey: 'wb_violent_serve_common' },
     first: { ledgerKey: 'serve_violent_first', paradigm: { worldbookKey: 'wb_violent_serve_common' }, corruptionWeight: 3 },
+    needsContinuity: true,
+  },
+
+  // 暴力供奉·吊颈轮奸(入门刑具·受虐癖萌芽)
+  serve_violent_hang: {
+    id: 'serve_violent_hang', label: '暴力供奉·吊颈', period: 'night', shape: 'born_nsfw', isServe: true,
+    unlockRequires: ['basement', 'masochism'],
+    nsfw: { worldbookKey: 'wb_violent_hang' },
+    first: { ledgerKey: 'violent_hang_first', paradigm: { worldbookKey: 'wb_violent_hang_first' }, corruptionWeight: 3 },
+    needsContinuity: true,
+  },
+  // 暴力供奉·三角木马(重力刑具)
+  serve_violent_horse: {
+    id: 'serve_violent_horse', label: '暴力供奉·三角木马', period: 'night', shape: 'born_nsfw', isServe: true,
+    unlockRequires: ['basement', 'masochism'],
+    nsfw: { worldbookKey: 'wb_violent_horse' },
+    first: { ledgerKey: 'violent_horse_first', paradigm: { worldbookKey: 'wb_violent_horse' }, corruptionWeight: 3 },
+    needsContinuity: true,
+  },
+  // 暴力供奉·通电木驴(深堕落)
+  serve_violent_donkey: {
+    id: 'serve_violent_donkey', label: '暴力供奉·通电木驴', period: 'night', shape: 'born_nsfw', isServe: true,
+    unlockRequires: ['basement', 'deep_corruption'],
+    nsfw: { worldbookKey: 'wb_violent_donkey' },
+    first: { ledgerKey: 'violent_donkey_first', paradigm: { worldbookKey: 'wb_violent_donkey' }, corruptionWeight: 4 },
+    needsContinuity: true,
+  },
+  // 暴力供奉·水刑轮奸(情色窒息·深堕落)
+  serve_violent_water: {
+    id: 'serve_violent_water', label: '暴力供奉·水刑', period: 'night', shape: 'born_nsfw', isServe: true,
+    unlockRequires: ['basement', 'deep_corruption'],
+    nsfw: { worldbookKey: 'wb_violent_water' },
+    first: { ledgerKey: 'violent_water_first', paradigm: { worldbookKey: 'wb_violent_water' }, corruptionWeight: 4 },
+    needsContinuity: true,
+  },
+
+  // 进阶供奉(深堕落·多人极限轮奸)
+  serve_advance: {
+    id: 'serve_advance', label: '进阶供奉(多人轮奸)', period: 'night', shape: 'born_nsfw', isServe: true,
+    unlockRequires: ['deep_corruption'],
+    nsfw: { worldbookKey: 'wb_serve_advance' },
+    first: { ledgerKey: 'serve_advance_first', paradigm: { worldbookKey: 'wb_serve_advance' }, corruptionWeight: 3 },
+    needsContinuity: true,
+  },
+
+  // 生育线·孕期供奉(真播种后·孕肚被使用成常态)
+  serve_pregnant: {
+    id: 'serve_pregnant', label: '孕期供奉', period: 'night', shape: 'born_nsfw', isServe: true,
+    unlockRequires: ['pregnant_line'],
+    nsfw: { worldbookKey: 'wb_pregnant' },
+    needsContinuity: true,
+  },
+  // 生育线·临盆轮奸(分娩中持续侵犯·里程碑)
+  birth_rape: {
+    id: 'birth_rape', label: '临盆轮奸', period: 'night', shape: 'born_nsfw',
+    unlockRequires: ['pregnant_line'],
+    nsfw: { worldbookKey: 'wb_birth_rape' },
+    first: { ledgerKey: 'birth_rape_first', paradigm: { worldbookKey: 'wb_birth_rape' }, corruptionWeight: 4 },
     needsContinuity: true,
   },
 
@@ -292,15 +374,16 @@ export const demoEventOptions: Record<string, EventOption> = {
   // 强制/临时格事件(非玩家主动选)
   // ═══════════════════════════════════════════════════
 
+  // 避孕套归零三连(避孕套库存=0 时由 forcedPool 依次强制触发·绝不可玩家主动选)
   condom_zero: {
-    id: 'condom_zero', label: '避孕套归零·补救', period: 'any', shape: 'born_nsfw',
+    id: 'condom_zero', label: '避孕套归零·补救', period: 'any', shape: 'born_nsfw', hiddenInMenu: true,
     nsfw: { worldbookKey: 'wb_condom_zero_1' },
     first: { ledgerKey: 'condom_zero_1', paradigm: { worldbookKey: 'wb_condom_zero_1' }, corruptionWeight: 1 },
   },
 
   /** 生育线 E2: 循环利用废套(口戴套) */
   condom_zero_2: {
-    id: 'condom_zero_2', label: '避孕套归零·循环利用', period: 'any', shape: 'born_nsfw',
+    id: 'condom_zero_2', label: '避孕套归零·循环利用', period: 'any', shape: 'born_nsfw', hiddenInMenu: true,
     nsfw: { worldbookKey: 'wb_condom_zero_2' },
     first: { ledgerKey: 'condom_zero_2', paradigm: { worldbookKey: 'wb_condom_zero_2' }, corruptionWeight: 2 },
     needsContinuity: true,
@@ -308,7 +391,7 @@ export const demoEventOptions: Record<string, EventOption> = {
 
   /** 生育线 E3: 真播种 = 终极里程碑(触发受孕状态机) */
   condom_zero_3: {
-    id: 'condom_zero_3', label: '避孕套归零·真播种', period: 'any', shape: 'born_nsfw',
+    id: 'condom_zero_3', label: '避孕套归零·真播种', period: 'any', shape: 'born_nsfw', hiddenInMenu: true,
     nsfw: { worldbookKey: 'wb_condom_zero_3' },
     first: { ledgerKey: 'condom_zero_3', paradigm: { worldbookKey: 'wb_condom_zero_3' }, corruptionWeight: 4 },
     needsContinuity: true,
@@ -363,6 +446,13 @@ export const demoSummaryTemplates: Record<string, string> = {
   serve_vaginal: '大小姐供奉了{n}人',
   serve_anal: '大小姐被{n}人开发了后穴',
   serve_violent: '暴力供奉已完成',
+  serve_violent_hang: '（已结算·吊颈轮奸）',
+  serve_violent_horse: '（已结算·三角木马）',
+  serve_violent_donkey: '（已结算·通电木驴）',
+  serve_violent_water: '（已结算·水刑轮奸）',
+  serve_advance: '大小姐被{n}人极限轮奸',
+  serve_pregnant: '大小姐挺着孕肚被{n}人使用',
+  birth_rape: '（已结算·临盆轮奸）',
   rest: '凛回房歇下，养精蓄锐。',
   recruit: '招募事宜处理完毕。',
   scout: '刺探已完成。',
@@ -374,6 +464,8 @@ export const demoSummaryTemplates: Record<string, string> = {
   protection: '保护费已收讫。',
   school: '大小姐处理了学校事务。',
   dine: '外出用餐完毕。',
+  daily_toy: '大小姐的日常起居处理完毕。',
+  garbage: '宅子打扫了一番。',
   forced_leave: '（已结算白日供奉）',
   condom_zero_2: '大小姐在打手的指使下，循环利用了几个用过的避孕套。',
   condom_zero_3: '——避孕套用完了。打手们对视而笑。',

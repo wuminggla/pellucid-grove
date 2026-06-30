@@ -13,9 +13,16 @@ import type { EngineState } from './types';
  * 新增派生源(如经济/经期某状态解锁某事件)时,在这里加一行合并即可。
  */
 export function deriveEventUnlocked(engine: EngineState): Record<string, boolean> {
+  const c = engine.corruption ?? 0;
   return {
     ...(engine.unlocked ?? {}),
     ...deriveTurfUnlocked(engine.regions),
     ...occupyScaleAliases(engine.occupyScale),
+    // —— 堕落度派生闸门(身体开发/性癖随堕落解锁;占位阈值,留接口接真·身体开发度/受虐癖变量) ——
+    anal_unlocked: c >= 35,       // 后穴开发(肛交)
+    masochism: c >= 50,           // 受虐癖觉醒(暴力供奉细分主动选)
+    deep_corruption: c >= 70,     // 深度堕落(进阶供奉/多人轮奸)
+    // —— 生育线(避孕套归零真播种后) ——
+    pregnant_line: engine.pregnant === true,
   };
 }
