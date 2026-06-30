@@ -118,6 +118,21 @@
       <div v-if="saveToast" class="save-toast">{{ saveToast }}</div>
     </Transition>
 
+    <!-- 结局/胜利 -->
+    <Transition name="fade">
+      <div v-if="r.showEnding && r.ending" class="ending-overlay" :class="r.ending.kind">
+        <div class="ending-box">
+          <div class="ed-kicker">{{ r.ending.kind === 'revenge' ? '— 终 — ' : r.ending.kind === 'fall' ? '— 堕 — ' : '— 终 — ' }}</div>
+          <div class="ed-title">{{ r.ending.title }}</div>
+          <div class="ed-text">{{ r.ending.text }}</div>
+          <div class="ed-btns">
+            <button class="primary-btn" @click="confirmReset">重开本局</button>
+            <button class="ghost-btn" @click="r.dismissEnding()">{{ r.ending.kind === 'fail' ? '关闭' : '继续游玩' }}</button>
+          </div>
+        </div>
+      </div>
+    </Transition>
+
     <div v-if="r.busy" class="gen-overlay">
       <div class="gen-box"><div class="gen-spinner"></div><div class="gen-text">{{ r.genHint }}</div>
         <div class="gen-sub">{{ r.aiMode === 'tavern' ? '调用酒馆 API（可能需数秒到数十秒）' : 'mock 模拟' }}</div></div>
@@ -323,6 +338,16 @@ function confirmReset() {
   padding: 10px 20px; border-radius: 8px; font-size: 14px; box-shadow: 0 8px 26px rgba(0,0,0,.6); }
 .fade-enter-active, .fade-leave-active { transition: opacity .3s ease, transform .3s ease; }
 .fade-enter-from, .fade-leave-to { opacity: 0; transform: translateX(-50%) translateY(8px); }
+.ending-overlay { position: fixed; inset: 0; z-index: 240; display: flex; align-items: center; justify-content: center;
+  background: radial-gradient(circle at 50% 40%, rgba(40,20,12,.92), rgba(6,4,4,.97)); }
+.ending-overlay.fall { background: radial-gradient(circle at 50% 40%, rgba(48,16,28,.93), rgba(6,4,4,.97)); }
+.ending-overlay.fail { background: radial-gradient(circle at 50% 40%, rgba(40,8,10,.94), rgba(4,3,3,.98)); }
+.ending-box { max-width: 560px; text-align: center; padding: 40px; }
+.ed-kicker { font-family: var(--serif); font-size: 13px; color: var(--gold-dim); letter-spacing: 6px; }
+.ed-title { font-family: var(--brush); font-size: 56px; letter-spacing: 8px; margin: 14px 0 22px; color: var(--gold-hi); text-shadow: 0 0 24px rgba(201,162,74,.4); }
+.ending-overlay.fall .ed-title, .ending-overlay.fail .ed-title { color: var(--rose-hi); text-shadow: 0 0 24px rgba(240,106,138,.4); }
+.ed-text { font-size: 15px; color: var(--text); line-height: 2; margin-bottom: 30px; }
+.ed-btns { display: flex; gap: 14px; justify-content: center; }
 .gen-overlay { position: fixed; inset: 0; background: rgba(10,6,8,.72); display: flex; align-items: center; justify-content: center; z-index: 200; }
 .gen-box { text-align: center; }
 .gen-spinner { width: 36px; height: 36px; margin: 0 auto 14px; border: 3px solid #3d2828; border-top-color: var(--gold-hi); border-radius: 50%; animation: spin .8s linear infinite; }

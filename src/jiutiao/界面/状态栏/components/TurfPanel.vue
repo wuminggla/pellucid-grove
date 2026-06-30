@@ -19,6 +19,21 @@
       点亮=已占据 · 红=未纳入(可攻打/门槛不足) · 锁=未解锁。占满一阶段全部小关→解锁中枢Boss；击败Boss→解锁下一阶段。攻打/骚扰/刺探/贿赂均在【行动格】中选择对应动作后于此地图选目标。点地盘块查看详情。
     </div>
 
+    <!-- 驻防(浏览模式·占领后出现) -->
+    <div v-if="!selectMode && occupiedCount > 0" class="garrison">
+      <div class="g-row">
+        <span class="g-label">驻防打手 <b>{{ r.engine.garrison }}</b> / 总 {{ r.engine.thugTotal }}</span>
+        <div class="g-ctrl">
+          <button @click="r.setGarrison(r.engine.garrison - 5)" :disabled="r.engine.garrison <= 0">−5</button>
+          <button @click="r.setGarrison(r.engine.garrison - 1)" :disabled="r.engine.garrison <= 0">−1</button>
+          <button @click="r.setGarrison(r.engine.garrison + 1)" :disabled="r.engine.garrison >= r.engine.thugTotal">+1</button>
+          <button @click="r.setGarrison(r.engine.garrison + 5)" :disabled="r.engine.garrison >= r.engine.thugTotal">+5</button>
+        </div>
+        <span class="g-stab" :class="{ low: (r.engine.stability ?? 100) < 40 }">稳定度 {{ Math.round(r.engine.stability ?? 100) }}</span>
+      </div>
+      <div class="g-tip">派打手驻守地盘：抵御弥生道的<b>骚扰/进攻</b>（稳定低→被劫财/失守丢据点），但驻防会占用打手、<b>降低攻打武力</b>。占越多地盘越招敌人反扑。</div>
+    </div>
+
     <div v-if="r.lastTurf" class="t-feedback" :class="{ ok: r.lastTurf.ok, bad: !r.lastTurf.ok }">{{ r.lastTurf.msg }}</div>
 
     <!-- 阶段选项卡 -->
@@ -82,7 +97,7 @@ import { useRunnerStore } from '../runner-store';
 import {
   regionState, effectiveThreshold, regionDisplay,
   smallsOfStage, centerOfStage, stageSmallProgress, isStageActive, isStageBossDefeated,
-  highestActiveStage, STAGE_COUNT, SCOUT_COST,
+  highestActiveStage, STAGE_COUNT, SCOUT_COST, occupiedRegionIds,
 } from '../../../game/turf/machine';
 import type { RegionDef } from '../../../game/turf/types';
 import type { RegionDisplay } from '../../../game/turf/machine';
@@ -93,6 +108,7 @@ const emit = defineEmits<{ cancel: [] }>();
 const r = useRunnerStore();
 const power = computed(() => r.combatPowerNow);
 const selectMode = computed(() => props.selectMode ?? null);
+const occupiedCount = computed(() => occupiedRegionIds(r.engine.regions).length);
 
 const selectTitle = computed(() => ({
   attack: '攻打 · 选择目标', harass: '骚扰 · 选择目标', scout: '刺探 · 选择目标', bribe: '贿赂 · 选择目标',
@@ -177,6 +193,16 @@ function onCell(c: Cell) {
 .t-feedback { margin-bottom: 12px; padding: 9px 14px; border-radius: 7px; font-size: 13px; }
 .t-feedback.ok { background: rgba(94,122,72,.12); border: 1px solid #3a4a2a; color: var(--green); }
 .t-feedback.bad { background: rgba(179,33,46,.1); border: 1px solid var(--red); color: var(--red-hi); }
+
+.garrison { border: 1px solid var(--line); border-radius: 9px; background: rgba(0,0,0,.25); padding: 10px 14px; margin-bottom: 14px; }
+.g-row { display: flex; align-items: center; gap: 14px; }
+.g-label { font-size: 13px; color: var(--text-dim); } .g-label b { color: var(--gold-hi); font-size: 15px; }
+.g-ctrl { display: flex; gap: 6px; }
+.g-ctrl button { font-family: var(--serif); font-size: 13px; color: var(--text); background: rgba(0,0,0,.35); border: 1px solid var(--line); border-radius: 5px; padding: 4px 11px; cursor: pointer; }
+.g-ctrl button:hover:not(:disabled) { border-color: var(--gold-dim); color: var(--gold-hi); }
+.g-ctrl button:disabled { opacity: .35; cursor: not-allowed; }
+.g-stab { margin-left: auto; font-size: 13px; color: var(--green); } .g-stab.low { color: var(--rose-hi); }
+.g-tip { font-size: 11px; color: var(--text-dim); line-height: 1.6; margin-top: 7px; } .g-tip b { color: var(--gold); }
 
 .stage-tabs { display: flex; gap: 8px; margin-bottom: 16px; flex-wrap: wrap; }
 .tab { display: flex; flex-direction: column; align-items: flex-start; gap: 1px; min-width: 92px;

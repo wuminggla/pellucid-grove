@@ -7,7 +7,7 @@ import {
 } from '../economy/machine';
 import { isAvUnlocked, auditMartial } from '../prestige/machine';
 import { weaponMult, baseMartialPerThug } from '../upgrade/machine';
-import { dailyYields, threatLevelFrom, totalShops } from '../turf/machine';
+import { dailyYields, threatLevelFrom, totalShops, settleTurfThreat } from '../turf/machine';
 
 // 地盘攻守玩法(威望主来源)已接入(v33+ 攻打/骚扰/刺探/贿赂在行动格·占领有每日威望产出),
 //   玩家可结构性赚极道威望(攻打关卡 + 占领据点日产)→ 解除暂挂,启用威望轨硬失败。
@@ -111,6 +111,8 @@ export interface DailySettleResult {
   yields: { condom: number; money: number; martial: number }; // 据点每日产出
   thugsLost: number;        // 今日打手自然流失数(忠诚越低流失越多)
   prestigeDecay: number;    // 今日威望自然衰减总量(极道+淫名)
+  turfEvents: string[];     // 地盘威胁事件文案(敌人骚扰/进攻)
+  regionLost: string | null;// 本次失守的区域(进攻丢地盘)
 }
 
 /**
@@ -124,6 +126,14 @@ export function settleDaily(state: EngineState, dayNumber: number): DailySettleR
   next.condomStock = next.condomStock + y.condom;
   next.money = next.money + y.money;
   if (y.money > 0) next.moneyLog = appendMoneyLog(next.moneyLog, dayNumber, '据点日产', y.money);
+  // 地盘威胁循环(敌人反扑·骚扰/进攻丢地盘)
+  const threat = settleTurfThreat(next, Math.random);
+  const moneyBeforeThreat = next.money;
+  next.regions = threat.regions;
+  next.thugTotal = threat.thugTotal;
+  next.money = threat.money;
+  next.stability = threat.stability;
+  if (threat.money - moneyBeforeThreat > 0) next.moneyLog = appendMoneyLog(next.moneyLog, dayNumber, '击退骚扰·缴获', threat.money - moneyBeforeThreat);
   if (y.martial > 0) {
     next.martialPrestige = next.martialPrestige + y.martial;
     next.martialGainToday = (next.martialGainToday ?? 0) + y.martial; // 据点产出也算极道威望进账(防硬失败误杀有地盘玩家)
@@ -182,7 +192,7 @@ export function settleDaily(state: EngineState, dayNumber: number): DailySettleR
   const cyc = advanceCycle(next.cycleDay ?? 0);
   next.cycleDay = cyc.cycleDay;
   next.isDangerousPeriod = cyc.isDangerousPeriod;
-  return { state: next, recruitRefreshed, combatPower: power, hardFail, hardFailReason, failWarnings, yields: y, thugsLost, prestigeDecay };
+  return { state: next, recruitRefreshed, combatPower: power, hardFail, hardFailReason, failWarnings, yields: y, thugsLost, prestigeDecay, turfEvents: threat.events, regionLost: threat.regionLost };
 }
 
 /** 便捷：避孕套库存状态标签（UI 用） */

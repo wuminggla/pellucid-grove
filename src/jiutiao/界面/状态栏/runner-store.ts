@@ -16,7 +16,7 @@ import { dailyDesireDemand, availableThugs, weeklyRecruitQuota, combatPower, pre
 import { weaponMult, baseMartialPerThug, prestigeMultiplier, UPGRADES_BY_ID, canUpgrade, applyUpgrade } from '../../game/upgrade/machine';
 import {
   REGIONS_BY_ID, canDefeat, defeatRegion, regionState, effectiveThreshold,
-  settleScout, settleBribe, settleOffensiveHarass, SCOUT_COST, BRIBE_COST,
+  settleScout, settleBribe, settleOffensiveHarass, SCOUT_COST, BRIBE_COST, isRevengeComplete,
 } from '../../game/turf/machine';
 import {
   canShootAv, buildAvPrompt, consumeShoot, defaultAvState, initAvOnUnlock,
@@ -126,6 +126,12 @@ export const useRunnerStore = defineStore('runner', () => {
     };
     const bossLine = def.isCenter ? `击败中枢Boss「${def.bossName}」` : `攻占「${def.name}」`;
     lastTurf.value = { ok: true, msg: `${bossLine}！极道威望 +${reward}，每日产出已接入。` };
+  }
+
+  // ─── 驻防(派打手守地盘·抵御敌人骚扰/进攻;占用打手→降攻打武力) ───
+  function setGarrison(n: number) {
+    const clamped = Math.max(0, Math.min(engine.value.thugTotal, Math.round(n)));
+    engine.value = { ...engine.value, garrison: clamped };
   }
 
   // ─── 攻打/刺探/贿赂/骚扰(事件格→地图选择流程) ───
@@ -412,6 +418,7 @@ export const useRunnerStore = defineStore('runner', () => {
       const ex: Notice[] = [];
       if (r.daily.thugsLost > 0) ex.push({ t: `打手流失 -${r.daily.thugsLost}（忠诚低·被挖角/出走）`, tone: 'warn' });
       if ((r.daily.prestigeDecay ?? 0) > 0) ex.push({ t: `威望自然衰减 -${r.daily.prestigeDecay}（江湖善忘）`, tone: 'dim' });
+      (r.daily.turfEvents ?? []).forEach(t => ex.push({ t: '⚔ ' + t, tone: r.daily.regionLost ? 'err' : 'warn' }));
       (r.daily.failWarnings ?? []).forEach(w => ex.push({ t: w, tone: 'warn' }));
       if (r.daily.hardFail) ex.push({ t: '☠ 硬失败：' + (r.daily.hardFailReason === 'money' ? '资金断流' : '威望枯竭'), tone: 'err' });
       if (r.forcedLeave) ex.push({ t: '⚠ 欲望溢出 → 次日白日供奉（霸全）', tone: 'warn' });
@@ -466,6 +473,7 @@ export const useRunnerStore = defineStore('runner', () => {
     lastSettle.value = null; lastServe.value = null; lastRecruit.value = null; lastBuyCondom.value = null; lastReward.value = null; lastProtection.value = null; lastAvIncome.value = null; lastNight.value = null;
     forcedLeaveToday.value = false; forcedSeize.value = null; reliefCleared.value = false;
     hardFail.value = false; hardFailReason.value = null; failWarnings.value = []; error.value = null;
+    notifyLog.value = []; dismissedEnding.value = null;
     _loadingSave = false; persistNow();
   }
 
@@ -491,6 +499,28 @@ export const useRunnerStore = defineStore('runner', () => {
     notifyLog.value = [...notifyLog.value, { day: d, label, notices }].filter(x => x.day >= d - 1).slice(-60);
   }
 
+  // ─── 结局/胜利判定 ───
+  const dismissedEnding = ref<string | null>(null);
+  const ending = computed(() => {
+    if (isRevengeComplete(engine.value.regions)) return {
+      kind: 'revenge', title: '复 仇 完 成',
+      text: '弥生道会长——杀父仇人——已死在九条会脚下。凛踏过尸山，九条家的旗插遍了整片城区。当年覆灭的家业，如今由她一手夺了回来。复仇，达成了。',
+    };
+    if (engine.value.cognition === '母猪化') return {
+      kind: 'fall', title: '母 猪 化',
+      text: '凛的认知防线彻底崩溃。她不再是那个死撑体面的大小姐——只剩下迎合、依赖与渴求。九条家的肉便器，名副其实。她甚至已经分不清这是堕落，还是归宿。',
+    };
+    if (hardFail.value) return {
+      kind: 'fail', title: '九 条 会 覆 灭',
+      text: hardFailReason.value === 'money'
+        ? '账上彻底断了现金流，打手作鸟兽散，债主与仇家闻风而至。九条会的招牌，又一次倒在了凛手里。'
+        : '再没打出过任何战果、也拉不到生意，九条会的名号无人再惧。东山再起的最后一点底气，也耗尽了。',
+    };
+    return null;
+  });
+  function dismissEnding() { dismissedEnding.value = ending.value?.kind ?? null; }
+  const showEnding = computed(() => !!ending.value && dismissedEnding.value !== ending.value!.kind);
+
   // 启动: 有存档→读回; 无→落初始并写一次。之后任意状态变化自动防抖存。
   const _hadSave = loadSave();
   if (!_hadSave) persistNow();
@@ -503,9 +533,10 @@ export const useRunnerStore = defineStore('runner', () => {
     lastEmpty, lastWarn, genHint, lastBuyCondom,
     currentSlot: currentSlotRef, canRunCurrent, runnerState,
     aiMode, hasSave: _hadSave, hasTavernVars,
-    combatPowerNow, lastTurf, attackRegion,
+    combatPowerNow, lastTurf, attackRegion, setGarrison,
     pendingMap, currentMapKind, beginMapSelect, cancelMapSelect, resolveMapSlot,
     lastUpgrade, buyUpgrade, lastAv, queueAvShoot,
+    ending, showEnding, dismissEnding,
     setFastForward, allocate, setChoice, clearChoice, fillEmpty,
     beginDay, beginNight, runCurrent, rerunLast, nextDay, loadState,
     useMock, useTavern, saveNow: persistNow, resetGame,

@@ -234,7 +234,7 @@ export const demoEventOptions: Record<string, EventOption> = {
     infamyReward: 5,  // 首次AV直接给5淫名(钩到淫名引入)
     needsContinuity: true,
     pinned: true,
-    oncePerGame: true, // 首次AV一次性,触发后从菜单消失(避免重复浪费格)
+    hiddenInMenu: true, // 由强制事件(建成摄影室后)自动演出,不进玩家菜单
   },
 
   // 玩家定制AV: 仅由影业面板下单(queueAvShoot)置入行动格·受周次数限·注入定制范式
@@ -325,6 +325,12 @@ export const demoEventOptions: Record<string, EventOption> = {
 
 /** 强制事件池 */
 export const demoForcedPool: ForcedEvent[] = [
+  // ─── 首次AV强制演出(建成摄影室解锁av后·一次性·里程碑引入淫名) ───
+  {
+    id: 'av_first_forced', ledgerKey: 'av_first_inserted', priority: 0, once: true,
+    intensity: 'insert_slot', optionId: 'av_first', label: '拍摄第一部AV(里程碑)',
+    condition: c => c.unlocked?.av === true && c.triggeredLedger?.av_first !== true,
+  },
   // ─── 生育线三连(避孕套归零·once+ledgerKey 依次触发) ──────────
   {
     id: 'condom_zero', ledgerKey: 'condom_zero_1', priority: 1, once: true,

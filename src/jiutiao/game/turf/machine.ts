@@ -418,6 +418,84 @@ export function settleHarass(
   return { stability: Math.max(0, stability - drop), money: state.money, repelled: false, loot: 0 };
 }
 
+// ───────────────────────────────────────
+// 地盘威胁循环（敌人反扑·每日扫描·骚扰高频/进攻低频丢地盘）
+// ───────────────────────────────────────
+
+/** 已占据的非老宅区域 id 列表 */
+export function occupiedRegionIds(regions: Record<string, RegionState> | undefined): string[] {
+  return REGIONS.filter(d => d.id !== HOME_REGION_ID && isRegionUnlocked(regions, d.id)).map(d => d.id);
+}
+
+export interface TurfThreatResult {
+  regions: Record<string, RegionState>;
+  thugTotal: number;
+  money: number;
+  stability: number;
+  events: string[];          // 给玩家看的事件文案
+  regionLost: string | null; // 本次丢失的区域(进攻失守)
+}
+
+/**
+ * 地盘威胁每日结算（敌人反扑）。占据越多、稳定越低，越容易被骚扰/进攻。
+ *  - 无占据 → 稳定缓慢回升,无事。
+ *  - 骚扰(threat≥1·高频): 驻守战力≥骚扰强度→击退抢钱; 否则稳定下降+被劫财。
+ *  - 进攻(threat≥2·低频): 随机一处已占区域被攻; 守住→轻微减员; 失守→减员+丢该区域(需重打)。
+ * @param garrisonPower 驻守战力(驻防打手×每人防御×加固) @param rng 0..1 注入
+ */
+export function settleTurfThreat(
+  state: { regions?: Record<string, RegionState>; thugTotal: number; money: number; stability?: number; turfFortifyBonus?: number; garrison?: number; loyalty?: number },
+  rng: () => number,
+): TurfThreatResult {
+  let regions = state.regions ?? {};
+  let { thugTotal, money } = state;
+  let stability = state.stability ?? 100;
+  const fortify = state.turfFortifyBonus ?? 0;
+  const occupied = occupiedRegionIds(regions);
+  const events: string[] = [];
+  let regionLost: string | null = null;
+
+  if (occupied.length === 0) {
+    return { regions, thugTotal, money, stability: Math.min(100, stability + 4), events, regionLost };
+  }
+
+  // 敌人强度随"已占区域数 + 最高已占阶段"上升
+  const maxStage = Math.max(1, ...occupied.map(id => REGIONS_BY_ID[id]?.stage ?? 1));
+  const enemyBase = 14 * maxStage + occupied.length * 4;
+  // 驻守战力: 驻防打手×3×(1+加固0.2) + 加固基础
+  const garrisonPower = (state.garrison ?? 0) * 3 * (1 + fortify * 0.2) + fortify * 6;
+
+  const threat = threatLevelFrom(stability, fortify);
+
+  // —— 骚扰(高频) ——
+  if (threat >= 1 && rng() < 0.5) {
+    const harassPower = Math.round(enemyBase * (0.8 + 0.4 * rng()));
+    const h = settleHarass({ money, regions, turfFortifyBonus: fortify }, stability, garrisonPower, harassPower);
+    stability = h.stability; money = h.money;
+    events.push(h.repelled
+      ? `弥生道余党来地盘闹事，被驻守的打手揍了回去，还抢得 ¥${h.loot}。`
+      : `地盘遭弥生道骚扰，驻守不足被搅了场子，稳定度下降。`);
+  } else {
+    stability = Math.min(100, stability + 3); // 平稳日缓慢回升
+  }
+
+  // —— 进攻(低频·失守丢地盘) ——
+  if (threat >= 2 && rng() < 0.25) {
+    const target = occupied[Math.floor(rng() * occupied.length) % occupied.length];
+    const raidPower = Math.round(enemyBase * 1.5 * (0.85 + 0.3 * rng()));
+    const raid = settleRaid({ money, regions, turfFortifyBonus: fortify }, stability, garrisonPower, raidPower, target);
+    regions = raid.regions; stability = raid.stability; thugTotal = Math.max(0, thugTotal - raid.thugLost);
+    if (raid.defended) {
+      events.push(`弥生道大举进攻「${REGIONS_BY_ID[target]?.name}」，驻守死战守住，折损 ${raid.thugLost} 人。`);
+    } else {
+      regionLost = raid.regionLost;
+      events.push(`弥生道攻陷「${REGIONS_BY_ID[target]?.name}」！折损 ${raid.thugLost} 人，该据点失守（需重新打回）。`);
+    }
+  }
+
+  return { regions, thugTotal, money, stability: Math.max(0, Math.min(100, stability)), events, regionLost };
+}
+
 /** 进攻结算结果 */
 export interface RaidResult {
   thugLost: number;       // 减员
