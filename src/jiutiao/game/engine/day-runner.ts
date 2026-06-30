@@ -9,7 +9,7 @@ import { settleSlot } from './machine';
 import { settleServe, settleBuyCondoms, settleDaily } from './settlement';
 import {
   CONST, slidingWindowRelief, settleRecruit, dailyDesireDemand, desireOverflow, availableThugs,
-  gainLoyalty, settleRewardThugs, settleProtectionFee, presentCountFrom,
+  gainLoyalty, settleRewardThugs, settleProtectionFee, presentCountFrom, appendMoneyLog,
 } from '../economy/machine';
 import { totalShops } from '../turf/machine';
 import { desireGrowthMult } from '../upgrade/machine';
@@ -146,11 +146,13 @@ export async function runCurrentSlot(
     if (sr.condomUsed > 0) engine = { ...engine, condomUsedToday: (engine.condomUsedToday ?? 0) + sr.condomUsed };
   }
 
+  const dayNo0 = state.day.dayNumber;
   // 招募格：即时结算（当场招人、扣钱、扣额度，玩家立刻看到打手数变化，而非日终）
   let recruit: RunSlotResult['recruit'] = null;
   if (slot.choice.optionId === 'recruit') {
     const rr = settleRecruit(engine.thugTotal, engine.money, engine.recruitQuota, opts.rng);
     engine = { ...engine, thugTotal: rr.thugTotal, money: rr.money, recruitQuota: rr.recruitQuota };
+    if (rr.cost > 0) engine = { ...engine, moneyLog: appendMoneyLog(engine.moneyLog, dayNo0, `招募${rr.recruited}打手`, -rr.cost) };
     recruit = { recruited: rr.recruited, cost: rr.cost, reason: rr.reason };
   }
 
@@ -159,14 +161,17 @@ export async function runCurrentSlot(
   if (slot.choice.optionId === 'buy_condoms') {
     const br = settleBuyCondoms(engine);
     engine = br.state;
+    if (br.cost > 0) engine = { ...engine, moneyLog: appendMoneyLog(engine.moneyLog, dayNo0, `采购${br.bought}避孕套`, -br.cost) };
     buyCondom = { bought: br.bought, cost: br.cost, reason: br.reason };
   }
 
   // 犒赏打手格：即时结算（发钱 → 极道忠诚 +）
   let reward: RunSlotResult['reward'] = null;
   if (slot.choice.optionId === 'reward_thugs') {
+    const before = engine.money;
     const rr = settleRewardThugs(engine.money, engine.loyalty, engine.loyaltyMartial ?? 0);
     engine = { ...engine, money: rr.money, loyalty: rr.loyalty, loyaltyMartial: rr.martialPart };
+    if (before - rr.money > 0) engine = { ...engine, moneyLog: appendMoneyLog(engine.moneyLog, dayNo0, '犒赏打手', -(before - rr.money)) };
     reward = { gained: rr.gained, reason: rr.reason };
   }
 
@@ -174,7 +179,7 @@ export async function runCurrentSlot(
   let protection: RunSlotResult['protection'] = null;
   if (slot.choice.optionId === 'protection') {
     const income = settleProtectionFee(totalShops(engine.regions), engine.stability ?? 100);
-    engine = { ...engine, money: engine.money + income };
+    engine = { ...engine, money: engine.money + income, moneyLog: appendMoneyLog(engine.moneyLog, dayNo0, '收保护费', income) };
     protection = { income };
   }
 

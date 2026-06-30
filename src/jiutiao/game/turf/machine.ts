@@ -227,6 +227,8 @@ export const SCOUT_HIT_RATE = 0.25;
 /** 贿赂降门槛量(按目标关门槛比例,封顶) */
 export const BRIBE_CUT_RATIO = 0.4;
 export const BRIBE_CUT_MAX = 400;
+/** 贿赂固定花费(门路钱·用户定:贿赂固定消耗金钱) */
+export const BRIBE_COST = 1200;
 
 /** 某关是否已刺探到情报 */
 export function hasIntel(regions: Record<string, RegionState> | undefined, id: string): boolean {

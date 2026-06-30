@@ -15,6 +15,7 @@ export const CONST = {
   供奉忠诚加成: 1,            // 一场供奉 → 淫乱忠诚 +1
   忠诚流失基准: 1000,         // 每日打手自然流失数 = round(总打手 × (100-忠诚)/基准)。忠诚0→10%/日
   忠诚日衰减: 2,             // 忠诚度每日自然衰减(不维护就滑落,需持续发钱/供奉)
+  威望日衰减率: 0.03,        // 威望(极道/淫名)每日自然衰减比例(江湖善忘·名气消退)。小威望四舍五入为0不掉。
   欲望基础增量: 2,            // [旧夜结模型]每个未供奉打手每晚 +2(已被晨间累积模型取代,保留兼容)
   欲望连续翻倍倍率: 2,        // 单打手连续3晚未供奉，其贡献翻倍
   欲望连续阈值天数: 3,
@@ -187,6 +188,14 @@ export function availableThugs(total: number, garrison: number): number {
   return Math.max(0, total - garrison);
 }
 
+/** 资金流水追加(纯函数·保留最近20条) */
+export function appendMoneyLog(
+  log: { day: number; label: string; delta: number }[] | undefined, day: number, label: string, delta: number,
+): { day: number; label: string; delta: number }[] {
+  if (!delta) return log ?? [];
+  return [...(log ?? []), { day, label, delta }].slice(-20);
+}
+
 // ───────────────────────────────────────
 // 忠诚度（双成分：发钱→极道忠诚 / 供奉→淫乱忠诚）
 // ───────────────────────────────────────
@@ -293,6 +302,15 @@ export function settleRecruit(
  */
 export function totalPrestige(martial: number, infamy: number, avUnlocked = false): number {
   return Math.max(0, martial) + (avUnlocked ? Math.max(0, infamy) : 0);
+}
+
+/**
+ * 威望每日自然衰减（数值叙事：江湖善忘，名气会消退）。
+ * 衰减量 = round(值 × 威望日衰减率)；小威望(round 为0)不掉，大威望缓慢侵蚀，逼玩家持续经营。
+ */
+export function decayPrestige(value: number): number {
+  const v = Math.max(0, value);
+  return Math.max(0, v - Math.round(v * CONST.威望日衰减率));
 }
 
 /**

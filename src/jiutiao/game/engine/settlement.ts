@@ -3,15 +3,15 @@
 
 import {
   condomCost, condomStatus, desireRelief, desireOverflow, purchaseCap, CONST,
-  availableThugs, combatPower, weeklyRecruitQuota, totalPrestige, auditMoney, thugAttrition,
+  availableThugs, combatPower, weeklyRecruitQuota, totalPrestige, auditMoney, thugAttrition, decayPrestige, appendMoneyLog,
 } from '../economy/machine';
 import { isAvUnlocked, auditMartial } from '../prestige/machine';
 import { weaponMult, baseMartialPerThug } from '../upgrade/machine';
 import { dailyYields, threatLevelFrom, totalShops } from '../turf/machine';
 
-// ⚠️暂挂开关: 地盘攻守玩法(威望主来源·task #13)未接入前,玩家结构性赚不到极道威望→
-//   威望轨硬失败必然触发,不公平。地盘 UI 接入后改回 true(并配合 #14 威望衰减)。
-const 威望轨硬失败已启用 = false;
+// 地盘攻守玩法(威望主来源)已接入(v33+ 攻打/骚扰/刺探/贿赂在行动格·占领有每日威望产出),
+//   玩家可结构性赚极道威望(攻打关卡 + 占领据点日产)→ 解除暂挂,启用威望轨硬失败。
+const 威望轨硬失败已启用 = true;
 import { advanceCycle } from '../cycle/machine';
 import type { EngineState } from './types';
 
@@ -110,6 +110,7 @@ export interface DailySettleResult {
   failWarnings: string[];
   yields: { condom: number; money: number; martial: number }; // 据点每日产出
   thugsLost: number;        // 今日打手自然流失数(忠诚越低流失越多)
+  prestigeDecay: number;    // 今日威望自然衰减总量(极道+淫名)
 }
 
 /**
@@ -122,6 +123,7 @@ export function settleDaily(state: EngineState, dayNumber: number): DailySettleR
   const y = dailyYields(next.regions);
   next.condomStock = next.condomStock + y.condom;
   next.money = next.money + y.money;
+  if (y.money > 0) next.moneyLog = appendMoneyLog(next.moneyLog, dayNumber, '据点日产', y.money);
   if (y.martial > 0) {
     next.martialPrestige = next.martialPrestige + y.martial;
     next.martialGainToday = (next.martialGainToday ?? 0) + y.martial; // 据点产出也算极道威望进账(防硬失败误杀有地盘玩家)
@@ -153,6 +155,12 @@ export function settleDaily(state: EngineState, dayNumber: number): DailySettleR
   next.martialGainToday = 0;
   const moneyAudit = auditMoney(next.money, next.moneyZeroStreak ?? 0);
   next.moneyZeroStreak = moneyAudit.zeroStreak;
+  // 威望每日自然衰减(数值叙事:江湖善忘/名气消退)。在审核后衰减"存量",不影响今日进账流量审核。
+  const martialBefore = next.martialPrestige;
+  next.martialPrestige = decayPrestige(next.martialPrestige);
+  const infamyBefore = next.infamy;
+  next.infamy = decayPrestige(next.infamy);
+  const prestigeDecay = (martialBefore - next.martialPrestige) + (infamyBefore - next.infamy);
   // 威望轨暂挂期间不计入硬失败(也不弹威望警告),避免地盘未接入时误杀。
   const martialFail = 威望轨硬失败已启用 && mAudit.hardFail;
   const hardFail = martialFail || moneyAudit.hardFail;
@@ -174,7 +182,7 @@ export function settleDaily(state: EngineState, dayNumber: number): DailySettleR
   const cyc = advanceCycle(next.cycleDay ?? 0);
   next.cycleDay = cyc.cycleDay;
   next.isDangerousPeriod = cyc.isDangerousPeriod;
-  return { state: next, recruitRefreshed, combatPower: power, hardFail, hardFailReason, failWarnings, yields: y, thugsLost };
+  return { state: next, recruitRefreshed, combatPower: power, hardFail, hardFailReason, failWarnings, yields: y, thugsLost, prestigeDecay };
 }
 
 /** 便捷：避孕套库存状态标签（UI 用） */

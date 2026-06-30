@@ -209,6 +209,9 @@ const statusItems = computed(() => {
   const e = r.engine; const out: Array<{ t: string; tone: string }> = [];
   if (r.hardFail) out.push({ t: '☠ 硬失败：' + (r.hardFailReason === 'money' ? '资金断流' : '威望枯竭'), tone: 'err' });
   r.failWarnings.forEach(w => out.push({ t: w, tone: 'warn' }));
+  // 再生力实时预警(随当日进度·不必等日终)
+  if (!r.hardFail && e.money <= 0) out.push({ t: `⚠ 资金见底（${e.money}）：今日结束前未转正，连续两日即资金断流硬失败`, tone: 'warn' });
+  if (!r.hardFail && (e.martialZeroStreak ?? 0) >= 1 && (e.martialGainToday ?? 0) <= 0) out.push({ t: '⚠ 威望停滞：今日尚无极道进账，去打据点/骚扰/收生意，否则连续两日威望枯竭', tone: 'warn' });
   if (r.lastWarn) out.push({ t: '⚠ ' + r.lastWarn, tone: 'warn' });
   if (e.desire >= e.desireCapacity) out.push({ t: `⚠ 群体欲望 ${e.desire}/${e.desireCapacity} 超上限`, tone: 'warn' });
   if (r.lastServe) out.push({ t: `供奉 ${r.lastServe.served}人 · 欲望-${r.lastServe.desireRelieved} · 套-${r.lastServe.condomUsed}` + (r.lastServe.condomShort ? '（库存不足!）' : ''), tone: r.lastServe.condomShort ? 'err' : 'ok' });

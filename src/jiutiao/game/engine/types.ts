@@ -19,6 +19,7 @@ export interface EngineState {
   claimedGates: Record<string, boolean>;       // 奖励闸门账本
   // —— economy 资源 ——
   money: number;
+  moneyLog?: { day: number; label: string; delta: number }[]; // 资金流水(最近~20条·来源标注)
   thugTotal: number;          // 打手总数
   garrison: number;           // 驻守占用打手
   loyalty: number;            // 打手忠诚度 0~100(总值·战力/流失用)

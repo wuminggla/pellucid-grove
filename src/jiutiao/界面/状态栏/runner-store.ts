@@ -12,11 +12,11 @@ import {
 } from '../../game/action-grid/machine';
 import { runCurrentSlot, settleNight, advanceToNextDay, applyForcedSeizes } from '../../game/engine/day-runner';
 import type { RunnerState } from '../../game/engine/day-runner';
-import { dailyDesireDemand, availableThugs, weeklyRecruitQuota, combatPower, presentCountFrom } from '../../game/economy/machine';
+import { dailyDesireDemand, availableThugs, weeklyRecruitQuota, combatPower, presentCountFrom, appendMoneyLog } from '../../game/economy/machine';
 import { weaponMult, baseMartialPerThug, prestigeMultiplier, UPGRADES_BY_ID, canUpgrade, applyUpgrade } from '../../game/upgrade/machine';
 import {
   REGIONS_BY_ID, canDefeat, defeatRegion, regionState, effectiveThreshold,
-  settleScout, settleBribe, settleOffensiveHarass, SCOUT_COST,
+  settleScout, settleBribe, settleOffensiveHarass, SCOUT_COST, BRIBE_COST,
 } from '../../game/turf/machine';
 import {
   canShootAv, buildAvPrompt, consumeShoot, defaultAvState, initAvOnUnlock,
@@ -185,7 +185,7 @@ export const useRunnerStore = defineStore('runner', () => {
         lastTurf.value = { ok: false, msg: `资金不足(需¥${SCOUT_COST})，刺探无果。` };
         completeMapSlot('打手前去刺探，却因银根吃紧无功而返。'); return;
       }
-      engine.value = { ...engine.value, money: r.money, regions: r.regions };
+      engine.value = { ...engine.value, money: r.money, regions: r.regions, moneyLog: appendMoneyLog(engine.value.moneyLog, day.value.dayNumber, `刺探「${def.name}」`, -r.paid) };
       if (r.hit) {
         lastTurf.value = { ok: true, msg: `刺探「${def.name}」成功！已获情报，可对其贿赂降门槛（花费¥${r.paid}）。` };
         completeMapSlot(`刺探「${def.name}」得手，摸清了守备虚实——贿赂调查的门路打开了。`);
@@ -194,13 +194,15 @@ export const useRunnerStore = defineStore('runner', () => {
         completeMapSlot(`刺探「${def.name}」扑了空，只折了些打点钱。`);
       }
     } else {
+      // 贿赂:固定花门路钱(资金不足则拒)
+      if (engine.value.money < BRIBE_COST) { lastTurf.value = { ok: false, msg: `资金不足(需¥${BRIBE_COST})，无法贿赂。` }; return; }
       const r = settleBribe(engine.value.regions, id);
       if (!r.ok) {
         lastTurf.value = { ok: false, msg: r.reason === 'no_intel' ? '该关尚无情报，无法贿赂。' : '该关已占据。' };
         return; // 不消耗格,让玩家重选
       }
-      engine.value = { ...engine.value, regions: r.regions };
-      lastTurf.value = { ok: true, msg: `贿赂调查「${def.name}」，击败门槛 -${r.cut}。` };
+      engine.value = { ...engine.value, regions: r.regions, money: engine.value.money - BRIBE_COST, moneyLog: appendMoneyLog(engine.value.moneyLog, day.value.dayNumber, `贿赂「${def.name}」`, -BRIBE_COST) };
+      lastTurf.value = { ok: true, msg: `贿赂调查「${def.name}」，击败门槛 -${r.cut}（花费¥${BRIBE_COST}）。` };
       completeMapSlot(`银钱开路，「${def.name}」的守备被买通松动，击败门槛降了 ${r.cut}。`);
     }
   }
@@ -212,6 +214,7 @@ export const useRunnerStore = defineStore('runner', () => {
     const chk = canUpgrade(def, engine.value as any);
     if (!chk.ok) { lastUpgrade.value = { ok: false, msg: `「${def.name}」无法升级：${chk.reason}` }; return; }
     engine.value = applyUpgrade(engine.value as any, def);
+    engine.value = { ...engine.value, moneyLog: appendMoneyLog(engine.value.moneyLog, day.value.dayNumber, `升级·${def.name}`, -def.cost) };
     // 建成摄影室解锁 AV → 初始化周拍摄次数(否则面板显示"次数用完"),并引入淫名机制
     if (def.effect.kind === 'unlock' && def.effect.unlockKey === 'av') {
       engine.value = { ...engine.value, ...(initAvOnUnlock(engine.value) as any) };
@@ -340,7 +343,7 @@ export const useRunnerStore = defineStore('runner', () => {
         const avDef = ranSlot.choice.params.avDef as AvDefinition;
         const av = nextEngine.av ?? defaultAvState();
         const income = avSalesIncome(avDef, nextEngine.infamy);
-        nextEngine = { ...nextEngine, av: consumeShoot(av, avDef), money: nextEngine.money + income };
+        nextEngine = { ...nextEngine, av: consumeShoot(av, avDef), money: nextEngine.money + income, moneyLog: appendMoneyLog(nextEngine.moneyLog, day.value.dayNumber, `AV销售·${avDef.theme}`, income) };
         avIncome = { income, theme: avDef.theme };
       }
       let nightInfo: NightSettleResult | null = null;
@@ -408,6 +411,7 @@ export const useRunnerStore = defineStore('runner', () => {
     {
       const ex: Notice[] = [];
       if (r.daily.thugsLost > 0) ex.push({ t: `打手流失 -${r.daily.thugsLost}（忠诚低·被挖角/出走）`, tone: 'warn' });
+      if ((r.daily.prestigeDecay ?? 0) > 0) ex.push({ t: `威望自然衰减 -${r.daily.prestigeDecay}（江湖善忘）`, tone: 'dim' });
       (r.daily.failWarnings ?? []).forEach(w => ex.push({ t: w, tone: 'warn' }));
       if (r.daily.hardFail) ex.push({ t: '☠ 硬失败：' + (r.daily.hardFailReason === 'money' ? '资金断流' : '威望枯竭'), tone: 'err' });
       if (r.forcedLeave) ex.push({ t: '⚠ 欲望溢出 → 次日白日供奉（霸全）', tone: 'warn' });

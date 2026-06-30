@@ -13,10 +13,10 @@
       <div class="stat pinnable" :class="{ pinned: pin === 'money' }" @click.stop="toggle('money')">
         <div class="k">资 金</div>
         <div class="v">¥{{ e.money.toLocaleString() }}</div>
-        <div class="pop">
-          <h4>近期账目（悬停查看 · 点击钉住）</h4>
-          <div v-for="(r, i) in ledger" :key="i" class="row"><span>{{ r.t }}</span><b :class="r.d >= 0 ? 'plus' : 'minus'">{{ r.d >= 0 ? '+' : '' }}{{ r.d.toLocaleString() }}</b></div>
-          <div class="hint">完整资金流水待接（task #12）</div>
+        <div class="pop wide-pop">
+          <h4>资金流水 · 最近进出（悬停查看 · 点击钉住）</h4>
+          <div v-if="!ledger.length" class="prow">暂无流水——招募/采购/收保护费/卖AV/升级 等会记在这里。</div>
+          <div v-for="(rr, i) in ledger" :key="i" class="row"><span>{{ rr.t }}</span><b :class="rr.d >= 0 ? 'plus' : 'minus'">{{ rr.d >= 0 ? '+' : '' }}{{ rr.d.toLocaleString() }}</b></div>
         </div>
       </div>
 
@@ -29,8 +29,10 @@
           <div class="pbar"><span class="pg" :style="{ width: goldPct + '%' }"></span><span class="pr" :style="{ width: redPct + '%' }"></span></div>
           <div class="row" style="margin-top:8px"><span style="color:var(--gold-hi)">极道威望</span><b>{{ e.martialPrestige }}</b></div>
           <div class="row"><span :style="{ color: 'var(--rose-hi)' }">淫名{{ avUnlocked ? '' : '（不计入）' }}</span><b>{{ e.infamy }}</b></div>
+          <div class="row"><span>今日极道进账</span><b :class="(e.martialGainToday ?? 0) > 0 ? 'plus' : 'minus'">{{ (e.martialGainToday ?? 0) > 0 ? '+' : '' }}{{ e.martialGainToday ?? 0 }}</b></div>
           <div class="row"><span>占比风味</span><b>{{ prestigeBias }}</b></div>
-          <div class="hint">{{ avUnlocked ? '两者之和决定招募额度；颜色越偏极道越金、越偏淫名越绯红。' : '拍第一部AV解锁淫名后，淫名才计入总威望。当前威望=极道威望。' }}</div>
+          <div class="frow">威望每日自然衰减 ~3%（江湖善忘）；连续两日零极道进账 → 再生力枯竭（硬失败）。</div>
+          <div class="hint">{{ avUnlocked ? '颜色越偏极道越金、越偏淫名越绯红；总威望决定招募额度。' : '拍第一部AV解锁淫名后，淫名才计入总威望。当前威望=极道威望。' }}</div>
         </div>
       </div>
 
@@ -208,8 +210,8 @@ const nextGate = computed(() => {
   return { at: g.atCorruption, text: parts.join(' / ') };
 });
 
-// 资金流水占位（🟡 task #12 未做）
-const ledger = computed(() => [] as Array<{ t: string; d: number }>);
+// 资金流水（#12·最近进出+来源·倒序最近在上）
+const ledger = computed(() => [...(props.engine.moneyLog ?? [])].reverse().map(m => ({ t: `D${m.day} ${m.label}`, d: m.delta })));
 </script>
 
 <style scoped>
