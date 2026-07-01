@@ -24,6 +24,7 @@ import {
 } from '../../game/av/machine';
 import type { AvDefinition } from '../../game/av/machine';
 import type { UpgradeDef } from '../../game/upgrade/types';
+import { gainCorruption } from '../../game/corruption/machine';
 import type { NightSettleResult } from '../../game/engine/settlement';
 import {
   demoEventOptions, demoSummaryTemplates, demoExtractBounds, demoForcedPool, createMockAi,
@@ -241,8 +242,21 @@ export const useRunnerStore = defineStore('runner', () => {
         av: upgradeAvDuration(engine.value.av ?? defaultAvState(), 1),
       };
     }
+    // 荒唐升级:购买增堕落度(走认知防线推进+奖励闸门·升级系统=前期堕落度主来源)
+    let corrMsg = '';
+    if (def.corruptionOnBuy && def.corruptionOnBuy > 0) {
+      const cr = gainCorruption(
+        { corruption: engine.value.corruption, cognition: engine.value.cognition, claimedGates: engine.value.claimedGates },
+        def.corruptionOnBuy,
+      );
+      engine.value = { ...engine.value, corruption: cr.corruption, cognition: cr.cognition, claimedGates: cr.claimedGates };
+      for (const g of cr.firedGates) {
+        engine.value = { ...engine.value, money: engine.value.money + (g.reward.money ?? 0), thugTotal: engine.value.thugTotal + (g.reward.thugs ?? 0) };
+      }
+      corrMsg = ` · 堕落度 +${def.corruptionOnBuy}` + (cr.cognitionAdvancedTo ? ` → ${cr.cognitionAdvancedTo}` : '');
+    }
     const lvl = engine.value.upgrades?.[id] ?? 1;
-    lastUpgrade.value = { ok: true, msg: `「${def.name}」已升至 Lv.${lvl}（花费¥${def.cost}）。` };
+    lastUpgrade.value = { ok: true, msg: `「${def.name}」已升至 Lv.${lvl}（花费¥${def.cost}）${corrMsg}。` };
   }
 
   // ─── AV 系统(拍摄→排入行动格,执行时注入定制范式) ───

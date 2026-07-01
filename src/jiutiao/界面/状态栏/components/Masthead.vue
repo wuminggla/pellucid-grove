@@ -62,7 +62,7 @@
           <div class="loyal-quote">「{{ loyaltyQuote }}」</div>
           <div class="frow">忠诚越高，<b>在场打手比率</b>越容易刷高（在场人数 = 总人数 × 比率），间接抬升战斗力。</div>
           <div class="frow">每日自然流失率 =（100 − 忠诚）÷ 10 %。</div>
-          <div class="frow">忠诚每日自然衰减 −{{ 2 }}（不维护就滑落）。</div>
+          <div class="frow">忠诚每日自然衰减 −{{ loyDecay }}（不维护就滑落{{ loyDecayReduce > 0 ? '·升级已减免 ' + loyDecayReduce : '' }}）。</div>
           <div class="row"><span>预计日流失率</span><b>{{ ((100 - e.loyalty) / 10).toFixed(1) }}%</b></div>
           <div class="row"><span>极道忠诚 · 淫乱忠诚</span><b>{{ e.loyaltyMartial ?? 0 }} · {{ e.loyaltyInfamy ?? 0 }}</b></div>
           <div class="hint">发钱「犒赏打手」→极道忠诚；夜晚「供奉」→淫乱忠诚。颜色按两者占比金↔绯红渐变。</div>
@@ -129,7 +129,8 @@ import { computed, ref } from 'vue';
 import { BUILD_VERSION } from '../version';
 import { COGNITION_THRESHOLDS, REWARD_GATES } from '../../../game/corruption/machine';
 import { isAvUnlocked } from '../../../game/prestige/machine';
-import { loyaltyStage, loyaltyBias } from '../../../game/economy/machine';
+import { loyaltyStage, loyaltyBias, CONST } from '../../../game/economy/machine';
+import { loyaltyDecayReduction } from '../../../game/upgrade/machine';
 import type { EngineState } from '../../../game/engine/types';
 import type { DayState } from '../../../game/action-grid/types';
 
@@ -168,6 +169,8 @@ const loyaltyRoseRatio = computed(() => {
   const t = m + inf; return t <= 0 ? 0.5 : inf / t;
 });
 const loyaltyColor = computed(() => mixGoldRose(loyaltyRoseRatio.value));
+const loyDecayReduce = computed(() => loyaltyDecayReduction(props.engine.upgrades));
+const loyDecay = computed(() => Math.max(0, CONST.忠诚日衰减 - loyDecayReduce.value));
 
 // —— 避孕套消耗（今日累计 + 昨日=历史最后一条）——
 const condomToday = computed(() => props.engine.condomUsedToday ?? 0);

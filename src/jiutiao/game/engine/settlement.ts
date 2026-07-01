@@ -6,7 +6,7 @@ import {
   availableThugs, combatPower, weeklyRecruitQuota, totalPrestige, auditMoney, thugAttrition, decayPrestige, appendMoneyLog,
 } from '../economy/machine';
 import { isAvUnlocked, auditMartial } from '../prestige/machine';
-import { weaponMult, baseMartialPerThug } from '../upgrade/machine';
+import { weaponMult, baseMartialPerThug, loyaltyDecayReduction, condomDailyFrom } from '../upgrade/machine';
 import { dailyYields, threatLevelFrom, totalShops, settleTurfThreat } from '../turf/machine';
 
 // 地盘攻守玩法(威望主来源)已接入(v33+ 攻打/骚扰/刺探/贿赂在行动格·占领有每日威望产出),
@@ -122,7 +122,7 @@ export function settleDaily(state: EngineState, dayNumber: number): DailySettleR
   let next = { ...state };
   // 据点产出（faucet：已解锁区域每日给避孕套/资金/极道威望）
   const y = dailyYields(next.regions);
-  next.condomStock = next.condomStock + y.condom;
+  next.condomStock = next.condomStock + y.condom + condomDailyFrom(next.upgrades); // 据点产出 + 送货上门(后期便利升级)
   next.money = next.money + y.money;
   if (y.money > 0) next.moneyLog = appendMoneyLog(next.moneyLog, dayNumber, '据点日产', y.money);
   // 地盘反击(敌人来攻已占地盘·敌强度>常驻武力则随机丢一块地盘)。常驻武力=派驻打手×每人基础武力×武器乘区。
@@ -145,8 +145,9 @@ export function settleDaily(state: EngineState, dayNumber: number): DailySettleR
       next.av = { ...next.av, weeklyQuota: next.av.weeklyQuotaMax };
     }
   }
-  // 忠诚度每日自然衰减(不维护就滑落) — 在流失判定前先衰减
-  if ((next.loyalty ?? 0) > 0) next.loyalty = Math.max(0, next.loyalty - CONST.忠诚日衰减);
+  // 忠诚度每日自然衰减(不维护就滑落) — 减免来自"荒唐升级"(张贴照片链等)。在流失判定前先衰减。
+  const loyDecay = Math.max(0, CONST.忠诚日衰减 - loyaltyDecayReduction(next.upgrades));
+  if ((next.loyalty ?? 0) > 0) next.loyalty = Math.max(0, next.loyalty - loyDecay);
   // 打手自然流失(忠诚越低走得越多·被挖角/不满待遇/看不到前景)
   const thugsLost = thugAttrition(next.thugTotal, next.loyalty, Math.random());
   if (thugsLost > 0) next.thugTotal = Math.max(0, next.thugTotal - thugsLost);

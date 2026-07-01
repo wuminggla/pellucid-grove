@@ -25,22 +25,22 @@ export const SKILL_PAGES: SkillPage[] = [
   { id: 'dojo', name: '道场', narrative: '练武堂。打手的武力与肉体在此被反复操练、改造。', unlockKey: 'dojo_page', unlockedByNode: 'room_dojo' },
   { id: 'studio', name: '摄影房', narrative: '暗网AV摄影棚。设备、产能、玩法编排都在这里升级。', unlockKey: 'av', unlockedByNode: 'studio' },
   { id: 'dungeon', name: '地下室', narrative: '拘禁与刑具之所。暴力供奉、受虐癖线在此推进。', unlockKey: 'basement', unlockedByNode: 'basement' },
-  { id: 'courtyard', name: '庭院', narrative: '假山与放风区。露天淫乐的扩张地。（内容待填）', unlockKey: 'courtyard', unlockedByNode: 'courtyard' },
-  { id: 'shrine', name: '纪念室', narrative: '先代与祖辈的牌位所在。禁忌与供奉的交织。（内容待填）', unlockKey: 'shrine', unlockedByNode: 'room_shrine' },
-  { id: 'dailytoy', name: '日常淫具化', narrative: '把宅邸的日常起居处处改成淫具温床。（内容待填）', unlockKey: 'dailytoy', unlockedByNode: 'room_dailytoy' },
+  { id: 'expansion', name: '地盘扩张', narrative: '收购周边地皮。占了哪片地，那片的场所才会翻面成白日宣淫的猎场——每一次扩张都为白天解锁新的双面事件。便宜的先买，铺开NSFW面。' },
 ];
 
 /** 节点布局(列col/行row)。每页一套局部坐标。 */
 export interface NodeMeta { page: string; col: number; row: number; }
 export const NODE_META: Record<string, NodeMeta> = {
-  // 九条宅(主页·房间修缮=解锁子页)
+  // 九条宅(主页·房间修缮=解锁子页 + 荒唐升级链)
   room_dojo:     { page: 'house', col: 0, row: 0 },
   studio:        { page: 'house', col: 0, row: 1 },
   basement:      { page: 'house', col: 0, row: 2 },
-  expand_turf:   { page: 'house', col: 1, row: 0 },
-  room_shrine:   { page: 'house', col: 1, row: 1 },
-  courtyard:     { page: 'house', col: 1, row: 2 },
-  room_dailytoy: { page: 'house', col: 2, row: 2 },
+  room_dailytoy: { page: 'house', col: 1, row: 2 },
+  // 信息张贴链(减忠诚衰减·增堕落)
+  poster1:       { page: 'house', col: 1, row: 0 },
+  poster2:       { page: 'house', col: 2, row: 0 },
+  poster3:       { page: 'house', col: 3, row: 0 },
+  poster4:       { page: 'house', col: 4, row: 0 },
   // 凛自己
   action_slots: { page: 'rin', col: 0, row: 0 },
   throughput:   { page: 'rin', col: 0, row: 1 },
@@ -66,6 +66,14 @@ export const NODE_META: Record<string, NodeMeta> = {
   av_play:     { page: 'studio', col: 1, row: 1 },
   // 地下室
   dungeon_gear:{ page: 'dungeon', col: 0, row: 0 },
+  // 地盘扩张收购树(挂扩张日常双面事件·前后置)
+  annex_estate:    { page: 'expansion', col: 0, row: 1 },
+  annex_shrine:    { page: 'expansion', col: 1, row: 0 },
+  annex_street:    { page: 'expansion', col: 1, row: 2 },
+  annex_hill:      { page: 'expansion', col: 2, row: 1 },
+  annex_district:  { page: 'expansion', col: 2, row: 3 },
+  annex_halfcity:  { page: 'expansion', col: 3, row: 3 },
+  condom_delivery: { page: 'expansion', col: 4, row: 3 },
 };
 
 /** 页是否解锁 */

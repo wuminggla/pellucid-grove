@@ -20,7 +20,9 @@ export type UpgradeEffectKind =
   | 'occupyScale'   // 地盘扩张：抬升占据规模档（门控扩张日常选项）
   | 'baseMartial'   // 每人基础武力值 +（派生·与在场乘区/武器乘区相乘）
   | 'avPlayCap'     // AV 同时可选玩法tag上限 +（派生·防一次性拉满收益）
-  | 'prestigeMult'; // 威望增长系数 +（派生·结算时威望进账×(1+此值)）
+  | 'prestigeMult'  // 威望增长系数 +（派生·结算时威望进账×(1+此值)）
+  | 'loyaltyDecayReduce' // 减少忠诚每日自然衰减（派生·"荒唐升级"如张贴照片链）
+  | 'condomDaily';  // 避孕套每日送货上门量（派生·后期便利·省去主动采购）
 
 export interface UpgradeEffect {
   kind: UpgradeEffectKind;
@@ -50,4 +52,9 @@ export interface UpgradeDef {
   /** 前置依赖：满足才出现在菜单（地盘扩张→解锁更多项 / AV设备需先建摄影室）。空=初始可用。 */
   requires?: UpgradeRequire[];
   effect: UpgradeEffect;
+  /**
+   * 购买时一次性增加的堕落度（"荒唐升级"核心：花钱换收益，但把凛推向更堕落）。
+   * 由 store.buyUpgrade 走 gainCorruption 结算（认知防线推进+奖励闸门）。升级系统=前期堕落度主来源。
+   */
+  corruptionOnBuy?: number;
 }

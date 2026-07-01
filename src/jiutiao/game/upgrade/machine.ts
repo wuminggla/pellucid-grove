@@ -12,9 +12,9 @@ import type { UpgradeDef, UpgradeRequire } from './types';
 export const THUG_UPGRADES: UpgradeDef[] = [
   { id: 'weapon',    category: 'thug', name: '兵器装备', desc: '武装到牙齿，据点战更凶',     cost: 2500, maxLevel: 5, effect: { kind: 'combat', perLevel: 0.10 } },
   { id: 'martial',   category: 'thug', name: '格斗训练', desc: '肉搏战阵磨砺，以一当十',     cost: 2500, maxLevel: 5, effect: { kind: 'combat', perLevel: 0.10 } },
-  { id: 'stamina',   category: 'thug', name: '精力强化', desc: '伟哥与持久，夜夜不歇',       cost: 2500, maxLevel: 5, effect: { kind: 'combat', perLevel: 0.03 } },
-  { id: 'physique',  category: 'thug', name: '体型改造', desc: '增肌壮根，体格碾压',         cost: 2500, maxLevel: 5, effect: { kind: 'combat', perLevel: 0.03 } },
-  { id: 'gear',      category: 'thug', name: '调教器具', desc: '地下室刑具与玩物，调教升级', cost: 2500, maxLevel: 5, effect: { kind: 'combat', perLevel: 0.03 } },
+  { id: 'stamina',   category: 'thug', name: '精力强化', desc: '伟哥与持久，夜夜不歇(NSFW·凛承受更久)',       cost: 2500, maxLevel: 5, effect: { kind: 'combat', perLevel: 0.03 }, corruptionOnBuy: 1 },
+  { id: 'physique',  category: 'thug', name: '体型改造', desc: '增肌壮根，巨根碾压(NSFW·体格差)',         cost: 2500, maxLevel: 5, effect: { kind: 'combat', perLevel: 0.03 }, corruptionOnBuy: 1 },
+  { id: 'gear',      category: 'thug', name: '调教器具', desc: '扩阴器/震动棒等玩物，调教升级(NSFW)', cost: 2500, maxLevel: 5, effect: { kind: 'combat', perLevel: 0.03 }, corruptionOnBuy: 2 },
 ];
 
 // ───────────────────────────────────────
@@ -34,11 +34,8 @@ export const FACILITY_UPGRADES: UpgradeDef[] = [
 // 用 unlock/occupyScale 通用效果 + requires 前置，体现"扩张/解锁带来新升级任务"。
 // ───────────────────────────────────────
 export const EXPANSION_UPGRADES: UpgradeDef[] = [
-  { id: 'expand_turf', category: 'expansion', name: '地盘扩张', desc: '吞并周边空间，占据规模逐档抬升(解锁扩张日常选项)', cost: 6000, maxLevel: 5, effect: { kind: 'occupyScale', perLevel: 1 } },
-  { id: 'basement', category: 'expansion', name: '改建地下室', desc: '刑具与拘禁设施，解锁暴力供奉(受虐癖线)', cost: 5000, maxLevel: 1, effect: { kind: 'unlock', unlockKey: 'basement' } },
-  { id: 'studio', category: 'expansion', name: '暗网摄影室', desc: '解锁AV拍摄系统', cost: 8000, maxLevel: 1, effect: { kind: 'unlock', unlockKey: 'av' } },
-  // 庭院：前置=占据规模达"附近片区"(档2)，体现地盘扩张带来新升级任务
-  { id: 'courtyard', category: 'expansion', name: '假山庭院放风区', desc: '露天放风/遛母狗等NSFW区域', cost: 5000, maxLevel: 1, requires: [{ occupyAtLeast: 2 }], effect: { kind: 'unlock', unlockKey: 'courtyard' } },
+  { id: 'basement', category: 'expansion', name: '改建地下室', desc: '刑具与拘禁设施，解锁暴力供奉(受虐癖线)', cost: 5000, maxLevel: 1, effect: { kind: 'unlock', unlockKey: 'basement' }, corruptionOnBuy: 5 },
+  { id: 'studio', category: 'expansion', name: '暗网摄影室', desc: '解锁AV拍摄系统(达摩克里斯之剑·首拍强制演出)', cost: 8000, maxLevel: 1, effect: { kind: 'unlock', unlockKey: 'av' }, corruptionOnBuy: 3 },
   // AV设备升级：前置=先建摄影室，体现解锁带来新升级任务
   { id: 'av_gear', category: 'expansion', name: 'AV设备升级', desc: '专业器材与场地，提升AV规模(前置:摄影室)', cost: 4000, maxLevel: 1, requires: [{ upgradeId: 'studio', minLevel: 1 }], effect: { kind: 'unlock', unlockKey: 'av_advanced' } },
   // AV 周产能：每级 +1 本周可拍摄部数(前置:摄影室)。AV 单部收益高,靠周次数限制平衡。
@@ -55,8 +52,7 @@ export const EXPANSION_UPGRADES: UpgradeDef[] = [
 export const HOUSE_UPGRADES: UpgradeDef[] = [
   // —— 九条宅(主页·房间修缮=解锁子页) ——
   { id: 'room_dojo', category: 'expansion', name: '重启道场', desc: '清理荒废的练武堂，打手得以操练——解锁「道场」升级页', cost: 3000, maxLevel: 1, effect: { kind: 'unlock', unlockKey: 'dojo_page' } },
-  { id: 'room_shrine', category: 'expansion', name: '修缮纪念室', desc: '先代与祖辈的牌位重见天日——解锁「纪念室」（祖堂相关·待填）', cost: 4000, maxLevel: 1, requires: [{ occupyAtLeast: 1 }], effect: { kind: 'unlock', unlockKey: 'shrine' } },
-  { id: 'room_dailytoy', category: 'expansion', name: '日常淫具化改造', desc: '把宅邸日常起居处处改成淫具温床——解锁「日常淫具化」（待填）', cost: 5000, maxLevel: 1, requires: [{ upgradeId: 'basement', minLevel: 1 }], effect: { kind: 'unlock', unlockKey: 'dailytoy' } },
+  { id: 'room_dailytoy', category: 'expansion', name: '日常淫具化改造', desc: '把宅邸日常起居处处改成淫具温床(马桶/餐具/椅子淫具化)——解锁日常淫具化事件', cost: 5000, maxLevel: 1, requires: [{ upgradeId: 'basement', minLevel: 1 }], effect: { kind: 'unlock', unlockKey: 'dailytoy' }, corruptionOnBuy: 3 },
 
   // —— 凛自己(主页旁·永远可用·经营核心) ——
   { id: 'prestige_mult', category: 'facility', name: '威望增长系数', desc: '凛亲自打理名声经营，一切威望进账 +25%/级', cost: 4000, maxLevel: 3, effect: { kind: 'prestigeMult', perLevel: 0.25 } },
@@ -75,8 +71,35 @@ export const HOUSE_UPGRADES: UpgradeDef[] = [
   { id: 'dungeon_gear', category: 'expansion', name: '地下室刑具扩充', desc: '更多拘禁与调教器具(暴力供奉相关·待填)', cost: 4000, maxLevel: 1, requires: [{ upgradeId: 'basement', minLevel: 1 }], effect: { kind: 'unlock', unlockKey: 'dungeon_gear' } },
 ];
 
+// ───────────────────────────────────────
+// catalog · 地盘扩张收购树（花钱收购地皮→解锁对应片区的白天SFW↔NSFW双面事件·前后置·数据驱动）
+// 便宜的作前置(鼓励早买铺开NSFW面);每档收购增少量堕落;一个升级可对应多个场景(如"私山")。
+// 占据规模6档: 老宅一隅(起点)→整座九条邸→邻近街区→盘踞一山(私山)/整片城区→小半座城。
+// ───────────────────────────────────────
+export const ANNEX_UPGRADES: UpgradeDef[] = [
+  { id: 'annex_estate', category: 'expansion', name: '买下整座九条邸', desc: '吞下整座老宅含庭院假山→解锁庭院遛母狗/假山野战', cost: 1500, maxLevel: 1, effect: { kind: 'unlock', unlockKey: 'courtyard' }, corruptionOnBuy: 3 },
+  { id: 'annex_shrine', category: 'expansion', name: '修缮祖堂纪念室', desc: '先代牌位重见天日→解锁参拜先祖(牌位前淫乱)', cost: 2500, maxLevel: 1, requires: [{ upgradeId: 'annex_estate', minLevel: 1 }], effect: { kind: 'unlock', unlockKey: 'shrine' }, corruptionOnBuy: 3 },
+  { id: 'annex_street', category: 'expansion', name: '收购邻近街区', desc: '吞并周边商铺→解锁出门吃饭(餐厅)/购物(商场)/街道散步', cost: 3000, maxLevel: 1, requires: [{ upgradeId: 'annex_estate', minLevel: 1 }], effect: { kind: 'unlock', unlockKey: 'occupy_street' }, corruptionOnBuy: 3 },
+  { id: 'annex_hill', category: 'expansion', name: '盘踞一山（私山）', desc: '买下整座山(一升级多场景)→解锁爬山/森林野营/私山露天轮奸', cost: 5000, maxLevel: 1, requires: [{ upgradeId: 'annex_street', minLevel: 1 }], effect: { kind: 'unlock', unlockKey: 'occupy_hill' }, corruptionOnBuy: 4 },
+  { id: 'annex_district', category: 'expansion', name: '吞并整片城区', desc: '游乐园/海滩/祭典场→解锁去游乐园/海滩/逛祭典', cost: 6000, maxLevel: 1, requires: [{ upgradeId: 'annex_street', minLevel: 1 }], effect: { kind: 'unlock', unlockKey: 'occupy_district' }, corruptionOnBuy: 4 },
+  { id: 'annex_halfcity', category: 'expansion', name: '坐拥小半座城', desc: '地下霸主级·包下公开场馆→解锁看演唱会(舞台轮奸)', cost: 12000, maxLevel: 1, requires: [{ upgradeId: 'annex_district', minLevel: 1 }], effect: { kind: 'unlock', unlockKey: 'occupy_halfcity' }, corruptionOnBuy: 5 },
+  // 经营便利·后期贵:避孕套送货上门(便利=堕落加速·省采购格)
+  { id: 'condom_delivery', category: 'expansion', name: '避孕套·黑市送货渠道', desc: '打手代买送货上门，每日自动进货一批(省去主动采购)', cost: 20000, maxLevel: 3, requires: [{ upgradeId: 'annex_halfcity', minLevel: 1 }], effect: { kind: 'condomDaily', perLevel: 250 }, corruptionOnBuy: 4 },
+];
+
+// ───────────────────────────────────────
+// catalog · 荒唐升级（卡琳典狱长式·花钱换收益但增堕落·升级本身=色情联想·前期堕落度主来源）
+// ───────────────────────────────────────
+export const DEBAUCH_UPGRADES: UpgradeDef[] = [
+  // 信息张贴链(用户范例):每级减忠诚自然衰减,但每级增堕落
+  { id: 'poster1', category: 'facility', name: '宅内张贴大小姐个人信息', desc: '打手随时能看到主人信息→忠诚更稳(自然衰减-1)', cost: 1500, maxLevel: 1, effect: { kind: 'loyaltyDecayReduce', perLevel: 1 }, corruptionOnBuy: 2 },
+  { id: 'poster2', category: 'facility', name: '张贴大小姐艳照', desc: '曝光升级→忠诚更稳(衰减再-1)', cost: 2500, maxLevel: 1, requires: [{ upgradeId: 'poster1', minLevel: 1 }], effect: { kind: 'loyaltyDecayReduce', perLevel: 1 }, corruptionOnBuy: 2 },
+  { id: 'poster3', category: 'facility', name: '张贴大小姐小穴特写', desc: '玷污→忠诚更稳(衰减再-1)', cost: 4000, maxLevel: 1, requires: [{ upgradeId: 'poster2', minLevel: 1 }], effect: { kind: 'loyaltyDecayReduce', perLevel: 1 }, corruptionOnBuy: 3 },
+  { id: 'poster4', category: 'facility', name: '张贴流着精液的小穴照', desc: '终极物化→忠诚更稳(衰减再-1)', cost: 6000, maxLevel: 1, requires: [{ upgradeId: 'poster3', minLevel: 1 }], effect: { kind: 'loyaltyDecayReduce', perLevel: 1 }, corruptionOnBuy: 3 },
+];
+
 /** 全部升级项（合并） */
-export const UPGRADES: UpgradeDef[] = [...THUG_UPGRADES, ...FACILITY_UPGRADES, ...EXPANSION_UPGRADES, ...HOUSE_UPGRADES];
+export const UPGRADES: UpgradeDef[] = [...THUG_UPGRADES, ...FACILITY_UPGRADES, ...EXPANSION_UPGRADES, ...HOUSE_UPGRADES, ...ANNEX_UPGRADES, ...DEBAUCH_UPGRADES];
 
 /** 按 id 索引 */
 export const UPGRADES_BY_ID: Record<string, UpgradeDef> =
@@ -152,6 +175,8 @@ export function applyUpgrade<S extends UpgradeState>(state: S, def: UpgradeDef):
     case 'baseMartial': break; // 派生(每人基础武力)，不写字段
     case 'avPlayCap': break;   // 派生(AV玩法tag上限)，不写字段
     case 'prestigeMult': break;// 派生(威望增长系数)，不写字段
+    case 'loyaltyDecayReduce': break; // 派生(减忠诚衰减)
+    case 'condomDaily': break;        // 派生(避孕套送货上门)
     case 'throughput':   patch.perSlotThroughput = (state.perSlotThroughput ?? 6) + d; break;
     case 'desireCap':    patch.desireCapacity = (state.desireCapacity ?? 60) + d; break;
     case 'actionSlots':  patch.totalSlots = (state.totalSlots ?? BASE_ACTION_SLOTS) + d; break;
@@ -205,4 +230,20 @@ export function prestigeMultiplier(upgrades: Record<string, number> | undefined)
 /** 欲望增长乘区（性欲野兽解锁后 ×1.5） */
 export function desireGrowthMult(unlocked: Record<string, boolean> | undefined): number {
   return unlocked?.lust_beast ? 1.5 : 1;
+}
+/** 忠诚每日衰减的减免总量（Σ loyaltyDecayReduce 项·"荒唐升级"如张贴照片链） */
+export function loyaltyDecayReduction(upgrades: Record<string, number> | undefined): number {
+  let r = 0;
+  for (const def of UPGRADES) {
+    if (def.effect.kind === 'loyaltyDecayReduce') r += getLevel(upgrades, def.id) * (def.effect.perLevel ?? 0);
+  }
+  return r;
+}
+/** 避孕套每日送货上门量（Σ condomDaily 项·后期便利·省主动采购） */
+export function condomDailyFrom(upgrades: Record<string, number> | undefined): number {
+  let c = 0;
+  for (const def of UPGRADES) {
+    if (def.effect.kind === 'condomDaily') c += getLevel(upgrades, def.id) * (def.effect.perLevel ?? 0);
+  }
+  return c;
 }

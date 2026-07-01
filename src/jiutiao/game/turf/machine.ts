@@ -443,11 +443,15 @@ export interface TurfThreatResult {
  * ⭐关键: 按"地盘所属stage"分别结算,图S的地盘只被图S难度攻击。图2的高难度绝不波及图1的地盘——
  *    避免玩家打不过新图导致后方图1也被抢光的恶性循环。图1永远是安全后方(常驻武力够图1难度即可)。
  */
-const STAGE_DEFENSE: Record<number, [number, number]> = {
-  1: [2, 10],
-  2: [2, 45],
-  3: [3, 120],
-  4: [3, 280],
+// [每天最多反击次数, 进攻强度下限, 进攻强度上限]。
+// 强度下限≈上限的三成:图2起不再从0开始(避免1/4概率roll出白送的极低难度),
+// 但下限也不设太高——保证"最弱的一次进攻也需一定常驻武力才守住",又不至于让刚进新图者每次必丢。
+// 图1保留下限0(教学·允许有轻松的时候)。
+const STAGE_DEFENSE: Record<number, [number, number, number]> = {
+  1: [2, 0, 10],
+  2: [2, 15, 50],
+  3: [3, 40, 130],
+  4: [3, 100, 300],
 };
 
 /**
@@ -471,12 +475,12 @@ export function settleTurfThreat(
   for (let s = 1; s <= STAGE_COUNT; s++) {
     const stageOcc = occupied.filter(id => REGIONS_BY_ID[id]?.stage === s);
     if (stageOcc.length === 0) continue;
-    const [maxRaids, maxStrength] = STAGE_DEFENSE[s] ?? [2, 10];
+    const [maxRaids, minStrength, maxStrength] = STAGE_DEFENSE[s] ?? [2, 0, 10];
     const raids = Math.floor(rng() * (maxRaids + 1)); // 0..maxRaids
     totalRaids += raids;
     const occ = [...stageOcc];
     for (let i = 0; i < raids; i++) {
-      const strength = Math.round(rng() * maxStrength);
+      const strength = minStrength + Math.round(rng() * (maxStrength - minStrength)); // [下限,上限]
       if (strength > garrisonPower && occ.length > 0) {
         const idx = Math.floor(rng() * occ.length) % occ.length;
         const id = occ.splice(idx, 1)[0];

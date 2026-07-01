@@ -49,6 +49,7 @@
       <div class="d-desc">{{ detail.def.desc }}</div>
       <div class="d-foot">
         <span v-if="detail.def.corruptionGate" class="d-gate">需堕落度 ≥ {{ detail.def.corruptionGate[detail.lvl] ?? '—' }}</span>
+        <span v-if="detail.def.corruptionOnBuy" class="d-corr">购买 · 堕落度 +{{ detail.def.corruptionOnBuy }}</span>
         <button class="buy" :disabled="!detail.can.ok" @click="r.buyUpgrade(detail.def.id)">
           {{ detail.lvl >= detail.def.maxLevel ? '已满级' : (detail.can.ok ? (detail.lvl > 0 || detail.def.maxLevel > 1 ? '升级 ▲' : '建造 ▲') : detail.can.reason) }}
         </button>
@@ -165,6 +166,7 @@ function unlockNodeName(p: SkillPage): string {
 .d-desc { font-size: 12px; color: var(--text-dim); line-height: 1.6; margin: 7px 0; }
 .d-foot { display: flex; align-items: center; gap: 12px; }
 .d-gate { font-size: 11px; color: var(--red-hi); }
+.d-corr { font-size: 11px; color: var(--rose-hi); }
 .buy { margin-left: auto; font-family: var(--serif); background: linear-gradient(180deg, var(--gold-hi), var(--gold)); color: #1a120a; border: none; border-radius: 6px; padding: 8px 18px; font-size: 13px; font-weight: 700; cursor: pointer; }
 .buy:disabled { background: rgba(0,0,0,.3); color: var(--text-dim); border: 1px solid var(--line); cursor: not-allowed; font-weight: 400; }
 </style>
