@@ -10,8 +10,8 @@
     <div v-for="c in cells" :key="c.key"
       class="cell" :class="[c.period, c.statusClass, { sel: c.key === selectedKey, cur: c.isCur, chosen: c.hasChoice }]"
       :title="c.label" @click="$emit('select', c.period, c.index)">
-      <!-- 未选事件: 数标巨大明显；已选: 数标淡成背景水印 -->
-      <div class="no" :class="{ wm: c.hasChoice }">{{ c.cn }}</div>
+      <!-- 未选事件: 极道菊纹醒目；已选: 菊纹淡成背景水印 -->
+      <KikuMon class="mon" :class="{ wm: c.hasChoice }" />
       <div v-if="c.hasChoice" class="fg">
         <div class="lbl">{{ c.label }}</div>
         <div class="st">{{ c.st }}<span v-if="c.statusClass === 'done'"> 展开查看</span></div>
@@ -22,12 +22,11 @@
 
 <script setup lang="ts">
 import { computed } from 'vue';
+import KikuMon from './KikuMon.vue';
 import type { DayState, ActionSlot, SlotPeriod } from '../../../game/action-grid/types';
 
 const props = defineProps<{ day: DayState; selectedKey: string | null }>();
 defineEmits<{ select: [period: SlotPeriod, index: number] }>();
-
-const CN = ['壹', '贰', '叁', '肆', '伍', '陆', '柒', '捌', '玖', '拾'];
 
 function cellOf(slot: ActionSlot, period: SlotPeriod) {
   const cur = props.day.cursor;
@@ -38,7 +37,7 @@ function cellOf(slot: ActionSlot, period: SlotPeriod) {
   else if (slot.status === 'running') { st = '●'; statusClass = 'running'; }
   else if (slot.status === 'planned') { st = '●'; statusClass = 'planned'; }
   const label = slot.choice?.label ?? '空';
-  return { key: period + '-' + slot.index, period, index: slot.index, cn: CN[slot.index] ?? String(slot.index + 1), label, st, statusClass, isCur, hasChoice: !!slot.choice };
+  return { key: period + '-' + slot.index, period, index: slot.index, label, st, statusClass, isCur, hasChoice: !!slot.choice };
 }
 
 const cells = computed(() => [
@@ -61,12 +60,12 @@ const cells = computed(() => [
 .cell.sel { border-color: var(--gold-hi); background: rgba(201,162,74,.14); box-shadow: 0 0 0 1px var(--gold-hi); }
 .cell.cur { box-shadow: inset 0 0 0 1px var(--red-hi); }
 .cell.done { opacity: .9; }
-/* 未选事件: 巨大明显数标 */
-.no { font-family: var(--brush); font-size: 30px; color: var(--gold); line-height: 1; }
-.cell.night .no { color: var(--red-hi); }
-/* 已选事件: 数标淡化成背景水印（像淡淡花纹·几乎看不清） */
-.no.wm { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;
-  font-size: 56px; opacity: .07; pointer-events: none; z-index: 0; }
+/* 未选事件: 醒目极道菊纹 */
+.mon { width: 30px; height: 30px; color: var(--gold); }
+.cell.night .mon { color: var(--rose-hi); }
+/* 已选事件: 菊纹淡化成背景水印（几乎看不清的花纹底） */
+.mon.wm { position: absolute; inset: 0; width: 100%; height: 100%; padding: 6px;
+  opacity: .07; pointer-events: none; z-index: 0; }
 .fg { position: relative; z-index: 1; width: 100%; }
 .lbl { font-size: 12px; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .st { font-size: 11px; margin-top: 3px; color: var(--gold-dim); }

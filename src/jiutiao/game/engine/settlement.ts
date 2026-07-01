@@ -143,6 +143,7 @@ export function settleDaily(state: EngineState, dayNumber: number): DailySettleR
   if (recruitRefreshed) {
     const prestige = totalPrestige(next.martialPrestige, next.infamy, isAvUnlocked(next.unlocked));
     next.recruitQuota = weeklyRecruitQuota(prestige);
+    next.recruitQuotaMax = next.recruitQuota; // 记录本周额度总量(UI显示总/剩余)
     // 同步刷新 AV 周编辑次数(若已解锁)
     if (isAvUnlocked(next.unlocked) && next.av) {
       next.av = { ...next.av, weeklyQuota: next.av.weeklyQuotaMax };

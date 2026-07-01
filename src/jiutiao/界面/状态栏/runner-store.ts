@@ -47,7 +47,7 @@ function initialEngine(): EngineState {
     condomStock: 480, desire: morning, desireCapacity: 60, desireAddedThisMorning: morning,
     perSlotThroughput: 6,
     infamy: 0, martialPrestige: 0,
-    recruitQuota: weeklyRecruitQuota(0), presentCount: presentCountFrom(thugTotal, 60, 0.5), isDangerousPeriod: false,
+    recruitQuota: weeklyRecruitQuota(0), recruitQuotaMax: weeklyRecruitQuota(0), presentCount: presentCountFrom(thugTotal, 60, 0.5), isDangerousPeriod: false,
     servedThisNight: 0,
   };
 }

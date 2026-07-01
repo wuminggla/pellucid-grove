@@ -46,7 +46,8 @@
           <div class="row"><span>在场（当前场景）</span><b>{{ e.presentCount }}</b></div>
           <div class="prow">总数 = 麾下全部人手；在场 = 当前这场供奉/事件出场的人数（决定避孕套消耗与场面规模）。</div>
           <div class="prow">增减：招募↑ / 自然增长↑（淫名越高越快）/ 攻防损耗↓ / 驻守占用（锁定不可用）。</div>
-          <div class="row"><span>本周招募额度</span><b>{{ e.recruitQuota }}</b></div>
+          <div class="row"><span>本周招募额度</span><b>{{ e.recruitQuotaMax ?? e.recruitQuota }}</b></div>
+          <div class="row"><span>本周剩余额度</span><b :class="{ minus: e.recruitQuota <= 0 }">{{ e.recruitQuota }}</b></div>
           <div class="row"><span>单次招募</span><b>3-4 人（可升级）</b></div>
           <div class="hint">额度随威望提升；上限随设施升级</div>
         </div>
@@ -88,6 +89,8 @@
         <div class="pop wide-pop">
           <h4>避孕套 · 库存与消耗</h4>
           <div class="row"><span>库存</span><b>{{ e.condomStock }}</b></div>
+          <div class="row"><span>今日消耗</span><b :class="{ minus: condomToday > 0 }">{{ condomToday > 0 ? '-' + condomToday : '—' }}</b></div>
+          <div class="row"><span>昨日消耗</span><b :class="{ minus: condomYesterday > 0 }">{{ condomYesterday > 0 ? '-' + condomYesterday : '—' }}</b></div>
           <div class="chart-warn">安全措施保障，避孕套消耗殆尽的话，不难猜到欲望上头的打手们会做出什么事。</div>
           <div class="chart-inline">
             <div class="ci-t">消耗趋势</div>
@@ -166,6 +169,9 @@ const loyaltyRoseRatio = computed(() => {
 });
 const loyaltyColor = computed(() => mixGoldRose(loyaltyRoseRatio.value));
 
+// —— 避孕套消耗（今日累计 + 昨日=历史最后一条）——
+const condomToday = computed(() => props.engine.condomUsedToday ?? 0);
+const condomYesterday = computed(() => { const h = props.engine.condomHistory ?? []; return h.length ? h[h.length - 1] : 0; });
 // —— 避孕套消耗折线图（无数据则不画）——
 const condomChart = computed(() => props.engine.condomHistory ?? []);
 const condomChartPoints = computed(() => {

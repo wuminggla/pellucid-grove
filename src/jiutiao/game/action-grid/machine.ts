@@ -9,15 +9,6 @@ import type {
 // 构造
 // ───────────────────────────────────────
 
-function makeSlots(period: SlotPeriod, count: number): ActionSlot[] {
-  return Array.from({ length: count }, (_, i) => ({
-    index: i,
-    period,
-    status: 'empty' as const,
-    choice: null,
-  }));
-}
-
 /** 开始新的一天（早7点）：进入分配阶段 */
 export function startDay(dayNumber: number, totalSlots: number): DayState {
   return {
@@ -92,14 +83,22 @@ export function allocate(state: DayState, alloc: Allocation): AllocResult {
   if (dayCount + nightCount !== state.totalSlots) {
     return { ok: false, error: `白天(${dayCount})+夜晚(${nightCount}) 必须等于总格数 ${state.totalSlots}` };
   }
+  // 重新分配时保留已安排的选项(按时段+序号对应),避免拉动滑块把选过的事件格清空。
+  // 缩减格数时超出范围的选项自然丢弃;时段仍为 allocating,选项只是 planned 未执行。
+  const keepSlots = (period: SlotPeriod, count: number, prev: ActionSlot[]): ActionSlot[] =>
+    Array.from({ length: count }, (_, i) => {
+      const old = prev[i];
+      if (old?.choice) return { index: i, period, status: 'planned' as const, choice: old.choice };
+      return { index: i, period, status: 'empty' as const, choice: null };
+    });
   return {
     ok: true,
     state: {
       ...state,
       dayCount,
       nightCount,
-      daySlots: makeSlots('day', dayCount),
-      nightSlots: makeSlots('night', nightCount),
+      daySlots: keepSlots('day', dayCount, state.daySlots),
+      nightSlots: keepSlots('night', nightCount, state.nightSlots),
     },
   };
 }

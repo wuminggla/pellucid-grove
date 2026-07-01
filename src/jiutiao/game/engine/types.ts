@@ -45,7 +45,8 @@ export interface EngineState {
   turfFortifyBonus?: number;    // 据点加固加成(默认0；地盘系统消费)
   occupyScale?: number;         // 占据规模档序号(地盘扩张；门控扩张日常选项)
   // —— 招募 ——
-  recruitQuota: number;       // 本周剩余招募额度
+  recruitQuota: number;       // 本周剩余招募额度(招募即减)
+  recruitQuotaMax?: number;   // 本周招募额度总量(周刷新时设·UI显示"总/剩余")
   // —— 场景上下文 ——
   presentCount: number;        // 单场在场打手人数
   isDangerousPeriod: boolean;  // 危险期(由经期周期派生·去医学化只分安全/危险)
