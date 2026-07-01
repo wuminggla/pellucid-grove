@@ -434,12 +434,28 @@ export interface TurfThreatResult {
 }
 
 /**
- * 地盘反击每日结算（简化·推进一天时调）。敌人时不时来攻已占地盘：
- *  - 每天随机反击次数(1阶段前 0~2·随通关boss数上升)。
- *  - 每次随机进攻强度(1阶段 0~10·随通关上升)。
- *  - 敌强度 ≤ 常驻武力 → 自动守住；> 常驻武力 → 随机丢一块已占地盘(需重打)。
- * 不减员、不改钱/稳定(简化)。常驻武力由调用方按派驻打手算好传入。
- * @param garrisonPower 玩家常驻(派驻)武力 @param rng 0..1 注入
+ * 各阶段地盘的防守难度 [每天最多反击次数, 每次进攻强度上限]。
+ * 设计依据(认真调平): 防守是"限制玩家在新图冒进"的门槛——刚进图S时数值捉襟见肘、守不住图S的地盘,
+ * 逼玩家经营提数值才能一边防守一边推进。数值参考各图中枢门槛(玩家攻破该图时的武力水平)设"略高于刚进该图的常驻武力":
+ *  - 图1中枢门槛150·开局30打手·派驻10即可守 → 强度上限10(主要是教会玩家机制,不真难倒)。
+ *  - 图2中枢门槛400·刚破图1时常驻武力约40 → 强度上限45(略高→守不住需经营)。
+ *  - 图3中枢门槛800 → 120；图4中枢门槛1600 → 280。
+ * ⭐关键: 按"地盘所属stage"分别结算,图S的地盘只被图S难度攻击。图2的高难度绝不波及图1的地盘——
+ *    避免玩家打不过新图导致后方图1也被抢光的恶性循环。图1永远是安全后方(常驻武力够图1难度即可)。
+ */
+const STAGE_DEFENSE: Record<number, [number, number]> = {
+  1: [2, 10],
+  2: [2, 45],
+  3: [3, 120],
+  4: [3, 280],
+};
+
+/**
+ * 地盘反击每日结算（推进一天时调）。**按地盘所属 stage 分别结算**：
+ *  - 每个"已占领了地盘的图"独立随机反击(次数/强度取该图 STAGE_DEFENSE)。
+ *  - 每次: 敌强度 ≤ 常驻武力 → 守住；> 常驻武力 → 丢该图的一块地盘(splice·不重复)。
+ *  - 图S 的进攻绝不波及图≠S 的地盘 → 图1后方永远只被图1难度攻击,不会被新图难度连坐。
+ * 不减员、不改钱(简化)。常驻武力由调用方按派驻打手算好传入(守所有图共用)。
  */
 export function settleTurfThreat(
   regions: Record<string, RegionState> | undefined,
@@ -449,26 +465,27 @@ export function settleTurfThreat(
   const occupied = occupiedRegionIds(regions);
   if (occupied.length === 0) return { regions: regions ?? {}, raids: 0, lost: [] };
 
-  // 已击败的最高 boss 阶段 → 反击次数/强度随复仇进度上升
-  let bossStage = 0;
-  for (let s = 1; s <= STAGE_COUNT; s++) if (isStageBossDefeated(regions, s)) bossStage = s;
-  const maxRaids = 2 + bossStage;         // 1阶段前(0)每天最多2次
-  const maxStrength = 10 + bossStage * 12; // 1阶段 0~10
-
-  const raids = Math.floor(rng() * (maxRaids + 1)); // 0..maxRaids
   let regs = { ...(regions ?? {}) };
-  const occ = [...occupied];
+  let totalRaids = 0;
   const lost: string[] = [];
-  for (let i = 0; i < raids; i++) {
-    const strength = Math.round(rng() * maxStrength);
-    if (strength > garrisonPower && occ.length > 0) {
-      const idx = Math.floor(rng() * occ.length) % occ.length;
-      const id = occ.splice(idx, 1)[0];
-      regs[id] = { ...regionState(regs, id), defeated: false };
-      lost.push(REGIONS_BY_ID[id]?.name ?? id);
+  for (let s = 1; s <= STAGE_COUNT; s++) {
+    const stageOcc = occupied.filter(id => REGIONS_BY_ID[id]?.stage === s);
+    if (stageOcc.length === 0) continue;
+    const [maxRaids, maxStrength] = STAGE_DEFENSE[s] ?? [2, 10];
+    const raids = Math.floor(rng() * (maxRaids + 1)); // 0..maxRaids
+    totalRaids += raids;
+    const occ = [...stageOcc];
+    for (let i = 0; i < raids; i++) {
+      const strength = Math.round(rng() * maxStrength);
+      if (strength > garrisonPower && occ.length > 0) {
+        const idx = Math.floor(rng() * occ.length) % occ.length;
+        const id = occ.splice(idx, 1)[0];
+        regs[id] = { ...regionState(regs, id), defeated: false };
+        lost.push(REGIONS_BY_ID[id]?.name ?? id);
+      }
     }
   }
-  return { regions: regs, raids, lost };
+  return { regions: regs, raids: totalRaids, lost };
 }
 
 /** 进攻结算结果 */
