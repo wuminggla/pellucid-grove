@@ -432,12 +432,8 @@ export const demoForcedPool: ForcedEvent[] = [
     // E3 触发副作用: 设置怀孕状态(钩到 endings.pregnant)
     onApply: () => ({ pregnant: true }),
   },
-  // ─── 地盘骚扰(高频强占) ────────────────────────────────
-  {
-    id: 'harass', priority: 5,
-    intensity: 'seize_slot', optionId: 'defend_turf', label: '地盘骚扰',
-    condition: c => (c.threatLevel ?? 0) >= 1,
-  },
+  // 注:旧的"地盘骚扰强占行动格"已移除。地盘反击改为推进一天时结算(settleTurfThreat),
+  //    不占行动格,只按 派驻常驻武力 vs 敌进攻强度 判定是否丢地盘,历史在地盘界面查看。
 ];
 
 /** 快进总结词 */

@@ -30,20 +30,20 @@ interface StageConfig {
 const STAGE_CONFIGS: StageConfig[] = [
   { stage: 1, region: '弥生町外缘', boss: '三流势力·钉宫组组长',
     smallThr: [30, 100], centerThr: 150,
-    smallMoney: [320, 560], smallCondom: 60, smallMartial: 1, smallGarrison: [2, 6],
-    center: { money: 1400, condom: 240, martial: 8, garrison: 8, shops: 3 } },
+    smallMoney: [320, 560], smallCondom: 0, smallMartial: 1, smallGarrison: [2, 6],
+    center: { money: 1400, condom: 120, martial: 8, garrison: 8, shops: 3 } },
   { stage: 2, region: '旧港区', boss: '弥生道外围头目·苇原',
     smallThr: [120, 320], centerThr: 400,
-    smallMoney: [620, 920], smallCondom: 100, smallMartial: 2, smallGarrison: [8, 16],
-    center: { money: 2600, condom: 360, martial: 14, garrison: 22, shops: 3 } },
+    smallMoney: [620, 920], smallCondom: 0, smallMartial: 2, smallGarrison: [8, 16],
+    center: { money: 2600, condom: 180, martial: 14, garrison: 22, shops: 3 } },
   { stage: 3, region: '中央街', boss: '弥生道核心干部·黑濑',
     smallThr: [350, 650], centerThr: 800,
-    smallMoney: [1000, 1500], smallCondom: 150, smallMartial: 3, smallGarrison: [18, 30],
-    center: { money: 4500, condom: 520, martial: 22, garrison: 45, shops: 4 } },
+    smallMoney: [1000, 1500], smallCondom: 0, smallMartial: 3, smallGarrison: [18, 30],
+    center: { money: 4500, condom: 260, martial: 22, garrison: 45, shops: 4 } },
   { stage: 4, region: '弥生道本部', boss: '弥生道会长·九条家杀父仇人',
     smallThr: [700, 1200], centerThr: 1600,
-    smallMoney: [1700, 2400], smallCondom: 220, smallMartial: 5, smallGarrison: [34, 50],
-    center: { money: 7000, condom: 700, martial: 36, garrison: 80, shops: 5 } },
+    smallMoney: [1700, 2400], smallCondom: 0, smallMartial: 5, smallGarrison: [34, 50],
+    center: { money: 7000, condom: 350, martial: 36, garrison: 80, shops: 5 } },
 ];
 
 /** 小关 flavor 名(无名据点·按序号取) */
@@ -83,7 +83,7 @@ function buildStage(cfg: StageConfig): RegionDef[] {
 
 export const REGIONS: RegionDef[] = [
   // 初始据点(stage0·无boss·默认已解锁·提供起步产出与店铺)
-  { id: 'home', stage: 0, name: '九条老宅一隅', bossName: '—', defeatThreshold: 0, yields: { condom: 120, money: 500 }, garrisonNeed: 0, shops: 3 },
+  { id: 'home', stage: 0, name: '九条老宅一隅', bossName: '—', defeatThreshold: 0, yields: { condom: 0, money: 500 }, garrisonNeed: 0, shops: 3 },
   ...STAGE_CONFIGS.flatMap(buildStage),
 ];
 
@@ -429,71 +429,46 @@ export function occupiedRegionIds(regions: Record<string, RegionState> | undefin
 
 export interface TurfThreatResult {
   regions: Record<string, RegionState>;
-  thugTotal: number;
-  money: number;
-  stability: number;
-  events: string[];          // 给玩家看的事件文案
-  regionLost: string | null; // 本次丢失的区域(进攻失守)
+  raids: number;      // 昨日敌人反击次数
+  lost: string[];     // 丢失的地盘名(可多块)
 }
 
 /**
- * 地盘威胁每日结算（敌人反扑）。占据越多、稳定越低，越容易被骚扰/进攻。
- *  - 无占据 → 稳定缓慢回升,无事。
- *  - 骚扰(threat≥1·高频): 驻守战力≥骚扰强度→击退抢钱; 否则稳定下降+被劫财。
- *  - 进攻(threat≥2·低频): 随机一处已占区域被攻; 守住→轻微减员; 失守→减员+丢该区域(需重打)。
- * @param garrisonPower 驻守战力(驻防打手×每人防御×加固) @param rng 0..1 注入
+ * 地盘反击每日结算（简化·推进一天时调）。敌人时不时来攻已占地盘：
+ *  - 每天随机反击次数(1阶段前 0~2·随通关boss数上升)。
+ *  - 每次随机进攻强度(1阶段 0~10·随通关上升)。
+ *  - 敌强度 ≤ 常驻武力 → 自动守住；> 常驻武力 → 随机丢一块已占地盘(需重打)。
+ * 不减员、不改钱/稳定(简化)。常驻武力由调用方按派驻打手算好传入。
+ * @param garrisonPower 玩家常驻(派驻)武力 @param rng 0..1 注入
  */
 export function settleTurfThreat(
-  state: { regions?: Record<string, RegionState>; thugTotal: number; money: number; stability?: number; turfFortifyBonus?: number; garrison?: number; loyalty?: number },
+  regions: Record<string, RegionState> | undefined,
+  garrisonPower: number,
   rng: () => number,
 ): TurfThreatResult {
-  let regions = state.regions ?? {};
-  let { thugTotal, money } = state;
-  let stability = state.stability ?? 100;
-  const fortify = state.turfFortifyBonus ?? 0;
   const occupied = occupiedRegionIds(regions);
-  const events: string[] = [];
-  let regionLost: string | null = null;
+  if (occupied.length === 0) return { regions: regions ?? {}, raids: 0, lost: [] };
 
-  if (occupied.length === 0) {
-    return { regions, thugTotal, money, stability: Math.min(100, stability + 4), events, regionLost };
-  }
+  // 已击败的最高 boss 阶段 → 反击次数/强度随复仇进度上升
+  let bossStage = 0;
+  for (let s = 1; s <= STAGE_COUNT; s++) if (isStageBossDefeated(regions, s)) bossStage = s;
+  const maxRaids = 2 + bossStage;         // 1阶段前(0)每天最多2次
+  const maxStrength = 10 + bossStage * 12; // 1阶段 0~10
 
-  // 敌人强度随"已占区域数 + 最高已占阶段"上升
-  const maxStage = Math.max(1, ...occupied.map(id => REGIONS_BY_ID[id]?.stage ?? 1));
-  const enemyBase = 14 * maxStage + occupied.length * 4;
-  // 驻守战力: 驻防打手×3×(1+加固0.2) + 加固基础
-  const garrisonPower = (state.garrison ?? 0) * 3 * (1 + fortify * 0.2) + fortify * 6;
-
-  const threat = threatLevelFrom(stability, fortify);
-
-  // —— 骚扰(高频) ——
-  if (threat >= 1 && rng() < 0.5) {
-    const harassPower = Math.round(enemyBase * (0.8 + 0.4 * rng()));
-    const h = settleHarass({ money, regions, turfFortifyBonus: fortify }, stability, garrisonPower, harassPower);
-    stability = h.stability; money = h.money;
-    events.push(h.repelled
-      ? `弥生道余党来地盘闹事，被驻守的打手揍了回去，还抢得 ¥${h.loot}。`
-      : `地盘遭弥生道骚扰，驻守不足被搅了场子，稳定度下降。`);
-  } else {
-    stability = Math.min(100, stability + 3); // 平稳日缓慢回升
-  }
-
-  // —— 进攻(低频·失守丢地盘) ——
-  if (threat >= 2 && rng() < 0.25) {
-    const target = occupied[Math.floor(rng() * occupied.length) % occupied.length];
-    const raidPower = Math.round(enemyBase * 1.5 * (0.85 + 0.3 * rng()));
-    const raid = settleRaid({ money, regions, turfFortifyBonus: fortify }, stability, garrisonPower, raidPower, target);
-    regions = raid.regions; stability = raid.stability; thugTotal = Math.max(0, thugTotal - raid.thugLost);
-    if (raid.defended) {
-      events.push(`弥生道大举进攻「${REGIONS_BY_ID[target]?.name}」，驻守死战守住，折损 ${raid.thugLost} 人。`);
-    } else {
-      regionLost = raid.regionLost;
-      events.push(`弥生道攻陷「${REGIONS_BY_ID[target]?.name}」！折损 ${raid.thugLost} 人，该据点失守（需重新打回）。`);
+  const raids = Math.floor(rng() * (maxRaids + 1)); // 0..maxRaids
+  let regs = { ...(regions ?? {}) };
+  const occ = [...occupied];
+  const lost: string[] = [];
+  for (let i = 0; i < raids; i++) {
+    const strength = Math.round(rng() * maxStrength);
+    if (strength > garrisonPower && occ.length > 0) {
+      const idx = Math.floor(rng() * occ.length) % occ.length;
+      const id = occ.splice(idx, 1)[0];
+      regs[id] = { ...regionState(regs, id), defeated: false };
+      lost.push(REGIONS_BY_ID[id]?.name ?? id);
     }
   }
-
-  return { regions, thugTotal, money, stability: Math.max(0, Math.min(100, stability)), events, regionLost };
+  return { regions: regs, raids, lost };
 }
 
 /** 进攻结算结果 */

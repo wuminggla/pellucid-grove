@@ -14,7 +14,7 @@ export const CONST = {
   犒赏忠诚加成: 6,            // 一次犒赏 → 极道忠诚 +6
   供奉忠诚加成: 1,            // 一场供奉 → 淫乱忠诚 +1
   忠诚流失基准: 1000,         // 每日打手自然流失数 = round(总打手 × (100-忠诚)/基准)。忠诚0→10%/日
-  忠诚日衰减: 2,             // 忠诚度每日自然衰减(不维护就滑落,需持续发钱/供奉)
+  忠诚日衰减: 4,             // 忠诚度每日自然衰减。>三次供奉(+3)故即便日日供奉仍净-1缓慢流失,逼玩家花钱犒赏(+6/次)。可靠"减少衰减"的荒唐升级树对冲。
   威望日衰减率: 0.03,        // 威望(极道/淫名)每日自然衰减比例(江湖善忘·名气消退)。小威望四舍五入为0不掉。
   欲望基础增量: 2,            // [旧夜结模型]每个未供奉打手每晚 +2(已被晨间累积模型取代,保留兼容)
   欲望连续翻倍倍率: 2,        // 单打手连续3晚未供奉，其贡献翻倍
@@ -152,9 +152,13 @@ export function presentRatio(loyalty: number, rng = 0.5): number {
   const jitter = (rng - 0.5) * 0.2;
   return Math.max(0.1, Math.min(1, expected + jitter));
 }
-/** 在场打手数 = 总人数 × 在场比率(四舍五入)。每个行动格结算后刷新。 */
-export function presentCountFrom(thugTotal: number, loyalty: number, rng = 0.5): number {
-  return Math.max(0, Math.round(thugTotal * presentRatio(loyalty, rng)));
+/**
+ * 在场打手数 = 总人数 × 在场比率(四舍五入)，封顶 cap。每个行动格结算后刷新。
+ * @param cap 上限(白天=总人数-派驻,忠诚再高也不超;夜晚=总人数,派驻的晚上都回来)。缺省=不封顶。
+ */
+export function presentCountFrom(thugTotal: number, loyalty: number, rng = 0.5, cap?: number): number {
+  const raw = Math.max(0, Math.round(thugTotal * presentRatio(loyalty, rng)));
+  return cap != null ? Math.min(raw, Math.max(0, cap)) : raw;
 }
 
 // ───────────────────────────────────────
@@ -179,7 +183,8 @@ export function combatPower(
   available: number, presentCount: number, thugTotal: number,
   baseMartialPerThug = 1, weaponMult = 1,
 ): number {
-  const pm = presenceMultiplier(presentCount, thugTotal);
+  void thugTotal; // 在场乘区分母改用"可用打手"(available),避免派驻同时压 available 与乘区的双重惩罚
+  const pm = presenceMultiplier(presentCount, available);
   return Math.round(Math.max(0, available) * Math.max(0, baseMartialPerThug) * pm * Math.max(0, weaponMult));
 }
 

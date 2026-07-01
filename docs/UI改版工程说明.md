@@ -76,7 +76,7 @@
 
 - 旧 `App.vue`（功能版·朴素样式）整体被本版替换；业务调用（runner-store 的 allocate/runCurrent/rerunLast/nextDay 等）原样复用，只换表现层。
 - `components/StatusBar.vue`（旧顶栏）废弃不再引用，保留文件备查。
-- 发版流程不变（见 `../../新对话接手交接.md`），pack 后务必解码验证卡内 sha。
+- 发版流程不变（见 `../../jiutiao/README.md`），pack 后务必解码验证卡内 sha。
 
 ## 5. 改动指引（后期）
 

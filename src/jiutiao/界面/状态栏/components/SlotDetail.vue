@@ -48,8 +48,17 @@ interface MenuOpt { optionId: string; label: string; isNsfw: boolean }
 const props = defineProps<{ slot: ActionSlot | null; period: SlotPeriod; options: MenuOpt[] }>();
 defineEmits<{ pick: [optionId: string, label: string]; clear: [] }>();
 
-const CN = ['壹', '贰', '叁', '肆', '伍', '陆', '柒', '捌', '玖', '拾'];
-const cn = computed(() => props.slot ? (CN[props.slot.index] ?? String(props.slot.index + 1)) : '');
+// 中文大写计数(1起):壹..玖/拾/拾壹..拾玖/廿/廿壹..廿玖/卅... 行动格上限约20,做到卌冗余。
+const D = ['', '壹', '贰', '叁', '肆', '伍', '陆', '柒', '捌', '玖'];
+const TENS = ['', '拾', '廿', '卅', '卌'];
+function cnNumber(n: number): string {
+  if (n <= 0) return '';
+  if (n < 10) return D[n];
+  const t = Math.floor(n / 10), u = n % 10;
+  if (t >= TENS.length) return String(n); // 超范围兜底
+  return TENS[t] + D[u];
+}
+const cn = computed(() => props.slot ? cnNumber(props.slot.index + 1) : '');
 const showProse = computed(() => props.slot?.status === 'done' && !!props.slot.resultText);
 const text = computed(() => (props.slot?.resultText ?? '').trim());
 const first = computed(() => text.value.slice(0, 1));

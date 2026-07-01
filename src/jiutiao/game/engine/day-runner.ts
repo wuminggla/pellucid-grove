@@ -221,8 +221,10 @@ export async function runCurrentSlot(
 
   const dayDone = completeCurrent(dayForInsert, settle.resultText);
 
-  // 在场打手数刷新(每格结算后·忠诚越高越易刷高)。本格已用旧值,新值供下一格。
-  engine = { ...engine, presentCount: presentCountFrom(engine.thugTotal, engine.loyalty, (opts.rng ?? Math.random)()) };
+  // 在场打手数刷新(每格结算后·忠诚越高越易刷高)。白天在场≤总-派驻(派驻的白天不在场);夜晚派驻回来,不限。
+  const _nextPeriod = dayDone.cursor?.period;
+  const _presentCap = _nextPeriod === 'night' ? engine.thugTotal : availableThugs(engine.thugTotal, engine.garrison);
+  engine = { ...engine, presentCount: presentCountFrom(engine.thugTotal, engine.loyalty, (opts.rng ?? Math.random)(), _presentCap) };
 
   return {
     state: { day: dayDone, engine },
@@ -273,7 +275,7 @@ export function advanceToNextDay(
     desireAddedThisMorning: influx,
     servedThisNight: 0,
     pendingForcedLeave: false, // 判定已消费
-    presentCount: presentCountFrom(next.thugTotal, next.loyalty, Math.random()), // 次日晨刷新在场
+    presentCount: presentCountFrom(next.thugTotal, next.loyalty, Math.random(), availableThugs(next.thugTotal, next.garrison)), // 次日晨(白天)在场≤总-派驻
   };
 
   const newDayNumber = currentDayNumber + 1;

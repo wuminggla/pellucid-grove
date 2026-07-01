@@ -43,11 +43,11 @@ function initialEngine(): EngineState {
   return {
     triggeredSpecials: {}, unlocked: {},
     corruption: 0, cognition: '死撑', claimedGates: {},
-    money: 8000, thugTotal, garrison, loyalty: 60, loyaltyMartial: 30, loyaltyInfamy: 30,
+    money: 8000, thugTotal, garrison, loyalty: 50, loyaltyMartial: 25, loyaltyInfamy: 25,
     condomStock: 480, desire: morning, desireCapacity: 60, desireAddedThisMorning: morning,
     perSlotThroughput: 6,
     infamy: 0, martialPrestige: 0,
-    recruitQuota: weeklyRecruitQuota(0), recruitQuotaMax: weeklyRecruitQuota(0), presentCount: presentCountFrom(thugTotal, 60, 0.5), isDangerousPeriod: false,
+    recruitQuota: weeklyRecruitQuota(0), recruitQuotaMax: weeklyRecruitQuota(0), presentCount: presentCountFrom(thugTotal, 50, 0.5), isDangerousPeriod: false,
     servedThisNight: 0,
   };
 }
@@ -107,6 +107,9 @@ export const useRunnerStore = defineStore('runner', () => {
       availableThugs(engine.value.thugTotal, engine.value.garrison), engine.value.presentCount, engine.value.thugTotal,
       baseMartialPerThug(engine.value.upgrades), weaponMult(engine.value.upgrades),
     ));
+  // 常驻(派驻)武力:守地盘用。=派驻打手×每人基础武力×武器乘区。
+  const garrisonPowerNow = computed(() =>
+    Math.round((engine.value.garrison ?? 0) * baseMartialPerThug(engine.value.upgrades) * weaponMult(engine.value.upgrades)));
   const lastTurf = ref<{ ok: boolean; msg: string } | null>(null);
   type MapKind = 'scout' | 'bribe' | 'attack' | 'harass';
   // 地图选择模式(攻打/刺探/贿赂/骚扰事件格执行中):非空时主区展开地图选目标
@@ -418,7 +421,11 @@ export const useRunnerStore = defineStore('runner', () => {
       const ex: Notice[] = [];
       if (r.daily.thugsLost > 0) ex.push({ t: `打手流失 -${r.daily.thugsLost}（忠诚低·被挖角/出走）`, tone: 'warn' });
       if ((r.daily.prestigeDecay ?? 0) > 0) ex.push({ t: `威望自然衰减 -${r.daily.prestigeDecay}（江湖善忘）`, tone: 'dim' });
-      (r.daily.turfEvents ?? []).forEach(t => ex.push({ t: '⚔ ' + t, tone: r.daily.regionLost ? 'err' : 'warn' }));
+      const dfn = r.daily.defense;
+      if (dfn && dfn.raids > 0) ex.push({
+        t: dfn.lost.length ? `昨日被进攻${dfn.raids}次，丢失地盘：${dfn.lost.join('、')}` : `昨日被进攻${dfn.raids}次，没有地盘丢失`,
+        tone: dfn.lost.length ? 'err' : 'ok',
+      });
       (r.daily.failWarnings ?? []).forEach(w => ex.push({ t: w, tone: 'warn' }));
       if (r.daily.hardFail) ex.push({ t: '☠ 硬失败：' + (r.daily.hardFailReason === 'money' ? '资金断流' : '威望枯竭'), tone: 'err' });
       if (r.forcedLeave) ex.push({ t: '⚠ 欲望溢出 → 次日白日供奉（霸全）', tone: 'warn' });
@@ -533,7 +540,7 @@ export const useRunnerStore = defineStore('runner', () => {
     lastEmpty, lastWarn, genHint, lastBuyCondom,
     currentSlot: currentSlotRef, canRunCurrent, runnerState,
     aiMode, hasSave: _hadSave, hasTavernVars,
-    combatPowerNow, lastTurf, attackRegion, setGarrison,
+    combatPowerNow, garrisonPowerNow, lastTurf, attackRegion, setGarrison,
     pendingMap, currentMapKind, beginMapSelect, cancelMapSelect, resolveMapSlot,
     lastUpgrade, buyUpgrade, lastAv, queueAvShoot,
     ending, showEnding, dismissEnding,

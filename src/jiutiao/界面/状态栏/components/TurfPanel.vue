@@ -19,7 +19,7 @@
       点亮=已占据 · 红=未纳入(可攻打/门槛不足) · 锁=未解锁。占满一阶段全部小关→解锁中枢Boss；击败Boss→解锁下一阶段。攻打/骚扰/刺探/贿赂均在【行动格】中选择对应动作后于此地图选目标。点地盘块查看详情。
     </div>
 
-    <!-- 驻防(浏览模式·占领后出现) -->
+    <!-- 驻防 + 防守历史(浏览模式·占领后出现) -->
     <div v-if="!selectMode && occupiedCount > 0" class="garrison">
       <div class="g-row">
         <span class="g-label">驻防打手 <b>{{ r.engine.garrison }}</b> / 总 {{ r.engine.thugTotal }}</span>
@@ -29,9 +29,18 @@
           <button @click="r.setGarrison(r.engine.garrison + 1)" :disabled="r.engine.garrison >= r.engine.thugTotal">+1</button>
           <button @click="r.setGarrison(r.engine.garrison + 5)" :disabled="r.engine.garrison >= r.engine.thugTotal">+5</button>
         </div>
-        <span class="g-stab" :class="{ low: (r.engine.stability ?? 100) < 40 }">稳定度 {{ Math.round(r.engine.stability ?? 100) }}</span>
+        <span class="g-stab">常驻武力 <b>{{ r.garrisonPowerNow }}</b></span>
       </div>
-      <div class="g-tip">派打手驻守地盘：抵御弥生道的<b>骚扰/进攻</b>（稳定低→被劫财/失守丢据点），但驻防会占用打手、<b>降低攻打武力</b>。占越多地盘越招敌人反扑。</div>
+      <div class="g-tip">派打手驻守地盘：敌人反击时，<b>常驻武力 ≥ 敌进攻强度</b>即自动守住，否则随机丢一块已占地盘。驻防占用打手、<b>白天在场人数与攻打武力随之下降</b>（夜晚打手归宅不受影响）。占越多地盘、复仇越深，敌人反击越频繁越强。</div>
+      <details v-if="defenseHistory.length" class="g-hist">
+        <summary>防守历史（最近 {{ defenseHistory.length }} 天）</summary>
+        <div v-for="d in defenseHistory" :key="d.day" class="gh-row">
+          <span class="gh-day">第{{ d.day }}天</span>
+          <span v-if="d.raids === 0" class="gh-ok">平安无事</span>
+          <span v-else-if="!d.lost.length" class="gh-ok">被进攻{{ d.raids }}次·全守住</span>
+          <span v-else class="gh-bad">被进攻{{ d.raids }}次·丢失 {{ d.lost.join('、') }}</span>
+        </div>
+      </details>
     </div>
 
     <div v-if="r.lastTurf" class="t-feedback" :class="{ ok: r.lastTurf.ok, bad: !r.lastTurf.ok }">{{ r.lastTurf.msg }}</div>
@@ -109,6 +118,7 @@ const r = useRunnerStore();
 const power = computed(() => r.combatPowerNow);
 const selectMode = computed(() => props.selectMode ?? null);
 const occupiedCount = computed(() => occupiedRegionIds(r.engine.regions).length);
+const defenseHistory = computed(() => [...(r.engine.defenseLog ?? [])].reverse());
 
 const selectTitle = computed(() => ({
   attack: '攻打 · 选择目标', harass: '骚扰 · 选择目标', scout: '刺探 · 选择目标', bribe: '贿赂 · 选择目标',
@@ -201,8 +211,14 @@ function onCell(c: Cell) {
 .g-ctrl button { font-family: var(--serif); font-size: 13px; color: var(--text); background: rgba(0,0,0,.35); border: 1px solid var(--line); border-radius: 5px; padding: 4px 11px; cursor: pointer; }
 .g-ctrl button:hover:not(:disabled) { border-color: var(--gold-dim); color: var(--gold-hi); }
 .g-ctrl button:disabled { opacity: .35; cursor: not-allowed; }
-.g-stab { margin-left: auto; font-size: 13px; color: var(--green); } .g-stab.low { color: var(--rose-hi); }
+.g-stab { margin-left: auto; font-size: 13px; color: var(--text-dim); } .g-stab b { color: var(--gold-hi); font-size: 16px; }
 .g-tip { font-size: 11px; color: var(--text-dim); line-height: 1.6; margin-top: 7px; } .g-tip b { color: var(--gold); }
+.g-hist { margin-top: 8px; }
+.g-hist summary { font-size: 12px; color: var(--gold-dim); cursor: pointer; }
+.gh-row { display: flex; gap: 12px; font-size: 12px; padding: 3px 0 3px 12px; }
+.gh-day { color: var(--text-dim); min-width: 54px; }
+.gh-ok { color: var(--green); }
+.gh-bad { color: var(--rose-hi); }
 
 .stage-tabs { display: flex; gap: 8px; margin-bottom: 16px; flex-wrap: wrap; }
 .tab { display: flex; flex-direction: column; align-items: flex-start; gap: 1px; min-width: 92px;

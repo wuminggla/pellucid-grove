@@ -86,7 +86,8 @@ const nodes = computed<Node[]>(() => nodesOfPage(curPage.value).map(def => {
   const m = NODE_META[def.id];
   const lvl = getLevel(r.engine.upgrades, def.id);
   const can = canUpgrade(def, r.engine as any);
-  return { def, lvl, can, state: nodeState(def, lvl, can), x: PAD + m.col * COL_W, y: PAD + m.row * ROW_H };
+  // 从上到下:col=前置链深度(纵·根在上后置在下),row=同层并列(横)
+  return { def, lvl, can, state: nodeState(def, lvl, can), x: PAD + m.row * COL_W, y: PAD + m.col * ROW_H };
 }));
 
 const nodeById = computed(() => Object.fromEntries(nodes.value.map(n => [n.def.id, n])));
@@ -97,8 +98,8 @@ const links = computed(() => {
     for (const pid of nodePrereqIds(n.def)) {
       const p = nodeById.value[pid]; if (!p) continue;
       out.push({
-        x1: p.x + NODE_W, y1: p.y + NODE_H / 2,
-        x2: n.x, y2: n.y + NODE_H / 2,
+        x1: p.x + NODE_W / 2, y1: p.y + NODE_H,
+        x2: n.x + NODE_W / 2, y2: n.y,
         done: p.lvl >= (UPGRADES_BY_ID[pid]?.requires?.find(rq => rq.upgradeId === pid)?.minLevel ?? 1),
       });
     }
