@@ -21,11 +21,37 @@ export const THUG_UPGRADES: UpgradeDef[] = [
 // catalog · 设施升级（经营数值·作用大宅与凛）
 // ───────────────────────────────────────
 export const FACILITY_UPGRADES: UpgradeDef[] = [
-  // 吞吐扩容：堕落解档+花钱(用户定)。每级+6人(6→12→18→24→30)，门槛取非四分之一节点
-  { id: 'throughput', category: 'facility', name: '吞吐扩容', desc: '每格供奉处理更多人(堕落越深越高效)', cost: 3000, maxLevel: 4, corruptionGate: [0, 15, 35, 60], effect: { kind: 'throughput', perLevel: 6 } },
-  { id: 'desire_cap', category: 'facility', name: '欲望承载上限', desc: '打手更耐欲望积压，拖延强制请假轮奸', cost: 3000, maxLevel: 10, effect: { kind: 'desireCap', perLevel: 20 } },
-  { id: 'purchase', category: 'facility', name: '采购扩容', desc: '提升避孕套单次采购上限', cost: 3000, maxLevel: 6, effect: { kind: 'purchaseMult', perLevel: 0.5 } },
-  { id: 'fortify', category: 'facility', name: '据点加固', desc: '提升地盘稳定与防守，降骚扰/进攻', cost: 3000, maxLevel: 5, effect: { kind: 'turfFortify', perLevel: 1 } },
+  // ══ 性技修炼链(粉金混合·堕落+花钱双门槛·用肉穴以外部位同时侍奉→每格吞吐↑) ══
+  { id: 'skill_hand', category: 'facility', name: '快速榨精（手技）', desc: '双手并用的手技修炼——一手一根，学会"读"射精的时机，一晚送走更多人(吞吐+6)', cost: 3000, maxLevel: 1, corruptionRequired: 0, effect: { kind: 'throughput', perLevel: 6 }, corruptionOnBuy: 2 },
+  { id: 'skill_breast', category: 'facility', name: '乳交侍奉', desc: '娇小的胸口被迫学会夹持——胸前加双手，三路并行(吞吐+6)', cost: 3500, maxLevel: 1, corruptionRequired: 15, requires: [{ upgradeId: 'skill_hand', minLevel: 1 }], effect: { kind: 'throughput', perLevel: 6 }, corruptionOnBuy: 2 },
+  { id: 'skill_foot', category: 'facility', name: '足交侍奉', desc: '坐姿双足各伺候一人、双手再各一人——"坐着不动"也是四路(吞吐+6)', cost: 4500, maxLevel: 1, corruptionRequired: 35, requires: [{ upgradeId: 'skill_breast', minLevel: 1 }], effect: { kind: 'throughput', perLevel: 6 }, corruptionOnBuy: 3 },
+  { id: 'skill_double', category: 'facility', name: '双重口交', desc: '一张嘴一次含住两根，喉咙与舌头分不出先后——口腔的吞吐翻倍(吞吐+6)', cost: 6000, maxLevel: 1, corruptionRequired: 60, requires: [{ upgradeId: 'skill_foot', minLevel: 1 }], effect: { kind: 'throughput', perLevel: 6 }, corruptionOnBuy: 3 },
+  { id: 'skill_orgy', category: 'facility', name: '极限群交', desc: '每一场性交都在挑战同时侍奉人数的极限，每一寸肌肤都成为被精液涂抹的目标(吞吐+6)', cost: 8000, maxLevel: 1, corruptionRequired: 80, requires: [{ upgradeId: 'skill_double', minLevel: 1 }], effect: { kind: 'throughput', perLevel: 6 }, corruptionOnBuy: 4 },
+
+  // ══ 欲望承载上限链(金:给打手别的发泄口→更耐积压;???:凛的贴身物成了发泄口·恋物/雄臭) ══
+  { id: 'desire_train', category: 'facility', name: '操练加倍', desc: '道场加练，多余精力泄在训练场(欲望上限+20)', cost: 3000, maxLevel: 1, effect: { kind: 'desireCap', perLevel: 20 } },
+  { id: 'desire_liquor', category: 'facility', name: '酒水管够', desc: '夜里备足烈酒，灌醉一半人(欲望上限+20)', cost: 3500, maxLevel: 1, requires: [{ upgradeId: 'desire_train', minLevel: 1 }], effect: { kind: 'desireCap', perLevel: 20 } },
+  { id: 'm_cloth_outer', category: 'facility', name: '大小姐的外衣', desc: '换下的外衣不再送洗，被打手们分走"珍藏"——有了发泄口，欲望更能忍一忍(上限+30)', cost: 0, maxLevel: 1, mystery: true, corruptionRequired: 25, effect: { kind: 'desireCap', perLevel: 30 }, corruptionOnBuy: 2, infamyOnBuy: 2 },
+  { id: 'm_cloth_shoes', category: 'facility', name: '大小姐的鞋袜', desc: '脱下的鞋与穿过的袜成了抢手货，捂在脸上贪婪地嗅、裹着肉棒自渎(上限+30)', cost: 0, maxLevel: 1, mystery: true, corruptionRequired: 35, requires: [{ upgradeId: 'm_cloth_outer', minLevel: 1 }], effect: { kind: 'desireCap', perLevel: 30 }, corruptionOnBuy: 2, infamyOnBuy: 2 },
+  { id: 'm_cloth_inner', category: 'facility', name: '大小姐的内衣', desc: '贴身穿过的内衣内裤被公开传看争抢，沾着体味的最值钱——她的隐私成了打手的战利品(上限+40)', cost: 0, maxLevel: 1, mystery: true, corruptionRequired: 45, requires: [{ upgradeId: 'm_cloth_shoes', minLevel: 1 }], effect: { kind: 'desireCap', perLevel: 40 }, corruptionOnBuy: 3, infamyOnBuy: 3 },
+  { id: 'm_scent', category: 'facility', name: '气味标记', desc: '凛的枕头坐垫"轮借"给表现好的打手，还回来时全沤透了浓烈的雄臭汗味——她只能睡在、坐在别的男人的味道里，怎么洗都散不掉(上限+50)', cost: 0, maxLevel: 1, mystery: true, corruptionRequired: 60, requires: [{ upgradeId: 'm_cloth_inner', minLevel: 1 }], effect: { kind: 'desireCap', perLevel: 50 }, corruptionOnBuy: 3, infamyOnBuy: 2 },
+
+  // ══ 采购扩容三段(金·凛亲自/随打手采购·对接买套范式三档规模) ══
+  { id: 'buy_drugstore', category: 'facility', name: '熟识的药妆店', desc: '固定的采购点，凛亲自抱箱去买(采购上限+·数十人规模)', cost: 3000, maxLevel: 1, effect: { kind: 'purchaseMult', perLevel: 0.5 } },
+  { id: 'buy_wholesale', category: 'facility', name: '批发的门路', desc: '量大跨多店扫荡，随打手驱车采购(采购上限+·两三百人规模)', cost: 3500, maxLevel: 1, requires: [{ upgradeId: 'buy_drugstore', minLevel: 1 }], effect: { kind: 'purchaseMult', perLevel: 1.0 } },
+  { id: 'buy_convoy', category: 'facility', name: '加长轿车代购', desc: '量大到亲自买不现实，躺在车里由打手代劳搬箱(采购上限+·近千人规模)', cost: 5000, maxLevel: 1, requires: [{ upgradeId: 'buy_wholesale', minLevel: 1 }], effect: { kind: 'purchaseMult', perLevel: 1.5 } },
+
+  // ══ 威望增长系数链(金:家格重振;???:女主人假装若无其事的另一面) ══
+  { id: 'prestige_crest', category: 'facility', name: '重亮九条家纹', desc: '门楣翻新、家纹重描，街面上九条会的名字重新有分量(威望进账+25%)', cost: 4000, maxLevel: 1, effect: { kind: 'prestigeMult', perLevel: 0.25 } },
+  { id: 'prestige_feast', category: 'facility', name: '设宴结交', desc: '定期宴请同道，人脉即威望(威望进账+25%)', cost: 4500, maxLevel: 1, requires: [{ upgradeId: 'prestige_crest', minLevel: 1 }], effect: { kind: 'prestigeMult', perLevel: 0.25 } },
+  { id: 'm_feast_hostess', category: 'facility', name: '宴席上的女主人', desc: '设宴时凛以女主人身份斟酒陪席——桌布下有手探进她腿间，宾客毫不知情，她必须若无其事地维持谈笑，绝不能让任何人看出破绽(威望进账+25%)', cost: 0, maxLevel: 1, mystery: true, corruptionRequired: 40, requires: [{ upgradeId: 'prestige_feast', minLevel: 1 }], effect: { kind: 'prestigeMult', perLevel: 0.25 }, corruptionOnBuy: 3, infamyOnBuy: 3 },
+
+  // ══ 据点·制度与耳目链(金:帮派治理表面;???:约束凛的荒谬淫规·解构尊严=娱乐化) ══
+  { id: 'rule_code', category: 'facility', name: '立下会规', desc: '白纸黑字的帮规，赏罚分明，据点不容懈怠(据点加固+1)', cost: 3000, maxLevel: 1, effect: { kind: 'turfFortify', perLevel: 1 } },
+  { id: 'rule_spy', category: 'facility', name: '布置暗探', desc: '街面眼线网，敌人动向早一步知道(刺探成功率+10%)', cost: 3500, maxLevel: 1, requires: [{ upgradeId: 'rule_code', minLevel: 1 }], effect: { kind: 'scoutRate', perLevel: 0.10 } },
+  { id: 'rule_patrol', category: 'facility', name: '巡查制度', desc: '干部轮班巡查各据点，怠惰无所遁形(据点加固+2)', cost: 4000, maxLevel: 1, requires: [{ upgradeId: 'rule_code', minLevel: 1 }], effect: { kind: 'turfFortify', perLevel: 2 } },
+  { id: 'm_rule_greet', category: 'facility', name: '会规·问好的规矩', desc: '会规添了荒唐一条:打手见到大小姐可以直接掏出肉棒，她必须向那根肉棒问好——再往后，是转过身、用小穴对着它问好，由龟头在穴口浅浅一顶算作还礼，仿佛小穴才是她真正的正面', cost: 0, maxLevel: 1, mystery: true, corruptionRequired: 35, requires: [{ upgradeId: 'rule_code', minLevel: 1 }], effect: { kind: 'unlock', unlockKey: 'rule_greet' }, corruptionOnBuy: 4, infamyOnBuy: 2 },
+  { id: 'm_rule_meal', category: 'facility', name: '会规·进食的规矩', desc: '又一条荒唐会规:大小姐的嘴只配吃流食，真正的"餐盘"是她的小穴——打手们把食物塞进去，再就着她的体温取食，最日常的吃饭成了最羞耻的仪式', cost: 0, maxLevel: 1, mystery: true, corruptionRequired: 50, requires: [{ upgradeId: 'rule_code', minLevel: 1 }], effect: { kind: 'unlock', unlockKey: 'rule_meal' }, corruptionOnBuy: 5 },
 ];
 
 // ───────────────────────────────────────
@@ -53,9 +79,6 @@ export const HOUSE_UPGRADES: UpgradeDef[] = [
   { id: 'room_dojo', category: 'expansion', name: '重启道场', desc: '清理荒废的练武堂，打手得以操练——解锁「道场」升级页', cost: 3000, maxLevel: 1, effect: { kind: 'unlock', unlockKey: 'dojo_page' } },
   { id: 'room_dailytoy', category: 'facility', name: '日常淫乱化改造', desc: '宅内起居被悄然改造——凛面板上的???将逐个亮起(如厕/椅子等淫乱化的前置)', cost: 5000, maxLevel: 1, requires: [{ upgradeId: 'basement', minLevel: 1 }], effect: { kind: 'unlock', unlockKey: 'dailytoy' }, corruptionOnBuy: 3 },
 
-  // —— 凛自己(主页旁·永远可用·经营核心) ——
-  { id: 'prestige_mult', category: 'facility', name: '威望增长系数', desc: '凛亲自打理名声经营，一切威望进账 +25%/级', cost: 4000, maxLevel: 3, effect: { kind: 'prestigeMult', perLevel: 0.25 } },
-
   // —— 道场示例分支(前置:重启道场) ——
   { id: 'phys_train', category: 'thug', name: '打手体能训练', desc: '提高打手每人基础武力值(+0.2/级·与在场/武器乘区相乘)', cost: 2500, maxLevel: 1, requires: [{ upgradeId: 'room_dojo', minLevel: 1 }], effect: { kind: 'baseMartial', perLevel: 0.2 } },
   { id: 'phys_train2', category: 'thug', name: '打手体能训练·二段', desc: '更高强度的操练，基础武力 +0.2', cost: 3500, maxLevel: 1, requires: [{ upgradeId: 'phys_train', minLevel: 1 }], effect: { kind: 'baseMartial', perLevel: 0.2 } },
@@ -66,8 +89,21 @@ export const HOUSE_UPGRADES: UpgradeDef[] = [
   // —— 摄影房示例(前置:摄影室) ——
   { id: 'av_play', category: 'expansion', name: 'AV玩法编排扩容', desc: '更专业的策划，单部AV同时可选玩法tag上限 +1/级', cost: 5000, maxLevel: 3, requires: [{ upgradeId: 'studio', minLevel: 1 }], effect: { kind: 'avPlayCap', perLevel: 1 } },
 
-  // —— 地下室示例(前置:地下室) ——
-  { id: 'dungeon_gear', category: 'expansion', name: '地下室刑具扩充', desc: '更多拘禁与调教器具(暴力供奉相关·待填)', cost: 4000, maxLevel: 1, requires: [{ upgradeId: 'basement', minLevel: 1 }], effect: { kind: 'unlock', unlockKey: 'dungeon_gear' } },
+  // —— 道场·实战与陪练(前置:重启道场) ——
+  { id: 'dojo_spar', category: 'thug', name: '实战演习', desc: '道场加开对练日，招式在实战中磨快(基础武力+0.2)', cost: 4000, maxLevel: 1, requires: [{ upgradeId: 'room_dojo', minLevel: 1 }], effect: { kind: 'baseMartial', perLevel: 0.2 } },
+  { id: 'm_spar1', category: 'thug', name: '大小姐陪练·揩油', desc: '对练日的"活靶子"换成了凛——以指导受身、纠正姿势为名，手在她身上四处揩油、抚摸、调戏，打手为多摸两下拼命钻研技术(基础武力+0.2)', cost: 0, maxLevel: 1, mystery: true, corruptionRequired: 45, requires: [{ upgradeId: 'dojo_spar', minLevel: 1 }], effect: { kind: 'baseMartial', perLevel: 0.2 }, corruptionOnBuy: 3 },
+  { id: 'm_spar2', category: 'thug', name: '大小姐陪练·固技', desc: '揩油进阶成实战:用摔跤的固定技把凛压制在垫上动弹不得，就着压制的姿势轮流贯穿——她的挣扎本身成了练技的一部分(基础武力+0.3·受虐癖开发后)', cost: 0, maxLevel: 1, mystery: true, corruptionRequired: 60, requires: [{ upgradeId: 'm_spar1', minLevel: 1 }], effect: { kind: 'baseMartial', perLevel: 0.3 }, corruptionOnBuy: 4 },
+  { id: 'm_cheer1', category: 'thug', name: '慰安加油·啦啦队', desc: '凛被塞进暴露又滑稽的啦啦队服，在场边为操练的打手加油鼓劲——羞耻的姿势与口号让全场士气高涨(基础武力+0.1)', cost: 0, maxLevel: 1, mystery: true, corruptionRequired: 35, requires: [{ upgradeId: 'room_dojo', minLevel: 1 }], effect: { kind: 'baseMartial', perLevel: 0.1 }, corruptionOnBuy: 3, infamyOnBuy: 2 },
+  { id: 'm_cheer2', category: 'thug', name: '慰安加油·裸体', desc: '啦啦队服也免了，凛赤身裸体地摆动作喊加油，晃动的身体成了打手操练时的活奖励(基础武力+0.1)', cost: 0, maxLevel: 1, mystery: true, corruptionRequired: 50, requires: [{ upgradeId: 'm_cheer1', minLevel: 1 }], effect: { kind: 'baseMartial', perLevel: 0.1 }, corruptionOnBuy: 3 },
+  { id: 'm_cheer3', category: 'thug', name: '慰安加油·被轮着加油', desc: '凛一边被拉到场边轮流贯穿，一边还得断续地喊出加油口号——声音抖得不成调，越是这样打手越卖力(基础武力+0.2)', cost: 0, maxLevel: 1, mystery: true, corruptionRequired: 65, requires: [{ upgradeId: 'm_cheer2', minLevel: 1 }], effect: { kind: 'baseMartial', perLevel: 0.2 }, corruptionOnBuy: 4 },
+
+  // —— 摄影房·观众来信(前置:摄影室·需已拍≥5部) ——
+  { id: 'm_av_letters', category: 'expansion', name: '观众来信', desc: '销量爆了之后，打手们把"粉丝反馈"挑出来当着凛的面朗读——哪个镜头最受欢迎、观众点播什么新玩法，她被迫知道自己被多少人看过、被如何议论(AV单部收入+20%)', cost: 0, maxLevel: 1, mystery: true, corruptionRequired: 50, requiresAvShots: 5, requires: [{ upgradeId: 'studio', minLevel: 1 }], effect: { kind: 'avIncomeMult', perLevel: 0.20 }, corruptionOnBuy: 2, infamyOnBuy: 3 },
+
+  // —— 地下室(前置:地下室) ——
+  { id: 'dungeon_gear', category: 'expansion', name: '地下室刑具扩充', desc: '添置吊颈滑轮组/三角木马/通电木驴/水刑台等刑具，暴力供奉花样翻新(受虐癖线)', cost: 4000, maxLevel: 1, requires: [{ upgradeId: 'basement', minLevel: 1 }], effect: { kind: 'unlock', unlockKey: 'dungeon_gear' } },
+  { id: 'dungeon_soundproof', category: 'expansion', name: '地下室隔音工程', desc: '地下室彻底隔音——"施工"名义正当，用途不言自明(启用与常态化的前置)', cost: 3500, maxLevel: 1, requires: [{ upgradeId: 'basement', minLevel: 1 }], effect: { kind: 'unlock', unlockKey: 'soundproof' }, corruptionOnBuy: 2 },
+  { id: 'm_dungeon_night', category: 'expansion', name: '深夜的脚步声', desc: '忠诚低落时，总有打手不打招呼就把凛带下隔音的地下室——没人听得见，那道隔音工程反而成了他们肆意的底气(受虐癖开发+)', cost: 0, maxLevel: 1, mystery: true, corruptionRequired: 50, requiresLoyaltyBelow: 40, requires: [{ upgradeId: 'dungeon_soundproof', minLevel: 1 }], effect: { kind: 'unlock', unlockKey: 'dungeon_night' }, corruptionOnBuy: 4 },
 ];
 
 // ───────────────────────────────────────
@@ -211,12 +247,15 @@ export interface UpgradeCheck {
  * ???(mystery)是否达成自动解锁条件:前置升级齐 + 堕落度到 + (可选)行动格已达硬上限。
  * 满足即由 store 自动解锁(不花钱)。未满足时 UI 显示"???"与要求。
  */
-export function mysteryReady(def: UpgradeDef, state: UpgradeState & { totalSlots?: number }): boolean {
+export function mysteryReady(def: UpgradeDef, state: UpgradeState & { totalSlots?: number; loyalty?: number; av?: { shotCount?: number } }): boolean {
   if (!def.mystery) return false;
   if (getLevel(state.upgrades, def.id) >= def.maxLevel) return false;
   if (!requiresMet(def.requires, state)) return false;
   if (def.corruptionRequired != null && state.corruption < def.corruptionRequired) return false;
   if (def.requiresSlotsMax && (state.totalSlots ?? BASE_ACTION_SLOTS) < MAX_ACTION_SLOTS) return false;
+  if (def.requiresAvShots != null && (state.av?.shotCount ?? 0) < def.requiresAvShots) return false;
+  if (def.requiresLoyaltyBelow != null && (state.loyalty ?? 100) >= def.requiresLoyaltyBelow) return false;
+  if (def.requiresUnlockedKey && (state as UpgradeState & { unlocked?: Record<string, boolean> }).unlocked?.[def.requiresUnlockedKey] !== true) return false;
   return true;
 }
 
@@ -225,12 +264,14 @@ export function pendingMysteries(state: UpgradeState & { totalSlots?: number }):
   return UPGRADES.filter(d => d.mystery && mysteryReady(d, state));
 }
 
-/** 能否升级该项：???不可手动买(自动解锁)→前置→满级→堕落门槛→资金，依次判定 */
+/** 能否升级该项：???不可手动买(自动解锁)→前置→满级→堕落门槛(粉金/分级)→资金，依次判定 */
 export function canUpgrade(def: UpgradeDef, state: UpgradeState): UpgradeCheck {
   if (def.mystery) return { ok: false, reason: '条件满足后自动解锁' };
   if (!requiresMet(def.requires, state)) return { ok: false, reason: '前置未满足' };
   const lvl = getLevel(state.upgrades, def.id);
   if (lvl >= def.maxLevel) return { ok: false, reason: '已满级' };
+  // 粉金混合节点:花钱+堕落度双门槛("堕落解锁的技艺")
+  if (def.corruptionRequired != null && state.corruption < def.corruptionRequired) return { ok: false, reason: `需堕落度≥${def.corruptionRequired}` };
   const gate = def.corruptionGate?.[lvl]; // 升到 lvl+1（index=lvl）所需堕落度
   if (gate != null && state.corruption < gate) return { ok: false, reason: `需堕落度≥${gate}` };
   if (state.money < def.cost) return { ok: false, reason: '资金不足' };
@@ -256,6 +297,8 @@ export function applyUpgrade<S extends UpgradeState>(state: S, def: UpgradeDef):
     case 'prestigeMult': break;// 派生(威望增长系数)，不写字段
     case 'loyaltyDecayReduce': break; // 派生(减忠诚衰减)
     case 'condomDaily': break;        // 派生(避孕套送货上门)
+    case 'scoutRate': break;          // 派生(刺探成功率)
+    case 'avIncomeMult': break;       // 派生(AV收入乘区)
     case 'throughput':   patch.perSlotThroughput = (state.perSlotThroughput ?? 6) + d; break;
     case 'desireCap':    patch.desireCapacity = (state.desireCapacity ?? 60) + d; break;
     case 'actionSlots':  patch.totalSlots = Math.min(MAX_ACTION_SLOTS, (state.totalSlots ?? BASE_ACTION_SLOTS) + d); break;
@@ -309,6 +352,22 @@ export function prestigeMultiplier(upgrades: Record<string, number> | undefined)
 /** 欲望增长乘区（性欲野兽解锁后 ×1.5） */
 export function desireGrowthMult(unlocked: Record<string, boolean> | undefined): number {
   return unlocked?.lust_beast ? 1.5 : 1;
+}
+/** 刺探成功率加成（Σ scoutRate 项·布置暗探） */
+export function scoutRateBonus(upgrades: Record<string, number> | undefined): number {
+  let r = 0;
+  for (const def of UPGRADES) {
+    if (def.effect.kind === 'scoutRate') r += getLevel(upgrades, def.id) * (def.effect.perLevel ?? 0);
+  }
+  return r;
+}
+/** AV 销售收入乘区 = 1 + Σ avIncomeMult 项（观众来信等） */
+export function avIncomeMultiplier(upgrades: Record<string, number> | undefined): number {
+  let r = 0;
+  for (const def of UPGRADES) {
+    if (def.effect.kind === 'avIncomeMult') r += getLevel(upgrades, def.id) * (def.effect.perLevel ?? 0);
+  }
+  return 1 + r;
 }
 /** 忠诚每日衰减的减免总量（Σ loyaltyDecayReduce 项·"荒唐升级"如张贴照片链） */
 export function loyaltyDecayReduction(upgrades: Record<string, number> | undefined): number {

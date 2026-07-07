@@ -13,7 +13,7 @@ import {
 import { runCurrentSlot, settleNight, advanceToNextDay, applyForcedSeizes } from '../../game/engine/day-runner';
 import type { RunnerState } from '../../game/engine/day-runner';
 import { dailyDesireDemand, availableThugs, weeklyRecruitQuota, combatPower, presentCountFrom, appendMoneyLog } from '../../game/economy/machine';
-import { weaponMult, baseMartialPerThug, prestigeMultiplier, UPGRADES_BY_ID, canUpgrade, applyUpgrade, pendingMysteries } from '../../game/upgrade/machine';
+import { weaponMult, baseMartialPerThug, prestigeMultiplier, UPGRADES_BY_ID, canUpgrade, applyUpgrade, pendingMysteries, scoutRateBonus, avIncomeMultiplier } from '../../game/upgrade/machine';
 import {
   REGIONS_BY_ID, canDefeat, defeatRegion, regionState, effectiveThreshold,
   settleScout, settleBribe, settleOffensiveHarass, SCOUT_COST, BRIBE_COST, isRevengeComplete,
@@ -193,7 +193,7 @@ export const useRunnerStore = defineStore('runner', () => {
       return;
     }
     if (kind === 'scout') {
-      const r = settleScout({ money: engine.value.money, regions: engine.value.regions }, id, Math.random());
+      const r = settleScout({ money: engine.value.money, regions: engine.value.regions }, id, Math.random(), scoutRateBonus(engine.value.upgrades));
       if (r.reason === 'no_money') {
         lastTurf.value = { ok: false, msg: `资金不足(需¥${SCOUT_COST})，刺探无果。` };
         completeMapSlot('打手前去刺探，却因银根吃紧无功而返。'); return;
@@ -407,7 +407,7 @@ export const useRunnerStore = defineStore('runner', () => {
       if (ranSlot?.choice?.optionId === 'av_custom' && ranSlot.choice.params?.avDef) {
         const avDef = ranSlot.choice.params.avDef as AvDefinition;
         const av = nextEngine.av ?? defaultAvState();
-        const income = avSalesIncome(avDef, nextEngine.infamy);
+        const income = avSalesIncome(avDef, nextEngine.infamy, avIncomeMultiplier(nextEngine.upgrades));
         nextEngine = { ...nextEngine, av: consumeShoot(av, avDef), money: nextEngine.money + income, moneyLog: appendMoneyLog(nextEngine.moneyLog, day.value.dayNumber, `AV销售·${avDef.theme}`, income) };
         avIncome = { income, theme: avDef.theme };
       }

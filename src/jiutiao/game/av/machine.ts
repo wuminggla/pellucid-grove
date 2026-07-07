@@ -196,12 +196,12 @@ export function buildAvParadigm(def: AvDefinition): ParadigmRef {
  * = 基础 + 时长×单位 + 玩法数×加成 + 淫名×系数(名气越大越好卖)。
  * 设计: 单部收益高(用户定),但每周拍摄次数有限(weeklyQuota,升级解锁)。
  */
-export function avSalesIncome(def: AvDefinition, infamy: number): number {
+export function avSalesIncome(def: AvDefinition, infamy: number, incomeMult = 1): number {
   const base = 5000;
   const byDuration = def.durationHours * 150;
   const byPlays = def.plays.length * 1200;
   const byInfamy = Math.min(8000, infamy * 60); // 名气加成封顶
-  return Math.round(base + byDuration + byPlays + byInfamy);
+  return Math.round((base + byDuration + byPlays + byInfamy) * incomeMult); // 观众来信(avIncomeMult)加成
 }
 
 /** 消费一次拍摄: 写入 customs / 扣 weeklyQuota / 累加 shotCount */

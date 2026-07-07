@@ -22,7 +22,9 @@ export type UpgradeEffectKind =
   | 'avPlayCap'     // AV 同时可选玩法tag上限 +（派生·防一次性拉满收益）
   | 'prestigeMult'  // 威望增长系数 +（派生·结算时威望进账×(1+此值)）
   | 'loyaltyDecayReduce' // 减少忠诚每日自然衰减（派生·"荒唐升级"如张贴照片链）
-  | 'condomDaily';  // 避孕套每日送货上门量（派生·后期便利·省去主动采购）
+  | 'condomDaily'   // 避孕套每日送货上门量（派生·后期便利·省去主动采购）
+  | 'scoutRate'     // 刺探成功率加成（派生·布置暗探）
+  | 'avIncomeMult'; // AV销售收入乘区加成（派生·观众来信）
 
 export interface UpgradeEffect {
   kind: UpgradeEffectKind;
@@ -65,8 +67,17 @@ export interface UpgradeDef {
    * 带来的多是"色情数值叙事的负面加成"（+堕落/+淫名/范式顶替=惩罚）。
    */
   mystery?: boolean;
-  /** mystery 解锁所需堕落度（悬停显示"堕落度≥X"） */
+  /**
+   * 解锁所需堕落度。mystery=自动解禁门槛;非 mystery=【粉金混合节点】的购买门槛
+   * (既要堕落度又要花钱·"堕落解锁的技艺"如性技修炼/买套档位)。UI 对非 mystery 项据此画粉金边。
+   */
   corruptionRequired?: number;
   /** mystery 解锁额外条件：行动格数已达硬上限(15)。庭院群交用。 */
   requiresSlotsMax?: boolean;
+  /** mystery 解锁额外条件：累计已拍 AV ≥ N 部。观众来信用。 */
+  requiresAvShots?: number;
+  /** mystery 解锁额外条件：忠诚度低于 N。深夜的脚步声用。 */
+  requiresLoyaltyBelow?: number;
+  /** mystery 解锁额外条件：某派生解锁键为真(如 masochism 受虐癖)。陪练·固技用。 */
+  requiresUnlockedKey?: string;
 }

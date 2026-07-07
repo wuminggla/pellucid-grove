@@ -260,13 +260,13 @@ export interface ScoutResult {
  * @param rng 0..1 随机
  */
 export function settleScout(
-  state: TurfState, id: string, rng: number,
+  state: TurfState, id: string, rng: number, scoutBonus = 0,
 ): ScoutResult {
   if (state.money < SCOUT_COST) {
     return { regions: state.regions ?? {}, money: state.money, hit: false, paid: 0, reason: 'no_money' };
   }
   const money = state.money - SCOUT_COST;
-  const hit = rng < SCOUT_HIT_RATE;
+  const hit = rng < (SCOUT_HIT_RATE + scoutBonus); // 布置暗探(scoutRate)提升命中
   const regions = hit ? markIntel(state.regions, id) : (state.regions ?? {});
   return { regions, money, hit, paid: SCOUT_COST };
 }
