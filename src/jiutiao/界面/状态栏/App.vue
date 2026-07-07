@@ -103,6 +103,23 @@
           <h3>API / 界面风格（待接）</h3>
           <p class="lead">之后这里配置副 AI 端点、切换我们提供的其它 UI 风格。</p>
         </div>
+        <!-- DEBUG 工具条(仅测试构建·跳中后期测试点) -->
+        <div v-if="DEBUG_BUILD" class="set-box debug-box">
+          <h3>DEBUG · 测试工具（{{ BUILD_VERSION }}）</h3>
+          <p class="lead">测试档：开局高配（¥50万/300打手/12格/威望150）。下面的按钮直接改变量，堕落度会正常触发认知推进、奖励闸门与???级联解禁。</p>
+          <div class="dbg-now">堕落度 {{ r.engine.corruption }} · 资金 ¥{{ r.engine.money.toLocaleString() }} · 打手 {{ r.engine.thugTotal }} · 忠诚 {{ r.engine.loyalty }} · 淫名 {{ r.engine.infamy }} · AV已拍 {{ r.engine.av?.shotCount ?? 0 }} · 行动格 {{ r.engine.totalSlots ?? 8 }}</div>
+          <div class="set-btns dbg-btns">
+            <button @click="r.debugAdjust('corr+10')">堕落度 +10</button>
+            <button @click="r.debugAdjust('money+5w')">资金 +5万</button>
+            <button @click="r.debugAdjust('thug+50')">打手 +50</button>
+            <button @click="r.debugAdjust('condom+500')">避孕套 +500</button>
+            <button @click="r.debugAdjust('loyalty+10')">忠诚 +10</button>
+            <button @click="r.debugAdjust('loyalty-10')">忠诚 −10</button>
+            <button @click="r.debugAdjust('infamy+20')">淫名 +20</button>
+            <button @click="r.debugAdjust('av+5')">AV拍摄数 +5</button>
+            <button @click="r.debugAdjust('slots15')">行动格拉满(15)</button>
+          </div>
+        </div>
       </div>
 
       <!-- ===== 其它页签：占位 ===== -->
@@ -143,6 +160,7 @@
 <script setup lang="ts">
 import { ref, computed, inject, watch } from 'vue';
 import { useRunnerStore } from './runner-store';
+import { BUILD_VERSION, DEBUG_BUILD } from './version';
 import Masthead from './components/Masthead.vue';
 import NavRail from './components/NavRail.vue';
 import DaySlider from './components/DaySlider.vue';
@@ -334,6 +352,11 @@ function confirmReset() {
 .set-btns { display: flex; gap: 12px; margin-top: 16px; }
 .danger-btn { font-family: var(--serif); background: rgba(179,33,46,.12); color: var(--red-hi); border: 1px solid var(--red); border-radius: 6px; padding: 12px 22px; font-size: 14px; cursor: pointer; }
 .danger-btn:hover { background: rgba(179,33,46,.22); }
+.debug-box { border-color: var(--rose) !important; }
+.dbg-now { margin-top: 10px; font-size: 12.5px; color: var(--gold-hi); line-height: 1.7; }
+.dbg-btns { flex-wrap: wrap; gap: 8px; }
+.dbg-btns button { font-family: var(--serif); background: rgba(210,74,106,.10); color: var(--rose-hi); border: 1px solid var(--rose); border-radius: 6px; padding: 9px 14px; font-size: 13px; cursor: pointer; }
+.dbg-btns button:hover { background: rgba(210,74,106,.22); }
 .placeholder { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px; }
 .ph-t { font-family: var(--brush); font-size: 48px; color: var(--gold-dim); }
 .ph-s { font-size: 13px; color: var(--text-dim); letter-spacing: 2px; }

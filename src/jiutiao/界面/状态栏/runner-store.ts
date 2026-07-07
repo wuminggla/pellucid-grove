@@ -25,6 +25,7 @@ import {
 import type { AvDefinition } from '../../game/av/machine';
 import type { UpgradeDef } from '../../game/upgrade/types';
 import { gainCorruption } from '../../game/corruption/machine';
+import { DEBUG_BUILD } from './version';
 import type { NightSettleResult } from '../../game/engine/settlement';
 import {
   demoEventOptions, demoSummaryTemplates, demoExtractBounds, demoForcedPool, createMockAi,
@@ -36,19 +37,23 @@ import type { DayState, SlotChoice, SlotPeriod } from '../../game/action-grid/ty
 import type { EngineState, SettleOptions, SettleResult, AiPort } from '../../game/engine/types';
 
 const DEFAULT_FORCED_LEAVE_CHOICE: SlotChoice = { optionId: 'serve_vaginal', label: '供奉（白日供奉）' };
-const TOTAL_SLOTS = 8;
+const TOTAL_SLOTS = DEBUG_BUILD ? 12 : 8; // DEBUG档:开局12格(与 initialEngine.totalSlots 一致)
 
 function initialEngine(): EngineState {
-  const thugTotal = 30, garrison = 0;
+  // DEBUG 测试档:高配开局(免从头肝·验证中后期内容)。堕落度仍从0起——用设置页 DEBUG 工具条按需加,
+  // 避免开档瞬间级联解锁一堆???把演出全跳过。
+  const thugTotal = DEBUG_BUILD ? 300 : 30, garrison = 0;
+  const loyalty = DEBUG_BUILD ? 70 : 50;
   const morning = dailyDesireDemand(availableThugs(thugTotal, garrison)); // 日1晨间累积(30打手→30)
   return {
     triggeredSpecials: {}, unlocked: {},
     corruption: 0, cognition: '死撑', claimedGates: {},
-    money: 8000, thugTotal, garrison, loyalty: 50, loyaltyMartial: 25, loyaltyInfamy: 25,
-    condomStock: 480, desire: morning, desireCapacity: 60, desireAddedThisMorning: morning,
+    money: DEBUG_BUILD ? 500000 : 8000, thugTotal, garrison, loyalty, loyaltyMartial: Math.round(loyalty / 2), loyaltyInfamy: Math.round(loyalty / 2),
+    condomStock: DEBUG_BUILD ? 3000 : 480, desire: morning, desireCapacity: DEBUG_BUILD ? 200 : 60, desireAddedThisMorning: morning,
     perSlotThroughput: 6,
-    infamy: 0, martialPrestige: 0,
-    recruitQuota: weeklyRecruitQuota(0), recruitQuotaMax: weeklyRecruitQuota(0), presentCount: presentCountFrom(thugTotal, 50, 0.5), isDangerousPeriod: false,
+    infamy: 0, martialPrestige: DEBUG_BUILD ? 150 : 0,
+    ...(DEBUG_BUILD ? { totalSlots: 12 } : {}),
+    recruitQuota: weeklyRecruitQuota(0), recruitQuotaMax: weeklyRecruitQuota(0), presentCount: presentCountFrom(thugTotal, loyalty, 0.5), isDangerousPeriod: false,
     servedThisNight: 0,
   };
 }
@@ -298,6 +303,29 @@ export const useRunnerStore = defineStore('runner', () => {
       const d = day.value.dayNumber;
       notifyLog.value = [...notifyLog.value, { day: d, label: `第${d}天 ❤解禁`, notices: msgs.map(t => ({ t, tone: 'rose' })) }].filter(x => x.day >= d - 1).slice(-60);
     }
+  }
+
+  /** DEBUG 工具条(仅 DEBUG_BUILD·设置页):直接改变量跳到中后期测试点。堕落走 gainCorruption(触发认知/闸门/???级联)。 */
+  function debugAdjust(kind: string) {
+    if (!DEBUG_BUILD) return;
+    const e = engine.value;
+    switch (kind) {
+      case 'corr+10': {
+        const cr = gainCorruption({ corruption: e.corruption, cognition: e.cognition, claimedGates: e.claimedGates }, 10);
+        engine.value = { ...e, corruption: cr.corruption, cognition: cr.cognition, claimedGates: cr.claimedGates };
+        break;
+      }
+      case 'money+5w': engine.value = { ...e, money: e.money + 50000 }; break;
+      case 'thug+50': engine.value = { ...e, thugTotal: e.thugTotal + 50 }; break;
+      case 'condom+500': engine.value = { ...e, condomStock: e.condomStock + 500 }; break;
+      case 'loyalty+10': engine.value = { ...e, loyalty: Math.min(100, e.loyalty + 10) }; break;
+      case 'loyalty-10': engine.value = { ...e, loyalty: Math.max(0, e.loyalty - 10) }; break;
+      case 'infamy+20': engine.value = { ...e, infamy: e.infamy + 20 }; break;
+      case 'av+5': { const av = e.av ?? defaultAvState(); engine.value = { ...e, av: { ...av, shotCount: av.shotCount + 5 } }; break; }
+      case 'slots15': engine.value = { ...e, totalSlots: 15 }; break;
+    }
+    autoUnlockMysteries();
+    persistNow();
   }
 
   // ─── AV 系统(拍摄→排入行动格,执行时注入定制范式) ───
@@ -602,7 +630,7 @@ export const useRunnerStore = defineStore('runner', () => {
   return {
     day, engine, fastForward, busy, lastSettle, lastServe, lastRecruit, lastNight,
     lastReward, lastProtection, lastAvIncome, lastAttrition, notifyLog,
-    lastWalk, lastOrgy, lastMystery,
+    lastWalk, lastOrgy, lastMystery, debugAdjust,
     forcedLeaveToday, forcedSeize, reliefCleared, hardFail, hardFailReason, failWarnings, error,
     lastEmpty, lastWarn, genHint, lastBuyCondom,
     currentSlot: currentSlotRef, canRunCurrent, runnerState,
