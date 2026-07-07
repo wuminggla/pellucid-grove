@@ -28,18 +28,21 @@
       此区域尚未修缮。前往「九条宅」建造 <b>{{ unlockNodeName(curPageObj) }}</b> 后解锁。
     </div>
 
-    <!-- 技能树画布 -->
-    <div v-else class="canvas" :style="{ width: canvasW + 'px', height: canvasH + 'px' }">
-      <svg class="links" :width="canvasW" :height="canvasH">
-        <line v-for="(l, i) in links" :key="i" :x1="l.x1" :y1="l.y1" :x2="l.x2" :y2="l.y2"
-          :class="{ done: l.done }" />
-      </svg>
-      <div v-for="n in nodes" :key="n.def.id" class="node" :class="[n.state, { mystery: n.def.mystery }]" :style="{ left: n.x + 'px', top: n.y + 'px' }"
-        @click="onNode(n)" @mouseenter="hover = n" @mouseleave="hover = null">
-        <div class="n-name">{{ n.def.mystery && n.lvl === 0 ? '？？？' : n.def.name }}<span v-if="n.def.mystery" class="n-heart">♥</span></div>
-        <div class="n-lvl">{{ n.def.mystery ? (n.lvl > 0 ? '已解禁' : '待解禁') : (n.def.maxLevel > 1 ? `Lv.${n.lvl}/${n.def.maxLevel}` : (n.lvl > 0 ? '已建' : `¥${n.def.cost}`)) }}</div>
-        <div v-if="n.lvl >= n.def.maxLevel" class="n-check">✓</div>
-        <div v-else-if="!n.def.mystery && n.state === 'locked'" class="n-check">🔒</div>
+    <!-- 技能树画布(独立滚动区·可拖拽平移·不再遮盖下方详情) -->
+    <div v-else class="canvas-wrap" ref="wrapEl"
+      @pointerdown="panStart" @pointermove="panMove" @pointerup="panEnd" @pointercancel="panEnd">
+      <div class="canvas" :style="{ width: canvasW + 'px', height: canvasH + 'px' }">
+        <svg class="links" :width="canvasW" :height="canvasH">
+          <line v-for="(l, i) in links" :key="i" :x1="l.x1" :y1="l.y1" :x2="l.x2" :y2="l.y2"
+            :class="{ done: l.done }" />
+        </svg>
+        <div v-for="n in nodes" :key="n.def.id" class="node" :class="[n.state, { mystery: n.def.mystery }]" :style="{ left: n.x + 'px', top: n.y + 'px' }"
+          @click="onNode(n)" @mouseenter="hover = n" @mouseleave="hover = null">
+          <div class="n-name">{{ n.def.mystery && n.lvl === 0 ? '？？？' : n.def.name }}<span v-if="n.def.mystery" class="n-heart">♥</span></div>
+          <div class="n-lvl">{{ n.def.mystery ? (n.lvl > 0 ? '已解禁' : '待解禁') : (n.def.maxLevel > 1 ? `Lv.${n.lvl}/${n.def.maxLevel}` : (n.lvl > 0 ? '已建' : `¥${n.def.cost}`)) }}</div>
+          <div v-if="n.lvl >= n.def.maxLevel" class="n-check">✓</div>
+          <div v-else-if="!n.def.mystery && n.state === 'locked'" class="n-check">🔒</div>
+        </div>
       </div>
     </div>
 
@@ -79,7 +82,29 @@ import type { UpgradeDef } from '../../../game/upgrade/types';
 import type { SkillPage } from '../../../game/upgrade/skilltree';
 
 const r = useRunnerStore();
-const COL_W = 168, ROW_H = 96, NODE_W = 132, NODE_H = 60, PAD = 16;
+// 缩小节点与网格,整树尽量放得下;放不下时画布区可滚动/拖拽平移
+const COL_W = 126, ROW_H = 70, NODE_W = 104, NODE_H = 48, PAD = 10;
+
+// —— 画布拖拽平移(按住空白处拖动;点节点不触发) ——
+const wrapEl = ref<HTMLElement | null>(null);
+let panning = false, panSX = 0, panSY = 0, panLeft = 0, panTop = 0;
+function panStart(e: PointerEvent) {
+  if ((e.target as HTMLElement).closest('.node')) return; // 节点上不平移,保留点击
+  const el = wrapEl.value; if (!el) return;
+  panning = true; panSX = e.clientX; panSY = e.clientY; panLeft = el.scrollLeft; panTop = el.scrollTop;
+  el.setPointerCapture(e.pointerId);
+}
+function panMove(e: PointerEvent) {
+  if (!panning) return;
+  const el = wrapEl.value; if (!el) return;
+  el.scrollLeft = panLeft - (e.clientX - panSX);
+  el.scrollTop = panTop - (e.clientY - panSY);
+}
+function panEnd(e: PointerEvent) {
+  if (!panning) return;
+  panning = false;
+  try { wrapEl.value?.releasePointerCapture(e.pointerId); } catch { /* noop */ }
+}
 
 const pages = computed(() => SKILL_PAGES.map(p => ({ ...p, open: pageUnlocked(p, r.engine.unlocked) })));
 const curPage = ref('house');
@@ -151,7 +176,7 @@ function unlockNodeName(p: SkillPage): string {
 </script>
 
 <style scoped>
-.tree { padding: 16px 22px; overflow-y: auto; height: 100%; display: flex; flex-direction: column; }
+.tree { padding: 14px 20px; overflow: hidden; height: 100%; display: flex; flex-direction: column; }
 .tree-head { display: flex; align-items: baseline; gap: 14px; }
 .th-title { font-family: var(--brush); font-size: 26px; color: var(--gold-hi); }
 .th-stats { margin-left: auto; display: flex; gap: 16px; font-size: 13px; color: var(--text-dim); }
@@ -170,15 +195,17 @@ function unlockNodeName(p: SkillPage): string {
 .locked-page { padding: 30px; text-align: center; color: var(--text-dim); border: 1px dashed var(--gold-dim); border-radius: 12px; max-width: 560px; margin: 20px auto; line-height: 1.8; }
 .locked-page b { color: var(--gold); }
 
-.canvas { position: relative; flex: 1; min-height: 200px; }
+.canvas-wrap { flex: 1; min-height: 120px; overflow: auto; cursor: grab; border: 1px dashed rgba(201,162,74,.14); border-radius: 8px; }
+.canvas-wrap:active { cursor: grabbing; }
+.canvas { position: relative; flex: none; }
 .links { position: absolute; left: 0; top: 0; pointer-events: none; }
 .links line { stroke: var(--line); stroke-width: 2; }
 .links line.done { stroke: var(--gold); }
-.node { position: absolute; width: 132px; height: 60px; border-radius: 9px; border: 1px solid var(--line); background: linear-gradient(180deg, var(--panel), var(--panel-2)); padding: 8px 10px; cursor: pointer; transition: .12s; display: flex; flex-direction: column; justify-content: center; }
+.node { position: absolute; width: 104px; height: 48px; border-radius: 7px; border: 1px solid var(--line); background: linear-gradient(180deg, var(--panel), var(--panel-2)); padding: 5px 8px; cursor: pointer; transition: .12s; display: flex; flex-direction: column; justify-content: center; }
 .node:hover { transform: translateY(-2px); }
-.node .n-name { font-size: 13px; color: var(--text); line-height: 1.25; }
-.node .n-lvl { font-size: 11px; color: var(--gold-dim); margin-top: 3px; }
-.node .n-check { position: absolute; top: 5px; right: 8px; font-size: 12px; color: var(--gold-hi); }
+.node .n-name { font-size: 11.5px; color: var(--text); line-height: 1.2; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.node .n-lvl { font-size: 10px; color: var(--gold-dim); margin-top: 2px; }
+.node .n-check { position: absolute; top: 3px; right: 6px; font-size: 11px; color: var(--gold-hi); }
 .node.maxed { border-color: var(--gold); background: linear-gradient(180deg, rgba(201,162,74,.22), rgba(0,0,0,.25)); }
 .node.owned { border-color: var(--gold-dim); }
 .node.buyable { border-color: var(--gold-hi); box-shadow: 0 0 10px rgba(236,200,120,.35); }
@@ -195,7 +222,7 @@ function unlockNodeName(p: SkillPage): string {
 .d-req { font-size: 12px; color: var(--rose-hi); border: 1px solid rgba(210,74,106,.45); background: rgba(210,74,106,.08); border-radius: 5px; padding: 4px 10px; }
 .detail-myst { border-color: var(--rose) !important; }
 
-.detail { flex: none; margin-top: 12px; border: 1px solid var(--gold-dim); border-radius: 9px; background: rgba(18,12,11,.8); padding: 12px 16px; }
+.detail { flex: none; margin-top: 10px; border: 1px solid var(--gold-dim); border-radius: 9px; background: rgba(18,12,11,.92); padding: 10px 14px; max-height: 30vh; overflow-y: auto; position: relative; z-index: 5; }
 .d-top { display: flex; align-items: baseline; gap: 12px; }
 .d-name { font-size: 16px; color: var(--gold-hi); }
 .d-cost { margin-left: auto; font-size: 12px; color: var(--gold); }
