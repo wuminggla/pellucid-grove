@@ -21,11 +21,11 @@ export interface SkillPage {
 
 export const SKILL_PAGES: SkillPage[] = [
   { id: 'house', name: '九条宅', narrative: '荒废多年的九条本邸。凛赚来的每一分钱，先用来修缮这里——每修好一处，就重启一片可能。' },
-  { id: 'rin', name: '凛 · 自己', narrative: '大小姐亲自打理的经营核心：行动格、供奉吞吐、欲望承载、名声系数。' },
+  { id: 'rin', name: '凛 · 自己', narrative: '大小姐的起居与身体。定制饮食、深度睡眠、扩建浴场……每一件生活的改善，都在不知不觉间给"另一种改造"腾出位置——绯红的???会自己亮起来。' },
   { id: 'dojo', name: '道场', narrative: '练武堂。打手的武力与肉体在此被反复操练、改造。', unlockKey: 'dojo_page', unlockedByNode: 'room_dojo' },
   { id: 'studio', name: '摄影房', narrative: '暗网AV摄影棚。设备、产能、玩法编排都在这里升级。', unlockKey: 'av', unlockedByNode: 'studio' },
   { id: 'dungeon', name: '地下室', narrative: '拘禁与刑具之所。暴力供奉、受虐癖线在此推进。', unlockKey: 'basement', unlockedByNode: 'basement' },
-  { id: 'expansion', name: '地盘扩张', narrative: '收购周边地皮。占了哪片地，那片的场所才会翻面成白日宣淫的猎场——每一次扩张都为白天解锁新的双面事件。便宜的先买，铺开NSFW面。' },
+  { id: 'expansion', name: '地盘扩张', narrative: '修缮宅邸、收购地皮——解锁的是正正经经的日常去处。但每个去处下面都吊着一个绯红的???，堕落到了，它会自己翻面。' },
 ];
 
 /** 节点布局(列col/行row)。每页一套局部坐标。 */
@@ -41,13 +41,27 @@ export const NODE_META: Record<string, NodeMeta> = {
   poster2:       { page: 'house', col: 2, row: 0 },
   poster3:       { page: 'house', col: 3, row: 0 },
   poster4:       { page: 'house', col: 4, row: 0 },
-  // 凛自己
-  action_slots: { page: 'rin', col: 0, row: 0 },
-  throughput:   { page: 'rin', col: 0, row: 1 },
-  desire_cap:   { page: 'rin', col: 1, row: 0 },
-  purchase:     { page: 'rin', col: 1, row: 1 },
-  fortify:      { page: 'rin', col: 2, row: 0 },
-  prestige_mult:{ page: 'rin', col: 2, row: 1 },
+  // 凛自己(生活化升级在上·???淫乱化垂在各自前置下方)
+  life_diet:   { page: 'rin', col: 0, row: 0 },
+  life_sleep:  { page: 'rin', col: 0, row: 1 },
+  life_bed:    { page: 'rin', col: 0, row: 2 },
+  life_bath:   { page: 'rin', col: 0, row: 3 },
+  m_bath:      { page: 'rin', col: 0, row: 4 },
+  life_walk:   { page: 'rin', col: 0, row: 5 },
+  m_diet:      { page: 'rin', col: 1, row: 0 },
+  m_sleep:     { page: 'rin', col: 1, row: 1 },
+  m_bath_serve:{ page: 'rin', col: 1, row: 3 },
+  m_walk_toy:  { page: 'rin', col: 1, row: 5 },
+  m_walk_dog:  { page: 'rin', col: 2, row: 5 },
+  m_walk_orgy: { page: 'rin', col: 3, row: 5 },
+  m_toilet:    { page: 'rin', col: 2, row: 2 },
+  m_chair:     { page: 'rin', col: 2, row: 3 },
+  // 经营数值(凛页右侧)
+  throughput:   { page: 'rin', col: 3, row: 0 },
+  desire_cap:   { page: 'rin', col: 3, row: 1 },
+  purchase:     { page: 'rin', col: 4, row: 0 },
+  fortify:      { page: 'rin', col: 4, row: 1 },
+  prestige_mult:{ page: 'rin', col: 3, row: 2 },
   // 道场
   weapon:      { page: 'dojo', col: 0, row: 0 },
   martial:     { page: 'dojo', col: 0, row: 1 },
@@ -66,14 +80,25 @@ export const NODE_META: Record<string, NodeMeta> = {
   av_play:     { page: 'studio', col: 1, row: 1 },
   // 地下室
   dungeon_gear:{ page: 'dungeon', col: 0, row: 0 },
-  // 地盘扩张收购树(挂扩张日常双面事件·前后置)
-  annex_estate:    { page: 'expansion', col: 0, row: 1 },
+  // 地盘扩张树(SFW解锁在上·???翻面开关垂在各自事件下方)
+  annex_estate:    { page: 'expansion', col: 0, row: 0 },
   annex_shrine:    { page: 'expansion', col: 1, row: 0 },
-  annex_street:    { page: 'expansion', col: 1, row: 2 },
-  annex_hill:      { page: 'expansion', col: 2, row: 1 },
-  annex_district:  { page: 'expansion', col: 2, row: 3 },
-  annex_halfcity:  { page: 'expansion', col: 3, row: 3 },
-  condom_delivery: { page: 'expansion', col: 4, row: 3 },
+  m_ancestor:      { page: 'expansion', col: 2, row: 0 },
+  annex_street:    { page: 'expansion', col: 0, row: 1 },
+  m_dine:          { page: 'expansion', col: 1, row: 1 },
+  m_mall:          { page: 'expansion', col: 2, row: 1 },
+  annex_hill:      { page: 'expansion', col: 0, row: 2 },
+  annex_hill_trail:{ page: 'expansion', col: 1, row: 2 },
+  m_hiking:        { page: 'expansion', col: 2, row: 2 },
+  annex_hill_camp: { page: 'expansion', col: 1, row: 3 },
+  m_camping:       { page: 'expansion', col: 2, row: 3 },
+  annex_district:  { page: 'expansion', col: 0, row: 4 },
+  m_amusement:     { page: 'expansion', col: 1, row: 4 },
+  m_beach:         { page: 'expansion', col: 2, row: 4 },
+  m_festival:      { page: 'expansion', col: 3, row: 4 },
+  annex_halfcity:  { page: 'expansion', col: 0, row: 5 },
+  m_concert:       { page: 'expansion', col: 1, row: 5 },
+  condom_delivery: { page: 'expansion', col: 2, row: 5 },
 };
 
 /** 页是否解锁 */

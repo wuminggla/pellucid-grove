@@ -18,14 +18,16 @@ function resolveStages(stages: EventStage[], ctx: EventContext): {
   stage: EventStage | null; isFirst: boolean;
 } {
   const sorted = [...stages].sort((a, b) => a.corruptionAtLeast - b.corruptionAtLeast);
-  // 最低未触发阶段
-  const pending = sorted.find(s => ctx.triggeredLedger[s.ledgerKey] !== true);
-  if (pending && ctx.corruption >= pending.corruptionAtLeast) {
-    return { stage: pending, isFirst: true }; // 强制演该阶段首次
-  }
-  // 最高已触发阶段(重复体验);无则 SFW
-  const triggered = sorted.filter(s => ctx.triggeredLedger[s.ledgerKey] === true);
-  const highest = triggered.length ? triggered[triggered.length - 1] : null;
+  // 阶段激活判定:有 unlockKey 用解锁键(升级顶替范式),否则堕落度门槛
+  const active = (s: EventStage) =>
+    s.unlockKey ? ctx.unlocked[s.unlockKey] === true : ctx.corruption >= s.corruptionAtLeast;
+  // 最低未触发且已激活的阶段 → 强制演其首次
+  const pending = sorted.find(s => ctx.triggeredLedger[s.ledgerKey] !== true && active(s));
+  if (pending) return { stage: pending, isFirst: true };
+  // 最高"已激活"阶段(重复体验·后开的顶替先开的);无则 SFW。
+  // 注意用 active 而非 triggeredLedger:范式顶替=一旦解锁,旧阶段不再可选。
+  const activeStages = sorted.filter(s => ctx.triggeredLedger[s.ledgerKey] === true && active(s));
+  const highest = activeStages.length ? activeStages[activeStages.length - 1] : null;
   return { stage: highest, isFirst: false };
 }
 

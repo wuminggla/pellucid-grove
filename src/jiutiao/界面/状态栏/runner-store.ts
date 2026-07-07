@@ -13,7 +13,7 @@ import {
 import { runCurrentSlot, settleNight, advanceToNextDay, applyForcedSeizes } from '../../game/engine/day-runner';
 import type { RunnerState } from '../../game/engine/day-runner';
 import { dailyDesireDemand, availableThugs, weeklyRecruitQuota, combatPower, presentCountFrom, appendMoneyLog } from '../../game/economy/machine';
-import { weaponMult, baseMartialPerThug, prestigeMultiplier, UPGRADES_BY_ID, canUpgrade, applyUpgrade } from '../../game/upgrade/machine';
+import { weaponMult, baseMartialPerThug, prestigeMultiplier, UPGRADES_BY_ID, canUpgrade, applyUpgrade, pendingMysteries } from '../../game/upgrade/machine';
 import {
   REGIONS_BY_ID, canDefeat, defeatRegion, regionState, effectiveThreshold,
   settleScout, settleBribe, settleOffensiveHarass, SCOUT_COST, BRIBE_COST, isRevengeComplete,
@@ -66,6 +66,9 @@ export const useRunnerStore = defineStore('runner', () => {
   const lastReward = ref<{ gained: number; reason?: 'no_money' } | null>(null);
   const lastProtection = ref<{ income: number } | null>(null);
   const lastAttrition = ref<number>(0); // 昨日打手自然流失数(进次日时设)
+  const lastWalk = ref<{ count: number; gained: boolean; capped: boolean } | null>(null); // 散步体质计数
+  const lastOrgy = ref<{ wasted: number } | null>(null); // 庭院群交挥霍
+  const lastMystery = ref<string[]>([]); // 本轮自动解锁的???通知
   // 通知历史(最近两天·可展开查看)。不进存档,纯会话UI。
   type Notice = { t: string; tone: string };
   const notifyLog = ref<{ day: number; label: string; notices: Notice[] }[]>([]);
@@ -257,6 +260,44 @@ export const useRunnerStore = defineStore('runner', () => {
     }
     const lvl = engine.value.upgrades?.[id] ?? 1;
     lastUpgrade.value = { ok: true, msg: `「${def.name}」已升至 Lv.${lvl}（花费¥${def.cost}）${corrMsg}。` };
+    autoUnlockMysteries();
+  }
+
+  /**
+   * ???(mystery)自动解锁:条件满足即免费解锁(升级面板上"???"翻开)。
+   * 效果多为"色情数值叙事的负面加成"(+堕落/+淫名/事件范式顶替)。堕落增量可能级联触发下一个???,循环到稳定。
+   */
+  function autoUnlockMysteries() {
+    const msgs: string[] = [];
+    for (let guard = 0; guard < 10; guard++) {
+      const ready = pendingMysteries(engine.value as any);
+      if (!ready.length) break;
+      for (const def of ready) {
+        engine.value = applyUpgrade(engine.value as any, def); // cost=0
+        let extra = '';
+        if (def.corruptionOnBuy && def.corruptionOnBuy > 0) {
+          const cr = gainCorruption(
+            { corruption: engine.value.corruption, cognition: engine.value.cognition, claimedGates: engine.value.claimedGates },
+            def.corruptionOnBuy,
+          );
+          engine.value = { ...engine.value, corruption: cr.corruption, cognition: cr.cognition, claimedGates: cr.claimedGates };
+          for (const g of cr.firedGates) {
+            engine.value = { ...engine.value, money: engine.value.money + (g.reward.money ?? 0), thugTotal: engine.value.thugTotal + (g.reward.thugs ?? 0) };
+          }
+          extra += ` 堕落+${def.corruptionOnBuy}` + (cr.cognitionAdvancedTo ? `→${cr.cognitionAdvancedTo}` : '');
+        }
+        if (def.infamyOnBuy && def.infamyOnBuy > 0) {
+          engine.value = { ...engine.value, infamy: engine.value.infamy + def.infamyOnBuy };
+          extra += ` 淫名+${def.infamyOnBuy}`;
+        }
+        msgs.push(`❤ ???揭晓：「${def.name}」${extra}`);
+      }
+    }
+    if (msgs.length) {
+      lastMystery.value = [...lastMystery.value, ...msgs];
+      const d = day.value.dayNumber;
+      notifyLog.value = [...notifyLog.value, { day: d, label: `第${d}天 ❤解禁`, notices: msgs.map(t => ({ t, tone: 'rose' })) }].filter(x => x.day >= d - 1).slice(-60);
+    }
   }
 
   // ─── AV 系统(拍摄→排入行动格,执行时注入定制范式) ───
@@ -354,6 +395,7 @@ export const useRunnerStore = defineStore('runner', () => {
   async function execCurrentFrom(snapshot: { day: DayState; engine: EngineState }) {
     busy.value = true; error.value = null; lastEmpty.value = false; lastWarn.value = null;
     lastTurf.value = null; // 清掉地盘格残留提示,避免普通格重复记录
+    lastMystery.value = []; lastWalk.value = null; lastOrgy.value = null;
     genHint.value = GEN_HINTS[Math.floor(Math.random() * GEN_HINTS.length)];
     // 执行前记录当前格(AV拍摄消费判定用)
     const ranSlot = currentSlot(snapshot.day);
@@ -390,8 +432,11 @@ export const useRunnerStore = defineStore('runner', () => {
       lastBuyCondom.value = r.buyCondom ?? null;
       lastReward.value = r.reward ?? null;
       lastProtection.value = r.protection ?? null;
+      lastWalk.value = r.walk ?? null;
+      lastOrgy.value = r.orgy ?? null;
       lastAvIncome.value = avIncome;
       lastNight.value = nightInfo;
+      autoUnlockMysteries();
       const sl = ranSlot ? `${ranSlot.period === 'day' ? '昼' : '夜'}#${ranSlot.index + 1}` : '';
       const extra: Notice[] = nightInfo ? [{ t: `夜结：供奉${nightInfo.servedToday}人·结余${nightInfo.desireLeftover}` + (nightInfo.overflowImminent ? ' ⚠次日白日供奉' : ''), tone: nightInfo.overflowImminent ? 'warn' : 'dim' }] : [];
       logNotices(`第${day.value.dayNumber}天 ${sl}`, extra);
@@ -446,12 +491,13 @@ export const useRunnerStore = defineStore('runner', () => {
       const d = day.value.dayNumber;
       if (ex.length) notifyLog.value = [...notifyLog.value, { day: d, label: `第${d}天 日终`, notices: ex }].filter(x => x.day >= d - 1).slice(-60);
     }
-    lastSettle.value = null; lastServe.value = null; lastRecruit.value = null; lastBuyCondom.value = null; lastReward.value = null; lastProtection.value = null; lastAvIncome.value = null; lastNight.value = null; error.value = null;
+    autoUnlockMysteries();
+    lastSettle.value = null; lastServe.value = null; lastRecruit.value = null; lastBuyCondom.value = null; lastReward.value = null; lastProtection.value = null; lastAvIncome.value = null; lastWalk.value = null; lastOrgy.value = null; lastNight.value = null; error.value = null;
   }
 
   function loadState(state: RunnerState, ff: boolean) {
     day.value = state.day; engine.value = state.engine; fastForward.value = ff;
-    lastSettle.value = null; lastServe.value = null; lastRecruit.value = null; lastBuyCondom.value = null; lastReward.value = null; lastProtection.value = null; lastAvIncome.value = null; lastNight.value = null;
+    lastSettle.value = null; lastServe.value = null; lastRecruit.value = null; lastBuyCondom.value = null; lastReward.value = null; lastProtection.value = null; lastAvIncome.value = null; lastWalk.value = null; lastOrgy.value = null; lastNight.value = null;
     forcedLeaveToday.value = false; forcedSeize.value = null;
     reliefCleared.value = false; hardFail.value = false; hardFailReason.value = null; failWarnings.value = []; error.value = null;
   }
@@ -491,7 +537,7 @@ export const useRunnerStore = defineStore('runner', () => {
   function resetGame() {
     _loadingSave = true;
     day.value = startDay(1, TOTAL_SLOTS); engine.value = initialEngine(); fastForward.value = false;
-    lastSettle.value = null; lastServe.value = null; lastRecruit.value = null; lastBuyCondom.value = null; lastReward.value = null; lastProtection.value = null; lastAvIncome.value = null; lastNight.value = null;
+    lastSettle.value = null; lastServe.value = null; lastRecruit.value = null; lastBuyCondom.value = null; lastReward.value = null; lastProtection.value = null; lastAvIncome.value = null; lastWalk.value = null; lastOrgy.value = null; lastNight.value = null;
     forcedLeaveToday.value = false; forcedSeize.value = null; reliefCleared.value = false;
     hardFail.value = false; hardFailReason.value = null; failWarnings.value = []; error.value = null;
     notifyLog.value = []; dismissedEnding.value = null;
@@ -511,6 +557,11 @@ export const useRunnerStore = defineStore('runner', () => {
     if (lastProtection.value && lastProtection.value.income > 0) out.push({ t: `收保护费 +¥${lastProtection.value.income.toLocaleString()}`, tone: 'ok' });
     if (lastAvIncome.value && lastAvIncome.value.income > 0) out.push({ t: `AV销售 +¥${lastAvIncome.value.income.toLocaleString()}（${lastAvIncome.value.theme}）`, tone: 'gold' });
     if (lastTurf.value) out.push({ t: lastTurf.value.msg, tone: lastTurf.value.ok ? 'ok' : 'warn' });
+    if (lastWalk.value) out.push(lastWalk.value.capped
+      ? { t: '散步·体质已达上限(15格),不再积累', tone: 'dim' }
+      : { t: lastWalk.value.gained ? '❀ 体质大成·行动格 +1！' : `散步·体质计数 ${lastWalk.value.count}/10`, tone: lastWalk.value.gained ? 'gold' : 'dim' });
+    if (lastOrgy.value) out.push({ t: `❤ 庭院群交·打手们挥霍光了避孕套（-${lastOrgy.value.wasted}·库存归零）`, tone: 'rose' });
+    lastMystery.value.forEach(t => out.push({ t, tone: 'rose' }));
     return out;
   }
   function logNotices(label: string, extra: Notice[] = []) {
@@ -545,11 +596,13 @@ export const useRunnerStore = defineStore('runner', () => {
   // 启动: 有存档→读回; 无→落初始并写一次。之后任意状态变化自动防抖存。
   const _hadSave = loadSave();
   if (!_hadSave) persistNow();
+  autoUnlockMysteries(); // 读档后补结:堕落度已到但???尚未解锁的补齐(如旧档升级)
   watch([day, engine, fastForward], schedulePersist, { deep: true });
 
   return {
     day, engine, fastForward, busy, lastSettle, lastServe, lastRecruit, lastNight,
     lastReward, lastProtection, lastAvIncome, lastAttrition, notifyLog,
+    lastWalk, lastOrgy, lastMystery,
     forcedLeaveToday, forcedSeize, reliefCleared, hardFail, hardFailReason, failWarnings, error,
     lastEmpty, lastWarn, genHint, lastBuyCondom,
     currentSlot: currentSlotRef, canRunCurrent, runnerState,

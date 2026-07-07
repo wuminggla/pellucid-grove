@@ -40,7 +40,8 @@ export interface EngineState {
   moneyZeroStreak?: number;   // 资金轨:连续余额≤0次数（连续2次=硬失败·存量判定）
   // —— 升级（群体升级账本：升级项id→等级 + 设施/扩张效果落地的字段） ——
   upgrades?: Record<string, number>;
-  totalSlots?: number;          // 每日总行动格(行动格扩容；默认见 BASE_ACTION_SLOTS)
+  totalSlots?: number;          // 每日总行动格(行动格扩容；默认见 BASE_ACTION_SLOTS·硬上限15)
+  walkCount?: number;           // 庭院散步·体质计数(每满10→行动格+1·由 day-runner 结算)
   purchaseUpgradeMult?: number; // 避孕套采购扩容倍率(默认1)
   turfFortifyBonus?: number;    // 据点加固加成(默认0；地盘系统消费)
   occupyScale?: number;         // 占据规模档序号(地盘扩张；门控扩张日常选项)

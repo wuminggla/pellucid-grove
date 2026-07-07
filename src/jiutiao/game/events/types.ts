@@ -53,6 +53,8 @@ export interface FirstMilestone {
  */
 export interface EventStage {
   corruptionAtLeast: number; // 进入此阶段的堕落度门槛
+  /** 可选:该阶段以解锁键判定激活(unlocked[unlockKey]===true),用于升级项顶替事件范式 */
+  unlockKey?: string;
   ledgerKey: string;         // 此阶段首次的账本键（全局唯一）
   corruptionWeight: number;  // 此阶段首次加的堕落度
   firstParadigm: ParadigmRef;// 此阶段首次范式（ai_full 重点扩写）

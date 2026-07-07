@@ -99,7 +99,7 @@ export const demoEventOptions: Record<string, EventOption> = {
     unlockRequires: ['occupy_street'],
     sfw: { worldbookKey: 'wb_dine_sfw' },
     nsfw: { worldbookKey: 'wb_dine' },
-    erosionGate: { corruptionAtLeast: 30 },
+    erosionGate: { custom: ctx => ctx.unlocked.nsfw_dine === true },
     first: { ledgerKey: 'dine_first', paradigm: { worldbookKey: 'wb_dine_first' }, corruptionWeight: 1 },
     infamyReward: 1,
     // A4: 餐厅=公共场所(虽然包场,仍可能曝光)
@@ -117,7 +117,7 @@ export const demoEventOptions: Record<string, EventOption> = {
     unlockRequires: ['occupy_district'],
     sfw: { worldbookKey: 'wb_amusement_sfw' },
     nsfw: { worldbookKey: 'wb_amusement' },
-    erosionGate: { corruptionAtLeast: 40 },
+    erosionGate: { custom: ctx => ctx.unlocked.nsfw_amusement === true },
     first: { ledgerKey: 'amusement_first', paradigm: { worldbookKey: 'wb_amusement_first' }, corruptionWeight: 1 },
     needsContinuity: true,
   },
@@ -127,7 +127,7 @@ export const demoEventOptions: Record<string, EventOption> = {
     unlockRequires: ['occupy_district'],
     sfw: { worldbookKey: 'wb_beach_sfw' },
     nsfw: { worldbookKey: 'wb_beach' },
-    erosionGate: { corruptionAtLeast: 40 },
+    erosionGate: { custom: ctx => ctx.unlocked.nsfw_beach === true },
     first: { ledgerKey: 'beach_first', paradigm: { worldbookKey: 'wb_beach_first' }, corruptionWeight: 1 },
     needsContinuity: true,
   },
@@ -137,17 +137,17 @@ export const demoEventOptions: Record<string, EventOption> = {
     unlockRequires: ['occupy_street'],
     sfw: { worldbookKey: 'wb_mall_sfw' },
     nsfw: { worldbookKey: 'wb_mall' },
-    erosionGate: { corruptionAtLeast: 35 },
+    erosionGate: { custom: ctx => ctx.unlocked.nsfw_mall === true },
     first: { ledgerKey: 'mall_first', paradigm: { worldbookKey: 'wb_mall_first' }, corruptionWeight: 1 },
     needsContinuity: true,
   },
 
   camping: {
     id: 'camping', label: '森林野营', period: 'day', shape: 'dual',
-    unlockRequires: ['occupy_hill'],
+    unlockRequires: ['hill_camp'],
     sfw: { worldbookKey: 'wb_camping_sfw' },
     nsfw: { worldbookKey: 'wb_camping' },
-    erosionGate: { corruptionAtLeast: 35 },
+    erosionGate: { custom: ctx => ctx.unlocked.nsfw_camping === true },
     first: { ledgerKey: 'camping_first', paradigm: { worldbookKey: 'wb_camping_first' }, corruptionWeight: 1 },
     needsContinuity: true,
   },
@@ -157,7 +157,7 @@ export const demoEventOptions: Record<string, EventOption> = {
     unlockRequires: ['occupy_hill'],
     sfw: { worldbookKey: 'wb_hiking_sfw' },
     nsfw: { worldbookKey: 'wb_hiking' },
-    erosionGate: { corruptionAtLeast: 30 },
+    erosionGate: { custom: ctx => ctx.unlocked.nsfw_hiking === true },
     first: { ledgerKey: 'hiking_first', paradigm: { worldbookKey: 'wb_hiking_first' }, corruptionWeight: 1 },
     needsContinuity: true,
   },
@@ -176,7 +176,7 @@ export const demoEventOptions: Record<string, EventOption> = {
     unlockRequires: ['occupy_district'],
     sfw: { worldbookKey: 'wb_festival_sfw' },
     nsfw: { worldbookKey: 'wb_festival' },
-    erosionGate: { corruptionAtLeast: 40 },
+    erosionGate: { custom: ctx => ctx.unlocked.nsfw_festival === true },
     first: { ledgerKey: 'festival_first', paradigm: { worldbookKey: 'wb_festival_first' }, corruptionWeight: 1 },
     needsContinuity: true,
   },
@@ -186,18 +186,32 @@ export const demoEventOptions: Record<string, EventOption> = {
     unlockRequires: ['occupy_halfcity'],
     sfw: { worldbookKey: 'wb_concert_sfw' },
     nsfw: { worldbookKey: 'wb_concert' },
-    erosionGate: { corruptionAtLeast: 45 },
+    erosionGate: { custom: ctx => ctx.unlocked.nsfw_concert === true },
     first: { ledgerKey: 'concert_first', paradigm: { worldbookKey: 'wb_concert_first' }, corruptionWeight: 1 },
     needsContinuity: true,
   },
 
-  garden_dog: {
-    id: 'garden_dog', label: '庭院遛母狗', period: 'day', shape: 'dual',
-    unlockRequires: ['courtyard'],
-    sfw: { worldbookKey: 'wb_garden_sfw' },
-    nsfw: { worldbookKey: 'wb_garden_dog' },
-    erosionGate: { corruptionAtLeast: 45 },
-    first: { ledgerKey: 'garden_dog_first', paradigm: { worldbookKey: 'wb_garden_dog_first' }, corruptionWeight: 2 },
+  // 庭院散步(散步健体解锁·体质计数:每10次+1行动格·上限15)。
+  // 多阶段=???链的范式顶替:普通散步→玩具散步(顶替)→遛母狗(顶替·终态)。阶段以升级解锁键激活。
+  garden_walk: {
+    id: 'garden_walk', label: '庭院散步', period: 'day', shape: 'dual',
+    unlockRequires: ['garden_walk'],
+    sfw: { worldbookKey: 'wb_garden_walk_sfw' },
+    stages: [
+      { corruptionAtLeast: 0, unlockKey: 'walk_toy', ledgerKey: 'walk_toy_first',
+        corruptionWeight: 2, firstParadigm: { worldbookKey: 'wb_walk_toy_first' }, paradigm: { worldbookKey: 'wb_walk_toy' } },
+      { corruptionAtLeast: 1, unlockKey: 'walk_dog', ledgerKey: 'garden_dog_first',
+        corruptionWeight: 2, firstParadigm: { worldbookKey: 'wb_garden_dog_first' }, paradigm: { worldbookKey: 'wb_garden_dog' } },
+    ],
+    needsContinuity: true,
+  },
+
+  // 庭院群交(???解锁·与遛母狗并行·效果=打手挥霍光库存避孕套)
+  garden_orgy: {
+    id: 'garden_orgy', label: '庭院群交', period: 'day', shape: 'born_nsfw',
+    unlockRequires: ['walk_orgy'],
+    nsfw: { worldbookKey: 'wb_garden_orgy' },
+    first: { ledgerKey: 'garden_orgy_first', paradigm: { worldbookKey: 'wb_garden_orgy' }, corruptionWeight: 2 },
     needsContinuity: true,
   },
 
@@ -216,18 +230,19 @@ export const demoEventOptions: Record<string, EventOption> = {
     unlockRequires: ['shrine'],
     sfw: { worldbookKey: 'wb_ancestor_sfw' },
     nsfw: { worldbookKey: 'wb_ancestor' },
-    erosionGate: { corruptionAtLeast: 60 },
+    erosionGate: { custom: ctx => ctx.unlocked.nsfw_ancestor === true },
     first: { ledgerKey: 'ancestor_first', paradigm: { worldbookKey: 'wb_ancestor_first' }, corruptionWeight: 3 },
     needsContinuity: true,
   },
 
-  // 双面型:宅内日常淫具化(吃喝拉撒坐卧被淫具化·需「日常淫具化改造」升级)
+  // 双面型:宅内日常起居。叙事主体在凛面板的???日常淫乱化按钮(假阳具饮食/如厕/椅子);
+  // 行动格里保留这个入口,任一淫乱化???解锁后翻面。
   daily_toy: {
     id: 'daily_toy', label: '日常起居', period: 'any', shape: 'dual',
     unlockRequires: ['dailytoy'],
     sfw: { worldbookKey: 'wb_dailytoy_sfw' },
     nsfw: { worldbookKey: 'wb_dailytoy' },
-    erosionGate: { corruptionAtLeast: 45 },
+    erosionGate: { custom: ctx => ctx.unlocked.toy_diet === true || ctx.unlocked.toilet_lewd === true || ctx.unlocked.chair_lewd === true },
     first: { ledgerKey: 'dailytoy_first', paradigm: { worldbookKey: 'wb_dailytoy_first' }, corruptionWeight: 2 },
     needsContinuity: true,
   },
@@ -361,12 +376,12 @@ export const demoEventOptions: Record<string, EventOption> = {
     needsContinuity: true,
   },
 
-  // 双面型:休息(SFW睡觉↔NSFW轮奸起居)
+  // 双面型:休息(SFW睡觉↔NSFW抱枕睡奸/轮奸起居)。翻面=???「抱枕睡奸」(深度睡眠+购买大床共同后置)自动解锁。
   rest: {
     id: 'rest', label: '休息', period: 'night', shape: 'dual',
     sfw: { worldbookKey: 'wb_rest_sfw' },
     nsfw: { worldbookKey: 'wb_rape_living' },
-    erosionGate: { corruptionAtLeast: 20 },
+    erosionGate: { custom: ctx => ctx.unlocked.sleep_rape === true },
     first: { ledgerKey: 'rape_living_first', paradigm: { worldbookKey: 'wb_rape_living_first' }, corruptionWeight: 2 },
   },
 
@@ -462,6 +477,8 @@ export const demoSummaryTemplates: Record<string, string> = {
   dine: '外出用餐完毕。',
   daily_toy: '大小姐的日常起居处理完毕。',
   garbage: '宅子打扫了一番。',
+  garden_walk: '大小姐在庭院散步锻炼了一阵。',
+  garden_orgy: '（庭院群交·避孕套被挥霍一空）',
   forced_leave: '（已结算白日供奉）',
   condom_zero_2: '大小姐在打手的指使下，循环利用了几个用过的避孕套。',
   condom_zero_3: '——避孕套用完了。打手们对视而笑。',

@@ -12,7 +12,7 @@ import {
   gainLoyalty, settleRewardThugs, settleProtectionFee, presentCountFrom, appendMoneyLog,
 } from '../economy/machine';
 import { totalShops } from '../turf/machine';
-import { desireGrowthMult } from '../upgrade/machine';
+import { desireGrowthMult, BASE_ACTION_SLOTS, MAX_ACTION_SLOTS, WALK_PER_SLOT } from '../upgrade/machine';
 import { scanForced } from '../events/machine';
 import { appendLog, appendContinuity } from '../memory/machine';
 import { deriveEventUnlocked } from './unlocked';
@@ -98,6 +98,10 @@ export interface RunSlotResult {
   buyCondom?: { bought: number; cost: number; reason?: 'no_money' } | null;
   /** 犒赏打手格的即时结算（非犒赏格为 null）：忠诚加成/花费 */
   reward?: { gained: number; reason?: 'no_money' } | null;
+  /** 庭院散步的体质计数结算（非散步格为 null）：当前计数/是否+1格/是否已到上限 */
+  walk?: { count: number; gained: boolean; capped: boolean } | null;
+  /** 庭院群交结算（非该格为 null）：挥霍掉的避孕套数(库存清零) */
+  orgy?: { wasted: number } | null;
   /** 收保护费格的即时结算（非保护费格为 null）：到账金钱 */
   protection?: { income: number } | null;
   /** 本格触发的临时格强制事件（如避孕套归零），null=无 */
@@ -183,6 +187,28 @@ export async function runCurrentSlot(
     protection = { income };
   }
 
+  // 庭院散步格(含玩具散步/遛母狗顶替态)：体质计数+1;满10→行动格+1(硬上限15后不再产生收益)
+  let walk: RunSlotResult['walk'] = null;
+  if (slot.choice.optionId === 'garden_walk') {
+    const total = engine.totalSlots ?? BASE_ACTION_SLOTS;
+    if (total >= MAX_ACTION_SLOTS) {
+      walk = { count: engine.walkCount ?? 0, gained: false, capped: true };
+    } else {
+      let c = (engine.walkCount ?? 0) + 1;
+      let t = total, gained = false;
+      if (c >= WALK_PER_SLOT) { c = 0; t = Math.min(MAX_ACTION_SLOTS, t + 1); gained = true; }
+      engine = { ...engine, walkCount: c, totalSlots: t };
+      walk = { count: c, gained, capped: false };
+    }
+  }
+
+  // 庭院群交格：打手们挥霍光库存避孕套(清零→可触发避孕套归零强制链)
+  let orgy: RunSlotResult['orgy'] = null;
+  if (slot.choice.optionId === 'garden_orgy') {
+    orgy = { wasted: engine.condomStock };
+    engine = { ...engine, condomStock: 0, condomUsedToday: (engine.condomUsedToday ?? 0) + engine.condomStock };
+  }
+
   // 强制临时格扫描（如避孕套归零）：在完成当前格【前】插入，使其成为下一格立即执行。
   let dayForInsert = dayRunning;
   let forcedInsert: ForcedEvent | null = null;
@@ -228,7 +254,7 @@ export async function runCurrentSlot(
 
   return {
     state: { day: dayDone, engine },
-    settle, serve, recruit, buyCondom, reward, protection, forcedInsert, logEntry,
+    settle, serve, recruit, buyCondom, reward, protection, walk, orgy, forcedInsert, logEntry,
   };
 }
 

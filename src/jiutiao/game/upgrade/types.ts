@@ -57,4 +57,16 @@ export interface UpgradeDef {
    * 由 store.buyUpgrade 走 gainCorruption 结算（认知防线推进+奖励闸门）。升级系统=前期堕落度主来源。
    */
   corruptionOnBuy?: number;
+  /** 解锁/购买时一次性增加的淫名（如椅子淫乱化=家中会客也坐淫具·名声外泄） */
+  infamyOnBuy?: number;
+  /**
+   * ？？？事件（绯红边框+♥·与金边普通升级区分）。
+   * 未解锁时显示"？？？"，悬停可见前置与堕落度要求；条件满足后【自动解锁·不花钱】。
+   * 带来的多是"色情数值叙事的负面加成"（+堕落/+淫名/范式顶替=惩罚）。
+   */
+  mystery?: boolean;
+  /** mystery 解锁所需堕落度（悬停显示"堕落度≥X"） */
+  corruptionRequired?: number;
+  /** mystery 解锁额外条件：行动格数已达硬上限(15)。庭院群交用。 */
+  requiresSlotsMax?: boolean;
 }

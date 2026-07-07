@@ -238,6 +238,11 @@ const statusItems = computed(() => {
   if (r.lastProtection && r.lastProtection.income > 0) out.push({ t: `收保护费 +¥${r.lastProtection.income.toLocaleString()}`, tone: 'ok' });
   if (r.lastAvIncome && r.lastAvIncome.income > 0) out.push({ t: `AV销售 +¥${r.lastAvIncome.income.toLocaleString()}（${r.lastAvIncome.theme}）`, tone: 'gold' });
   if (r.lastAttrition > 0) out.push({ t: `打手流失 -${r.lastAttrition}（忠诚低·被挖角/出走）`, tone: 'warn' });
+  if (r.lastWalk) out.push(r.lastWalk.capped
+    ? { t: '散步·体质已达上限(15格),不再积累', tone: 'dim' }
+    : { t: r.lastWalk.gained ? '❀ 体质大成·行动格 +1！' : `散步·体质计数 ${r.lastWalk.count}/10`, tone: r.lastWalk.gained ? 'gold' : 'dim' });
+  if (r.lastOrgy) out.push({ t: `❤ 庭院群交·打手们挥霍光了避孕套（-${r.lastOrgy.wasted}·库存归零）`, tone: 'rose' });
+  r.lastMystery.forEach((t: string) => out.push({ t, tone: 'rose' }));
   if (r.lastNight) out.push({ t: `夜结：供奉${r.lastNight.servedToday}人·结余${r.lastNight.desireLeftover}` + (r.lastNight.overflowImminent ? ' ⚠次日白日供奉' : ''), tone: r.lastNight.overflowImminent ? 'warn' : 'dim' });
   return out;
 });
