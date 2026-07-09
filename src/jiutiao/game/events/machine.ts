@@ -18,9 +18,9 @@ function resolveStages(stages: EventStage[], ctx: EventContext): {
   stage: EventStage | null; isFirst: boolean;
 } {
   const sorted = [...stages].sort((a, b) => a.corruptionAtLeast - b.corruptionAtLeast);
-  // 阶段激活判定:有 unlockKey 用解锁键(升级顶替范式),否则堕落度门槛
+  // 阶段激活判定:堕落度门槛 AND(若有)解锁键——双闸门(如买套档位=采购升级+堕落度)
   const active = (s: EventStage) =>
-    s.unlockKey ? ctx.unlocked[s.unlockKey] === true : ctx.corruption >= s.corruptionAtLeast;
+    ctx.corruption >= s.corruptionAtLeast && (s.unlockKey ? ctx.unlocked[s.unlockKey] === true : true);
   // 最低未触发且已激活的阶段 → 强制演其首次
   const pending = sorted.find(s => ctx.triggeredLedger[s.ledgerKey] !== true && active(s));
   if (pending) return { stage: pending, isFirst: true };

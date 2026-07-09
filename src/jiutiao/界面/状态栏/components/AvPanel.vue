@@ -34,9 +34,24 @@
           </div>
         </div>
         <div class="field">
-          <label>场景</label>
+          <label>场景<span v-if="!hasStage" class="hint">(更多棚内场景需「布景棚」升级)</span></label>
           <div class="chips">
-            <button v-for="s in SETTINGS" :key="s" class="chip" :class="{ on: def.setting === s }" @click="def.setting = s">{{ s }}</button>
+            <button v-for="s in settingsAvail" :key="s" class="chip" :class="{ on: def.setting === s }" @click="def.setting = s">{{ s }}</button>
+          </div>
+        </div>
+        <div class="field">
+          <label>衣装<span class="hint">{{ hasOutfits ? '(可不选)' : '(需「情趣衣装库」升级)' }}</span></label>
+          <div class="chips">
+            <button class="chip" :class="{ on: !def.outfit }" @click="def.outfit = undefined">便服/不指定</button>
+            <button v-for="o in OUTFITS" :key="o" class="chip" :class="{ on: def.outfit === o, dis: !hasOutfits }"
+              @click="hasOutfits && (def.outfit = o)">{{ o }}</button>
+          </div>
+        </div>
+        <div class="field">
+          <label>出演规模<span v-if="!hasCams" class="hint">(大规模需「多机位拍摄」升级)</span></label>
+          <div class="chips">
+            <button class="chip" :class="{ on: !def.cast }" @click="def.cast = undefined">按题材默认</button>
+            <button v-for="c in castsAvail" :key="c" class="chip" :class="{ on: def.cast === c }" @click="def.cast = c">{{ c }}</button>
           </div>
         </div>
         <div class="field">
@@ -83,19 +98,28 @@
 <script setup lang="ts">
 import { computed, reactive } from 'vue';
 import { useRunnerStore } from '../runner-store';
-import { defaultAvState, isAvSystemUnlocked, canShootAv, avSalesIncome } from '../../../game/av/machine';
-import { avPlayCap } from '../../../game/upgrade/machine';
-import type { AvTheme, AvSetting, AvPlay, AvDefinition } from '../../../game/av/machine';
+import { defaultAvState, isAvSystemUnlocked, canShootAv, avSalesIncome, STAGE_SETTINGS, CAST_NEEDS_CAMS } from '../../../game/av/machine';
+import { avPlayCap, avIncomeMultiplier, getLevel } from '../../../game/upgrade/machine';
+import type { AvTheme, AvSetting, AvPlay, AvDefinition, AvOutfit, AvCast } from '../../../game/av/machine';
 
 const r = useRunnerStore();
 const unlocked = computed(() => isAvSystemUnlocked(r.engine));
 const av = computed(() => r.engine.av ?? defaultAvState());
 
 const THEMES: AvTheme[] = ['玩具调教', '高潮挑战', '男M', '女M', '本格性爱', '目隐NTR', '目前NTR', '人数挑战', '时长挑战', '淫语调教', '公开处刑', '灌精挑战', '阿黑颜定格', '寸止折磨', '道具贯穿', '失禁奇观', '强制发情', '训练成果展示'];
-const SETTINGS: AvSetting[] = ['学校', '职场', '医院', '伦理乱伦', '奇幻角色扮演', '二次元角色扮演', '偶像', '神社巫女', '婚礼新娘', '公共厕所', '监禁地下室', '温泉旅馆', '拍卖会', '直播间', '异种族交配', '庆功宴酒席'];
+const SETTINGS: AvSetting[] = ['学校', '职场', '医院', '伦理乱伦', '奇幻角色扮演', '二次元角色扮演', '偶像', '神社巫女', '婚礼新娘', '公共厕所', '监禁地下室', '温泉旅馆', '拍卖会', '直播间', '异种族交配', '庆功宴酒席', '电车车厢', '和室', '教堂圣坛', '雨夜街头(棚内)'];
 const PLAYS: AvPlay[] = ['口', '手', '足', '小穴', '臀', '深喉', '颜射', '中出', '潮吹', '双插', '乳交', '捆绑', '道具', '露出', '灌肠扩张', '坐脸', '多P拓扑', '群交围操'];
+const OUTFITS: AvOutfit[] = ['女仆装', '日式校服', '体操服', '修女服', 'OL制服', '旗袍', '和服', '泳装', '婚纱', '紧身胶衣'];
+const CASTS: AvCast[] = ['少人数(2-3)', '小队(5-6)', '大部队(十余人)', '海量(数十人)'];
 
 const def = reactive<AvDefinition>({ theme: '本格性爱', setting: '学校', plays: ['小穴'], durationHours: 8, setupNote: '', custom: '' });
+
+// 三个新tag维度的升级门槛
+const hasStage = computed(() => getLevel(r.engine.upgrades, 'av_stage') >= 1);
+const hasOutfits = computed(() => getLevel(r.engine.upgrades, 'av_outfits') >= 1);
+const hasCams = computed(() => getLevel(r.engine.upgrades, 'av_cams') >= 1);
+const settingsAvail = computed(() => hasStage.value ? SETTINGS : SETTINGS.filter(s => !STAGE_SETTINGS.includes(s)));
+const castsAvail = computed(() => hasCams.value ? CASTS : CASTS.filter(c => !CAST_NEEDS_CAMS.includes(c)));
 
 const playCap = computed(() => avPlayCap(r.engine.upgrades));
 function togglePlay(p: AvPlay) {
@@ -105,7 +129,7 @@ function togglePlay(p: AvPlay) {
 }
 
 const ready = computed(() => canShootAv(r.engine, def as AvDefinition));
-const estIncome = computed(() => avSalesIncome(def as AvDefinition, r.engine.infamy));
+const estIncome = computed(() => avSalesIncome(def as AvDefinition, r.engine.infamy, avIncomeMultiplier(r.engine.upgrades)));
 const previewLine = computed(() => `${def.theme} × ${def.setting} · ${def.plays.join('/')} · ${def.durationHours}h · 预计收入 ¥${estIncome.value.toLocaleString()}`);
 const recent = computed(() => av.value.customs.slice(-8).reverse());
 

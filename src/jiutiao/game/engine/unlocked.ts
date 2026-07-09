@@ -14,10 +14,25 @@ import type { EngineState } from './types';
  */
 export function deriveEventUnlocked(engine: EngineState): Record<string, boolean> {
   const c = engine.corruption ?? 0;
+  const up = engine.upgrades ?? {};
   return {
     ...(engine.unlocked ?? {}),
     ...deriveTurfUnlocked(engine.regions),
     ...occupyScaleAliases(engine.occupyScale),
+    // —— 采购升级键(买套四档范式逐级顶替的解锁信号;这些升级效果是purchaseMult,不写unlocked,在此派生) ——
+    buy_wholesale: (up.buy_wholesale ?? 0) >= 1,   // 批发门路 → 档2跨店扫荡
+    buy_convoy: (up.buy_convoy ?? 0) >= 1,         // 加长轿车代购 → 档3车内代购
+    condom_courier: (up.condom_delivery ?? 0) >= 1, // 黑市送货渠道 → 档4送货上门
+    // —— 地下室刑具键(一刑具一升级):unlocked 或 upgrades 任一有效即解锁(兜底购买路径差异);
+    //    旧存档兼容:老"刑具扩充"(dungeon_gear)一钮解锁四旧装置 ——
+    gear_hang: engine.unlocked?.gear_hang === true || (up.gear_hang ?? 0) >= 1 || engine.unlocked?.dungeon_gear === true || (up.dungeon_gear ?? 0) >= 1,
+    gear_horse: engine.unlocked?.gear_horse === true || (up.gear_horse ?? 0) >= 1 || engine.unlocked?.dungeon_gear === true || (up.dungeon_gear ?? 0) >= 1,
+    gear_donkey: engine.unlocked?.gear_donkey === true || (up.gear_donkey ?? 0) >= 1 || engine.unlocked?.dungeon_gear === true || (up.dungeon_gear ?? 0) >= 1,
+    gear_water: engine.unlocked?.gear_water === true || (up.gear_water ?? 0) >= 1 || engine.unlocked?.dungeon_gear === true || (up.dungeon_gear ?? 0) >= 1,
+    gear_cane: engine.unlocked?.gear_cane === true || (up.gear_cane ?? 0) >= 1,
+    gear_latex: engine.unlocked?.gear_latex === true || (up.gear_latex ?? 0) >= 1,
+    gear_ginger: engine.unlocked?.gear_ginger === true || (up.gear_ginger ?? 0) >= 1,
+    gear_wax: engine.unlocked?.gear_wax === true || (up.gear_wax ?? 0) >= 1,
     // —— 堕落度派生闸门(身体开发/性癖随堕落解锁;占位阈值,留接口接真·身体开发度/受虐癖变量) ——
     anal_unlocked: c >= 35,       // 后穴开发(肛交)
     masochism: c >= 50,           // 受虐癖觉醒(暴力供奉细分主动选)

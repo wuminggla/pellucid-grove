@@ -125,8 +125,8 @@ const nodes = computed<Node[]>(() => nodesOfPage(curPage.value).map(def => {
   const m = NODE_META[def.id];
   const lvl = getLevel(r.engine.upgrades, def.id);
   const can = canUpgrade(def, r.engine as any);
-  // 从上到下:col=前置链深度(纵·根在上后置在下),row=同层并列(横)
-  return { def, lvl, can, state: nodeState(def, lvl, can), x: PAD + m.row * COL_W, y: PAD + m.col * ROW_H };
+  // 正交树布局:col=横向槽位,row=纵向深度(根在上·前置永远在后置正上方附近,连线短而竖直)
+  return { def, lvl, can, state: nodeState(def, lvl, can), x: PAD + m.col * COL_W, y: PAD + m.row * ROW_H };
 }));
 
 const nodeById = computed(() => Object.fromEntries(nodes.value.map(n => [n.def.id, n])));
@@ -174,6 +174,8 @@ function mysteryReqs(def: UpgradeDef): string[] {
   }
   if (def.corruptionRequired != null) out.push(`堕落度 ≥ ${def.corruptionRequired}`);
   if (def.requiresSlotsMax) out.push('行动格已达上限(15)');
+  if (def.requiresAvShots != null) out.push(`已拍AV ≥ ${def.requiresAvShots}部`);
+  if (def.requiresLoyaltyBelow != null) out.push(`忠诚 < ${def.requiresLoyaltyBelow}`);
   return out;
 }
 function unlockNodeName(p: SkillPage): string {

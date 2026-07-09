@@ -95,11 +95,21 @@ export function buildGamePrompt(req: ExpandRequest, ctx: GamePromptCtx): Array<{
     ? '只输出 <maintext>正文</maintext>;并在其后追加一行 <continuity>一句话延续摘要:本格引入的需后续回调的具体实体/独特事实</continuity>。'
     : '只输出 <maintext>正文</maintext>，不要其它标签或解释。';
 
+  // 供奉/多人场景硬约束:人数与结算同源+打手群像匿名(根治"AI只写一个有名字的打手二人转")
+  const n = req.serveCount;
+  const sceneLine = n != null
+    ? `[当前场景] 本格凛要处理 ${n} 名打手(这是结算数,正文人数必须与之一致——写成"十几人/几十人"的规模感可以,但绝不能写成只有一两人);${state.isDangerousPeriod ? '危险期' : '安全期'};认知防线「${state.cognition}」;堕落度 ${state.corruption}。`
+    : `[当前场景] 在场约 ${state.presentCount} 人；${state.isDangerousPeriod ? '危险期' : '安全期'}；认知防线「${state.cognition}」；堕落度 ${state.corruption}。`;
+  const crowdRule = (isNsfw && (n == null || n > 1))
+    ? '[多人铁律] ①打手是matched群像:一律匿名(用"为首的壮汉/络腮胡/年轻的那个"等特征代称),【绝不给打手起名字】,不塑造任何单个打手的持续角色;②本事件是多人轮换场面,严禁写成一对一恋爱式二人转;③正文必须实写本格事件本身的性爱过程(范式规定的玩法),不许只写氛围/对话而跳过事件内容。\n'
+    : '';
+
   const user =
     `[本格行动] ${option.label}${isNsfw ? '（NSFW·♥）' : ''}\n`
     + `${paradigmText}\n\n`
     + `${ATTITUDE_LAYER[attitude] ?? ''}\n`
-    + `[当前场景] 在场约 ${state.presentCount} 人；${state.isDangerousPeriod ? '危险期' : '安全期'}；认知防线「${state.cognition}」；堕落度 ${state.corruption}。\n`
+    + `${sceneLine}\n`
+    + crowdRule
     + `[扩写规格] ${SPEC_BY_MODE[renderMode] ?? '正常扩写。'}\n`
     + `[输出格式] ${outputSpec}\n`
     + `请按以上范式与态度生成本格正文。`;

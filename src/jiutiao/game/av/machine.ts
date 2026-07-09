@@ -28,7 +28,21 @@ export type AvSetting =
   | '学校' | '职场' | '医院' | '伦理乱伦'
   | '奇幻角色扮演' | '二次元角色扮演' | '偶像'
   | '神社巫女' | '婚礼新娘' | '公共厕所' | '监禁地下室'
-  | '温泉旅馆' | '拍卖会' | '直播间' | '异种族交配' | '庆功宴酒席';
+  | '温泉旅馆' | '拍卖会' | '直播间' | '异种族交配' | '庆功宴酒席'
+  // 布景棚(av_stage 升级)新增棚内场景
+  | '电车车厢' | '和室' | '教堂圣坛' | '雨夜街头(棚内)';
+
+/** 需要「布景棚」升级才可选的场景 */
+export const STAGE_SETTINGS: AvSetting[] = ['电车车厢', '和室', '教堂圣坛', '雨夜街头(棚内)'];
+
+/** 情趣衣装(av_outfits 升级解锁·语料服装节有质感/暴露方式现成描写) */
+export type AvOutfit =
+  | '女仆装' | '日式校服' | '体操服' | '修女服' | 'OL制服'
+  | '旗袍' | '和服' | '泳装' | '婚纱' | '紧身胶衣';
+
+/** 人数档(默认低两档;高两档需 av_cams 多机位升级) */
+export type AvCast = '少人数(2-3)' | '小队(5-6)' | '大部队(十余人)' | '海量(数十人)';
+export const CAST_NEEDS_CAMS: AvCast[] = ['大部队(十余人)', '海量(数十人)'];
 
 export type AvPlay =
   | '口' | '手' | '足' | '小穴' | '臀'
@@ -45,6 +59,10 @@ export interface AvDefinition {
   setupNote?: string;
   /** 玩家自由输入(额外意见,直接拼入范式·允许玩家自定义编辑AV内容) */
   custom?: string;
+  /** 情趣衣装(可选·需 av_outfits 升级) */
+  outfit?: AvOutfit;
+  /** 出演人数档(可选·高档需 av_cams 升级;不选=按题材默认) */
+  cast?: AvCast;
 }
 
 /** AV 系统的 EngineState 字段(嵌入 EngineState 的 av 子对象) */
@@ -80,6 +98,13 @@ export function canShootAv(engine: EngineState, def: AvDefinition): { ok: boolea
   if (def.plays.length === 0) return { ok: false, reason: '至少选一项玩法' };
   const cap = avPlayCap(engine.upgrades);
   if (def.plays.length > cap) return { ok: false, reason: `同时玩法tag上限 ${cap}（升级可提升）` };
+  // 新tag维度的升级门槛(布景棚/衣装库/多机位)
+  if (STAGE_SETTINGS.includes(def.setting) && !(engine.upgrades?.av_stage))
+    return { ok: false, reason: '该场景需「布景棚」升级' };
+  if (def.outfit && !(engine.upgrades?.av_outfits))
+    return { ok: false, reason: '衣装需「情趣衣装库」升级' };
+  if (def.cast && CAST_NEEDS_CAMS.includes(def.cast) && !(engine.upgrades?.av_cams))
+    return { ok: false, reason: '大规模拍摄需「多机位拍摄」升级' };
   return { ok: true };
 }
 
@@ -128,6 +153,33 @@ const SETTING_SHELL: Record<AvSetting, string> = {
   '直播间': '镜头/弹幕/打赏氛围·"实时观看"框架·凛知道有无数观众在线·打赏越多施加的刺激越强',
   '异种族交配': '借奇幻外壳的体型/数量奇观·种族设定锚定"娇小"差·凛身体被迫适应的开发过程(罗刹瞳禁损伤词)',
   '庆功宴酒席': '极道宴席/酒桌之间·她作为"余兴节目"在席间被传递取用·觥筹交错的背景音与凛被使用的画面交错',
+  // 布景棚场景(av_stage)
+  '电车车厢': '棚内1:1电车布景·吊环座椅报站音效·"通勤中被围住"的痴汉剧码·车厢晃动配合顶撞节奏',
+  '和室': '榻榻米/障子门/灯笼暖光·跪坐礼仪与被押倒的反差·障子纸上的影子成为镜头语言',
+  '教堂圣坛': '彩窗圣坛烛台布景·忏悔与"洗礼"的亵渎剧码·圣洁布光下的白纱与体液',
+  '雨夜街头(棚内)': '洒水管造雨/霓虹灯牌·湿透衣物贴出身体轮廓·"淋雨被拾走"的开场剧码',
+};
+
+/** 衣装→词条(av_outfits·质感/暴露方式·取材语料服装节) */
+const OUTFIT_LABEL: Record<AvOutfit, string> = {
+  '女仆装': '黑白围裙短裙·裙撑一掀即翻·"侍奉"人设与被侍奉现实的倒错',
+  '日式校服': '水手服百褶裙·裙摆卷起塞进腰间·清纯符号被玷污的经典反差',
+  '体操服': '贴身弹力布勒出身形·下装一拉到底·体育课情景剧',
+  '修女服': '黑袍白领圈·层层布料下的雪白·神圣装束被一寸寸剥开',
+  'OL制服': '衬衫铅笔裙丝袜·丝袜只撕裆部一块·干练形象崩坏',
+  '旗袍': '高开衩贴身盘扣·开衩被撕到腰际·盘扣一颗颗崩开的仪式感',
+  '和服': '层层腰带襦袢·解带如拆礼·衣带散落榻榻米的画面',
+  '泳装': '连体/比基尼·布料一拨即入·水痕与体液分不清',
+  '婚纱': '纯白头纱束胸裙撑·"最幸福的一天"倒错·礼服层层掀开在众人见证下',
+  '紧身胶衣': '乳胶真空包裹反着冷光·裆部拉链只拉开一段·黑壳里剥出滚烫白肉',
+};
+
+/** 人数档→词条 */
+const CAST_LABEL: Record<AvCast, string> = {
+  '少人数(2-3)': '2-3人·镜头能拍全每个动作·节奏细腻',
+  '小队(5-6)': '5-6人·双穴口手同时分配·换人不停机',
+  '大部队(十余人)': '十余人·多机位才拍得全·围成一圈的规模压迫',
+  '海量(数十人)': '数十人·规模奇观·镜头只能拍局部,全景交给画外音与"排到门外"的暗示',
 };
 
 /** 玩法部位→词条 */
@@ -162,6 +214,8 @@ export function buildAvPrompt(def: AvDefinition): string {
   const playList = def.plays.map(p => PLAY_LABEL[p]).join(' / ');
   const note = def.setupNote ? `角色扮演填空: ${def.setupNote}` : '';
   const custom = def.custom?.trim() ? `玩家自定意见(优先满足): ${def.custom.trim()}` : '';
+  const outfit = def.outfit ? `- 衣装: ${def.outfit} → ${OUTFIT_LABEL[def.outfit]}(服装的质感/暴露方式全程参与叙事)` : '';
+  const cast = def.cast ? `- 出演规模: ${def.cast} → ${CAST_LABEL[def.cast]}` : '';
 
   // 时长侧面烘托等级
   const durTier = def.durationHours < 8 ? '中等(8小时内)' :
@@ -174,7 +228,7 @@ export function buildAvPrompt(def: AvDefinition): string {
 - 场景外壳: ${def.setting} → ${shell}
 - 玩法部位: ${playList}(笔墨侧重以上部位的开发/反应/感官)
 - 时长烘托: ${def.durationHours}小时 → ${durTier}
-${note ? note + '\n' : ''}${custom ? custom + '\n' : ''}
+${outfit ? outfit + '\n' : ''}${cast ? cast + '\n' : ''}${note ? note + '\n' : ''}${custom ? custom + '\n' : ''}
 按 wb_av_first 三阶段写: ①屈辱情景剧前戏(服装+念台词) ②无尽轮奸+限知视角(局部画面+画外音脑补) ③超长时长侧面烘托(快感痕迹+环境光+背景音+地板垃圾).
 铁律: 罗刹瞳禁损伤词;成年/不沉痛;笔墨重心永远是凛的身体反应,不是男性数量/动作展示.`;
 }

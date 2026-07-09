@@ -62,11 +62,10 @@ export const EXPANSION_UPGRADES: UpgradeDef[] = [
   { id: 'basement', category: 'expansion', name: '改建地下室', desc: '刑具与拘禁设施，解锁暴力供奉(受虐癖线)', cost: 5000, maxLevel: 1, effect: { kind: 'unlock', unlockKey: 'basement' }, corruptionOnBuy: 5 },
   { id: 'studio', category: 'expansion', name: '暗网摄影室', desc: '解锁AV拍摄系统(达摩克里斯之剑·首拍强制演出)', cost: 8000, maxLevel: 1, effect: { kind: 'unlock', unlockKey: 'av' }, corruptionOnBuy: 3 },
   // AV设备升级：前置=先建摄影室，体现解锁带来新升级任务
-  { id: 'av_gear', category: 'expansion', name: 'AV设备升级', desc: '专业器材与场地，提升AV规模(前置:摄影室)', cost: 4000, maxLevel: 1, requires: [{ upgradeId: 'studio', minLevel: 1 }], effect: { kind: 'unlock', unlockKey: 'av_advanced' } },
-  // AV 周产能：每级 +1 本周可拍摄部数(前置:摄影室)。AV 单部收益高,靠周次数限制平衡。
-  { id: 'av_quota', category: 'expansion', name: 'AV周产能扩充', desc: '雇佣班底，每周可多拍一部AV(单部收益高·靠周次数平衡)', cost: 7000, maxLevel: 4, requires: [{ upgradeId: 'studio', minLevel: 1 }], effect: { kind: 'unlock' } },
-  // AV 时长扩容：每级 +24h 上限(前置:摄影室)
-  { id: 'av_duration', category: 'expansion', name: 'AV时长扩容', desc: '更大场地与排班，提升单部AV时长上限(+24h/级)', cost: 4000, maxLevel: 5, requires: [{ upgradeId: 'studio', minLevel: 1 }], effect: { kind: 'unlock' } },
+  // 摄影房主题=成人用品与快感玩法(与地下室"刑具与虐待"对仗)。旧按钮叙事化:升级=具体的设备/物件。
+  { id: 'av_gear', category: 'expansion', name: '高清摄影机·换代', desc: '画面越清晰，大小姐的每一寸反应越无所遁形(解锁进阶拍摄)', cost: 4000, maxLevel: 1, requires: [{ upgradeId: 'studio', minLevel: 1 }], effect: { kind: 'unlock', unlockKey: 'av_advanced' } },
+  { id: 'av_quota', category: 'expansion', name: '雇佣摄制班底', desc: '灯光/剪辑/场记的幕后班子(打手兼任)，每周可多拍一部', cost: 7000, maxLevel: 4, requires: [{ upgradeId: 'studio', minLevel: 1 }], effect: { kind: 'unlock' } },
+  { id: 'av_duration', category: 'expansion', name: '大容量电池与存储', desc: '电池和存储卡撑得越久，一部片就能拍得越长(+24h/级)', cost: 4000, maxLevel: 5, requires: [{ upgradeId: 'studio', minLevel: 1 }], effect: { kind: 'unlock' } },
 ];
 
 // ───────────────────────────────────────
@@ -87,7 +86,11 @@ export const HOUSE_UPGRADES: UpgradeDef[] = [
   { id: 'lust_beast', category: 'thug', name: '性欲野兽', desc: '打手欲求暴涨：欲望增长×1.5，解锁日常事件的NSFW版本(前置)', cost: 5000, maxLevel: 1, requires: [{ upgradeId: 'sex_stamina', minLevel: 1 }], effect: { kind: 'unlock', unlockKey: 'lust_beast' } },
 
   // —— 摄影房示例(前置:摄影室) ——
-  { id: 'av_play', category: 'expansion', name: 'AV玩法编排扩容', desc: '更专业的策划，单部AV同时可选玩法tag上限 +1/级', cost: 5000, maxLevel: 3, requires: [{ upgradeId: 'studio', minLevel: 1 }], effect: { kind: 'avPlayCap', perLevel: 1 } },
+  { id: 'av_play', category: 'expansion', name: '成人用品柜', desc: '按摩棒/跳蛋/拉珠……道具柜每扩一层，单部AV可编排的玩法tag +1/级', cost: 5000, maxLevel: 3, requires: [{ upgradeId: 'studio', minLevel: 1 }], effect: { kind: 'avPlayCap', perLevel: 1 } },
+  // 新tag维度(摄影房主题=成人用品与快感玩法):布景/衣装/机位
+  { id: 'av_stage', category: 'expansion', name: '布景棚·多主题', desc: '棚内搭出电车车厢/和室/教堂圣坛/雨夜街头——AV定制解锁新场景tag', cost: 5000, maxLevel: 1, requires: [{ upgradeId: 'av_gear', minLevel: 1 }], effect: { kind: 'unlock', unlockKey: 'av_stage' } },
+  { id: 'av_outfits', category: 'expansion', name: '情趣衣装库', desc: '女仆装/校服/修女服/婚纱/胶衣……衣装间挂满一排——AV定制解锁衣装tag(角色扮演)', cost: 4500, maxLevel: 1, corruptionRequired: 45, requires: [{ upgradeId: 'studio', minLevel: 1 }], effect: { kind: 'unlock', unlockKey: 'av_outfits' }, corruptionOnBuy: 2 },
+  { id: 'av_cams', category: 'expansion', name: '多机位拍摄', desc: '机位越多，能同时收进画面的打手越多——AV定制解锁大规模人数档', cost: 6000, maxLevel: 1, requires: [{ upgradeId: 'av_gear', minLevel: 1 }], effect: { kind: 'unlock', unlockKey: 'av_cams' } },
 
   // —— 道场·实战与陪练(前置:重启道场) ——
   { id: 'dojo_spar', category: 'thug', name: '实战演习', desc: '道场加开对练日，招式在实战中磨快(基础武力+0.2)', cost: 4000, maxLevel: 1, requires: [{ upgradeId: 'room_dojo', minLevel: 1 }], effect: { kind: 'baseMartial', perLevel: 0.2 } },
@@ -100,8 +103,17 @@ export const HOUSE_UPGRADES: UpgradeDef[] = [
   // —— 摄影房·观众来信(前置:摄影室·需已拍≥5部) ——
   { id: 'm_av_letters', category: 'expansion', name: '观众来信', desc: '销量爆了之后，打手们把"粉丝反馈"挑出来当着凛的面朗读——哪个镜头最受欢迎、观众点播什么新玩法，她被迫知道自己被多少人看过、被如何议论(AV单部收入+20%)', cost: 0, maxLevel: 1, mystery: true, corruptionRequired: 50, requiresAvShots: 5, requires: [{ upgradeId: 'studio', minLevel: 1 }], effect: { kind: 'avIncomeMult', perLevel: 0.20 }, corruptionOnBuy: 2, infamyOnBuy: 3 },
 
-  // —— 地下室(前置:地下室) ——
-  { id: 'dungeon_gear', category: 'expansion', name: '地下室刑具扩充', desc: '添置吊颈滑轮组/三角木马/通电木驴/水刑台等刑具，暴力供奉花样翻新(受虐癖线)', cost: 4000, maxLevel: 1, requires: [{ upgradeId: 'basement', minLevel: 1 }], effect: { kind: 'unlock', unlockKey: 'dungeon_gear' } },
+  // —— 地下室(前置:地下室)。主题=刑具与虐待(ryona·受虐癖线)。
+  // 一个刑具一个升级:买什么解锁暴力供奉里对应装置(升级键+masochism堕落闸门双条件)。互不前置,玩家自选调教路线。
+  { id: 'gear_hang', category: 'expansion', name: '吊颈滑轮组', desc: '天花板滑轮与绞索——解锁暴力供奉「吊颈轮奸」装置', cost: 3500, maxLevel: 1, requires: [{ upgradeId: 'basement', minLevel: 1 }], effect: { kind: 'unlock', unlockKey: 'gear_hang' }, corruptionOnBuy: 2 },
+  { id: 'gear_horse', category: 'expansion', name: '三角木马', desc: '打磨出棱线的三角横梁——解锁暴力供奉「三角木马」装置', cost: 4000, maxLevel: 1, requires: [{ upgradeId: 'basement', minLevel: 1 }], effect: { kind: 'unlock', unlockKey: 'gear_horse' }, corruptionOnBuy: 2 },
+  { id: 'gear_donkey', category: 'expansion', name: '通电木驴', desc: '接了电极的木驴鞍座——解锁暴力供奉「通电木驴」装置', cost: 4500, maxLevel: 1, requires: [{ upgradeId: 'basement', minLevel: 1 }], effect: { kind: 'unlock', unlockKey: 'gear_donkey' }, corruptionOnBuy: 2 },
+  { id: 'gear_water', category: 'expansion', name: '水刑台', desc: '倾斜的绑台与水桶——解锁暴力供奉「水刑轮奸」装置', cost: 4000, maxLevel: 1, requires: [{ upgradeId: 'basement', minLevel: 1 }], effect: { kind: 'unlock', unlockKey: 'gear_water' }, corruptionOnBuy: 2 },
+  // 新刑具(粉金·语料:杖刑五阶段/胶衣+眼罩+嘴塞/姜罚+液体刺激/炙香+低温蜡烛)
+  { id: 'gear_cane', category: 'expansion', name: '笞刑架', desc: '悬吊展露与跪趴锁定的专用刑架，竹片、皮拍、老藤、橡胶棍挂满一墙——解锁「杖笞调教」装置', cost: 5000, maxLevel: 1, corruptionRequired: 50, requires: [{ upgradeId: 'basement', minLevel: 1 }], effect: { kind: 'unlock', unlockKey: 'gear_cane' }, corruptionOnBuy: 3 },
+  { id: 'gear_latex', category: 'expansion', name: '拘束衣柜', desc: '乳胶胶衣、眼罩与嘴塞——真空包裹与感官剥夺，解锁「胶衣调教」装置', cost: 4500, maxLevel: 1, corruptionRequired: 45, requires: [{ upgradeId: 'basement', minLevel: 1 }], effect: { kind: 'unlock', unlockKey: 'gear_latex' }, corruptionOnBuy: 3 },
+  { id: 'gear_ginger', category: 'expansion', name: '药汁与姜块', desc: '老姜、辣椒油和一把削皮刀——粘膜上的化学灼烧，解锁「姜罚调教」装置', cost: 4000, maxLevel: 1, corruptionRequired: 55, requires: [{ upgradeId: 'basement', minLevel: 1 }], effect: { kind: 'unlock', unlockKey: 'gear_ginger' }, corruptionOnBuy: 3 },
+  { id: 'gear_wax', category: 'expansion', name: '炙香与蜡烛', desc: '缓燃的炙香与低温蜡——皮肉上的温度刑，解锁「温度调教」装置', cost: 4500, maxLevel: 1, corruptionRequired: 60, requires: [{ upgradeId: 'basement', minLevel: 1 }], effect: { kind: 'unlock', unlockKey: 'gear_wax' }, corruptionOnBuy: 3 },
   { id: 'dungeon_soundproof', category: 'expansion', name: '地下室隔音工程', desc: '地下室彻底隔音——"施工"名义正当，用途不言自明(启用与常态化的前置)', cost: 3500, maxLevel: 1, requires: [{ upgradeId: 'basement', minLevel: 1 }], effect: { kind: 'unlock', unlockKey: 'soundproof' }, corruptionOnBuy: 2 },
   { id: 'm_dungeon_night', category: 'expansion', name: '深夜的脚步声', desc: '忠诚低落时，总有打手不打招呼就把凛带下隔音的地下室——没人听得见，那道隔音工程反而成了他们肆意的底气(受虐癖开发+)', cost: 0, maxLevel: 1, mystery: true, corruptionRequired: 50, requiresLoyaltyBelow: 40, requires: [{ upgradeId: 'dungeon_soundproof', minLevel: 1 }], effect: { kind: 'unlock', unlockKey: 'dungeon_night' }, corruptionOnBuy: 4 },
 ];
@@ -113,10 +125,10 @@ export const HOUSE_UPGRADES: UpgradeDef[] = [
 // 私山=一个前置升级,子树里爬山/野营各自解锁(一对多)。九条宅本就是凛的家,不需要"买",只有修缮/重启。
 // ───────────────────────────────────────
 export const ANNEX_UPGRADES: UpgradeDef[] = [
-  // —— 宅邸(修缮·非收购) ——
+  // —— 宅邸(修缮·非收购·显示在「九条宅」页) ——
   { id: 'annex_estate', category: 'expansion', name: '重新启用庭院', desc: '把荒废的庭院假山修整出来——散步与放风有了去处', cost: 1500, maxLevel: 1, effect: { kind: 'unlock', unlockKey: 'courtyard' } },
   { id: 'annex_shrine', category: 'expansion', name: '修缮祖堂纪念室', desc: '先代牌位重见天日→解锁「参拜先祖」', cost: 2500, maxLevel: 1, requires: [{ upgradeId: 'annex_estate', minLevel: 1 }], effect: { kind: 'unlock', unlockKey: 'shrine' } },
-  // —— 对外扩张(收购地皮→SFW日常) ——
+  // —— 对外扩张(收购地皮→SFW日常·显示在「地盘扩张」页) ——
   { id: 'annex_street', category: 'expansion', name: '收购邻近街区', desc: '吞并周边商铺→解锁「出门吃饭」「去商场」', cost: 3000, maxLevel: 1, effect: { kind: 'unlock', unlockKey: 'occupy_street' } },
   { id: 'annex_hill', category: 'expansion', name: '盘踞一山（私山）', desc: '买下整座山头作九条会私产(子树里逐处开发)', cost: 5000, maxLevel: 1, requires: [{ upgradeId: 'annex_street', minLevel: 1 }], effect: { kind: 'unlock', unlockKey: 'private_hill' } },
   { id: 'annex_hill_trail', category: 'expansion', name: '私山·后山小径', desc: '小山包踏出一条能走的土路(无游客的自家野山)→解锁「爬山」', cost: 2000, maxLevel: 1, requires: [{ upgradeId: 'annex_hill', minLevel: 1 }], effect: { kind: 'unlock', unlockKey: 'occupy_hill' } },

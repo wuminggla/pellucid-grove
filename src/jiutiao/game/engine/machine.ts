@@ -88,6 +88,12 @@ export async function settleSlot(
   const mode = resolution.renderMode;
   const attitude = attitudeForStage(state.cognition);
 
+  // 供奉类:本格实际处理人数 = min(在场, 吞吐×倍率) —— 与 settleServe 同一公式,
+  // 叙事(模板{n}/AI正文)与数值结算共用此数,根治"文字200人、变量只扣个位数"的脱钩。
+  const serveCount = option.isServe
+    ? Math.max(0, Math.min(state.presentCount, Math.round((state.perSlotThroughput ?? 6) * (opts.serveMult ?? 1))))
+    : undefined;
+
   // —— 出正文 ——
   let resultText: string;
   let continuity: string | undefined;
@@ -96,11 +102,11 @@ export async function settleSlot(
 
   if (mode === 'fast_summary') {
     const tpl = opts.summaryTemplates?.[choice.optionId] ?? '（已结算）';
-    resultText = fastSummaryText(tpl, { n: state.presentCount });
-    // 快进不调AI：叙事数值用场景上下文兜底（在场人数已知）；快进无延续摘要
+    resultText = fastSummaryText(tpl, { n: serveCount ?? state.presentCount });
+    // 快进不调AI：叙事数值用场景上下文兜底；快进无延续摘要
   } else {
     const ai: AiPort = opts.ai;
-    const ex = await ai.expand({ resolution, attitude, choice, state });
+    const ex = await ai.expand({ resolution, attitude, choice, state, serveCount });
     resultText = ex.text;
     continuity = ex.continuity;
     const req: ExtractRequest = { narrative: resultText, choice, state };

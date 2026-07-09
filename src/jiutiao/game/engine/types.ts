@@ -92,6 +92,8 @@ export interface ExpandRequest {
   attitude: CognitionAttitude;     // 判定二：当前堕落态度（堕落前/堕落后/母猪化）
   choice: SlotInput;
   state: EngineState;
+  /** 本格实际处理人数(与数值结算同一来源)。正文中的人数以此为准,防止叙事与变量脱钩 */
+  serveCount?: number;
 }
 
 /** AI2 抓数值请求 */
@@ -126,6 +128,8 @@ export interface SettleOptions {
   ai: AiPort;
   /** 快进总结词模板（按 optionId 索引），如 { serve: '大小姐给{n}人侍奉了' } */
   summaryTemplates?: Record<string, string>;
+  /** 供奉吞吐倍率(请假轮奸日=1.5)。settleSlot 用它算 serveCount,保证叙事人数与结算同源 */
+  serveMult?: number;
   /** extract 数值的合法范围（防胡诌），如 { presentCount: [0, 2000] } */
   extractBounds?: Record<string, [number, number]>;
   /** 强制事件池（强占/临时格，结算时按条件扫描触发） */

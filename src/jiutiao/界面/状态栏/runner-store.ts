@@ -49,8 +49,9 @@ function initialEngine(): EngineState {
     triggeredSpecials: {}, unlocked: {},
     corruption: 0, cognition: '死撑', claimedGates: {},
     money: DEBUG_BUILD ? 500000 : 8000, thugTotal, garrison, loyalty, loyaltyMartial: Math.round(loyalty / 2), loyaltyInfamy: Math.round(loyalty / 2),
-    condomStock: DEBUG_BUILD ? 3000 : 480, desire: morning, desireCapacity: DEBUG_BUILD ? 200 : 60, desireAddedThisMorning: morning,
-    perSlotThroughput: 6,
+    condomStock: DEBUG_BUILD ? 3000 : 480, desire: morning, desireCapacity: DEBUG_BUILD ? 400 : 60, desireAddedThisMorning: morning,
+    // DEBUG: 吞吐随打手规模同步抬高(300人日增需求300,每格60×5夜格才平衡;保持6会结构性卡死)
+    perSlotThroughput: DEBUG_BUILD ? 60 : 6,
     infamy: 0, martialPrestige: DEBUG_BUILD ? 150 : 0,
     ...(DEBUG_BUILD ? { totalSlots: 12 } : {}),
     recruitQuota: weeklyRecruitQuota(0), recruitQuotaMax: weeklyRecruitQuota(0), presentCount: presentCountFrom(thugTotal, loyalty, 0.5), isDangerousPeriod: false,
@@ -323,6 +324,8 @@ export const useRunnerStore = defineStore('runner', () => {
       case 'infamy+20': engine.value = { ...e, infamy: e.infamy + 20 }; break;
       case 'av+5': { const av = e.av ?? defaultAvState(); engine.value = { ...e, av: { ...av, shotCount: av.shotCount + 5 } }; break; }
       case 'slots15': engine.value = { ...e, totalSlots: 15 }; break;
+      case 'desire0': engine.value = { ...e, desire: 0 }; break;
+      case 'tp60': engine.value = { ...e, perSlotThroughput: 60 }; break;
     }
     autoUnlockMysteries();
     persistNow();

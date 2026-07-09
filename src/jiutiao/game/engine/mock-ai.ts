@@ -68,10 +68,21 @@ export const demoEventOptions: Record<string, EventOption> = {
   },
 
   // 天生NSFW:买避孕套(四档分级·按人数/堕落度选档·stages)
+  // 采购避孕套:四档逐级顶替(采购升级键+堕落度双闸门·同散步链)。
+  // 档1便利店(基础)→档2跨店扫荡(批发门路+堕20)→档3加长轿车代购(堕35)→档4黑市送货(送货渠道+堕50)
   buy_condoms: {
     id: 'buy_condoms', label: '采购避孕套', period: 'day', shape: 'born_nsfw',
     nsfw: { worldbookKey: 'wb_buy_condom' },
-    first: { ledgerKey: 'buy_first', paradigm: { worldbookKey: 'wb_buy_condom_first' }, corruptionWeight: 1 },
+    stages: [
+      { corruptionAtLeast: 0, ledgerKey: 'buy_first',
+        corruptionWeight: 1, firstParadigm: { worldbookKey: 'wb_buy_condom_first' }, paradigm: { worldbookKey: 'wb_buy_condom' } },
+      { corruptionAtLeast: 20, unlockKey: 'buy_wholesale', ledgerKey: 'buy_l2_first',
+        corruptionWeight: 1, firstParadigm: { worldbookKey: 'wb_buy_condom_l2' }, paradigm: { worldbookKey: 'wb_buy_condom_l2' } },
+      { corruptionAtLeast: 35, unlockKey: 'buy_convoy', ledgerKey: 'buy_l3_first',
+        corruptionWeight: 1, firstParadigm: { worldbookKey: 'wb_buy_condom_l3' }, paradigm: { worldbookKey: 'wb_buy_condom_l3' } },
+      { corruptionAtLeast: 50, unlockKey: 'condom_courier', ledgerKey: 'buy_l4_first',
+        corruptionWeight: 2, firstParadigm: { worldbookKey: 'wb_buy_condom_l4' }, paradigm: { worldbookKey: 'wb_buy_condom_l4' } },
+    ],
     // A4: 公共便利店采购,有曝光风险
     a4: { martialBase: 2, transferRatio: 0.5, developsPart: '小穴' },
   },
@@ -318,36 +329,69 @@ export const demoEventOptions: Record<string, EventOption> = {
     needsContinuity: true,
   },
 
-  // 暴力供奉·吊颈轮奸(入门刑具·受虐癖萌芽)
+  // ── 暴力供奉装置(地下室主题=刑具与虐待)。装置可选 = 对应刑具升级已购(gear_*键) AND 堕落闸门。一刑具一升级,玩家自选调教路线。 ──
+  // 吊颈轮奸(入门刑具·受虐癖萌芽)
   serve_violent_hang: {
     id: 'serve_violent_hang', label: '暴力供奉·吊颈', period: 'night', shape: 'born_nsfw', isServe: true,
-    unlockRequires: ['basement', 'masochism'],
+    unlockRequires: ['gear_hang', 'masochism'],
     nsfw: { worldbookKey: 'wb_violent_hang' },
     first: { ledgerKey: 'violent_hang_first', paradigm: { worldbookKey: 'wb_violent_hang_first' }, corruptionWeight: 3 },
     needsContinuity: true,
   },
-  // 暴力供奉·三角木马(重力刑具)
+  // 三角木马(重力刑具)
   serve_violent_horse: {
     id: 'serve_violent_horse', label: '暴力供奉·三角木马', period: 'night', shape: 'born_nsfw', isServe: true,
-    unlockRequires: ['basement', 'masochism'],
+    unlockRequires: ['gear_horse', 'masochism'],
     nsfw: { worldbookKey: 'wb_violent_horse' },
     first: { ledgerKey: 'violent_horse_first', paradigm: { worldbookKey: 'wb_violent_horse' }, corruptionWeight: 3 },
     needsContinuity: true,
   },
-  // 暴力供奉·通电木驴(深堕落)
+  // 通电木驴(深堕落)
   serve_violent_donkey: {
     id: 'serve_violent_donkey', label: '暴力供奉·通电木驴', period: 'night', shape: 'born_nsfw', isServe: true,
-    unlockRequires: ['basement', 'deep_corruption'],
+    unlockRequires: ['gear_donkey', 'deep_corruption'],
     nsfw: { worldbookKey: 'wb_violent_donkey' },
     first: { ledgerKey: 'violent_donkey_first', paradigm: { worldbookKey: 'wb_violent_donkey' }, corruptionWeight: 4 },
     needsContinuity: true,
   },
-  // 暴力供奉·水刑轮奸(情色窒息·深堕落)
+  // 水刑轮奸(情色窒息·深堕落)
   serve_violent_water: {
     id: 'serve_violent_water', label: '暴力供奉·水刑', period: 'night', shape: 'born_nsfw', isServe: true,
-    unlockRequires: ['basement', 'deep_corruption'],
+    unlockRequires: ['gear_water', 'deep_corruption'],
     nsfw: { worldbookKey: 'wb_violent_water' },
     first: { ledgerKey: 'violent_water_first', paradigm: { worldbookKey: 'wb_violent_water' }, corruptionWeight: 4 },
+    needsContinuity: true,
+  },
+  // 杖笞调教(笞刑架·语料:杖刑五阶段+刑架姿势)
+  serve_violent_cane: {
+    id: 'serve_violent_cane', label: '暴力供奉·杖笞', period: 'night', shape: 'born_nsfw', isServe: true,
+    unlockRequires: ['gear_cane', 'masochism'],
+    nsfw: { worldbookKey: 'wb_violent_cane' },
+    first: { ledgerKey: 'violent_cane_first', paradigm: { worldbookKey: 'wb_violent_cane_first' }, corruptionWeight: 3 },
+    needsContinuity: true,
+  },
+  // 胶衣调教(拘束衣柜·语料:紧身胶衣+眼罩+嘴塞)
+  serve_violent_latex: {
+    id: 'serve_violent_latex', label: '暴力供奉·胶衣', period: 'night', shape: 'born_nsfw', isServe: true,
+    unlockRequires: ['gear_latex', 'masochism'],
+    nsfw: { worldbookKey: 'wb_violent_latex' },
+    first: { ledgerKey: 'violent_latex_first', paradigm: { worldbookKey: 'wb_violent_latex' }, corruptionWeight: 3 },
+    needsContinuity: true,
+  },
+  // 姜罚调教(药汁与姜块·语料:姜罚刑+液体刺激刑)
+  serve_violent_ginger: {
+    id: 'serve_violent_ginger', label: '暴力供奉·姜罚', period: 'night', shape: 'born_nsfw', isServe: true,
+    unlockRequires: ['gear_ginger', 'deep_corruption'],
+    nsfw: { worldbookKey: 'wb_violent_ginger' },
+    first: { ledgerKey: 'violent_ginger_first', paradigm: { worldbookKey: 'wb_violent_ginger' }, corruptionWeight: 4 },
+    needsContinuity: true,
+  },
+  // 温度调教(炙香与蜡烛·语料:炙香+低温蜡烛)
+  serve_violent_wax: {
+    id: 'serve_violent_wax', label: '暴力供奉·滴蜡', period: 'night', shape: 'born_nsfw', isServe: true,
+    unlockRequires: ['gear_wax', 'deep_corruption'],
+    nsfw: { worldbookKey: 'wb_violent_wax' },
+    first: { ledgerKey: 'violent_wax_first', paradigm: { worldbookKey: 'wb_violent_wax' }, corruptionWeight: 4 },
     needsContinuity: true,
   },
 
@@ -461,6 +505,10 @@ export const demoSummaryTemplates: Record<string, string> = {
   serve_violent_horse: '（已结算·三角木马）',
   serve_violent_donkey: '（已结算·通电木驴）',
   serve_violent_water: '（已结算·水刑轮奸）',
+  serve_violent_cane: '（已结算·杖笞调教）',
+  serve_violent_latex: '（已结算·胶衣调教）',
+  serve_violent_ginger: '（已结算·姜罚调教）',
+  serve_violent_wax: '（已结算·温度调教）',
   serve_advance: '大小姐被{n}人极限轮奸',
   serve_pregnant: '大小姐挺着孕肚被{n}人使用',
   birth_rape: '（已结算·临盆轮奸）',

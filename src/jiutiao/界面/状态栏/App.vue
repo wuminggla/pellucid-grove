@@ -118,6 +118,8 @@
             <button @click="r.debugAdjust('infamy+20')">淫名 +20</button>
             <button @click="r.debugAdjust('av+5')">AV拍摄数 +5</button>
             <button @click="r.debugAdjust('slots15')">行动格拉满(15)</button>
+            <button @click="r.debugAdjust('desire0')">群体欲望清零</button>
+            <button @click="r.debugAdjust('tp60')">吞吐拉满(60/格)</button>
           </div>
         </div>
       </div>
