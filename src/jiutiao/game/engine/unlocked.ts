@@ -19,10 +19,10 @@ export function deriveEventUnlocked(engine: EngineState): Record<string, boolean
     ...(engine.unlocked ?? {}),
     ...deriveTurfUnlocked(engine.regions),
     ...occupyScaleAliases(engine.occupyScale),
-    // —— 采购升级键(买套四档范式逐级顶替的解锁信号;这些升级效果是purchaseMult,不写unlocked,在此派生) ——
-    buy_wholesale: (up.buy_wholesale ?? 0) >= 1,   // 批发门路 → 档2跨店扫荡
-    buy_convoy: (up.buy_convoy ?? 0) >= 1,         // 加长轿车代购 → 档3车内代购
-    condom_courier: (up.condom_delivery ?? 0) >= 1, // 黑市送货渠道 → 档4送货上门
+    // —— 采购范式档位键:buy_toy/buy_escort/buy_convoy_x 由???解禁直接写 unlocked;送货终态在此派生 ——
+    condom_courier: (up.condom_delivery ?? 0) >= 1, // 黑市送货渠道 → 终态送货上门
+    // —— 日常起居/扫除事件闸门:任一日常淫乱化???解禁即开(原"日常淫乱化改造"按钮已删,老档unlocked.dailytoy仍有效) ——
+    dailytoy: engine.unlocked?.dailytoy === true || engine.unlocked?.toy_diet === true || engine.unlocked?.toilet_lewd === true || engine.unlocked?.chair_lewd === true,
     // —— 地下室刑具键(一刑具一升级):unlocked 或 upgrades 任一有效即解锁(兜底购买路径差异);
     //    旧存档兼容:老"刑具扩充"(dungeon_gear)一钮解锁四旧装置 ——
     gear_hang: engine.unlocked?.gear_hang === true || (up.gear_hang ?? 0) >= 1 || engine.unlocked?.dungeon_gear === true || (up.dungeon_gear ?? 0) >= 1,

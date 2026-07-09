@@ -144,8 +144,8 @@ export async function runCurrentSlot(
     const sr = settleServe(engine, mult, !serveOpt.noCondom);
     engine = sr.state;
     serve = { condomUsed: sr.condomUsed, condomShort: sr.condomShort, served: sr.served, desireRelieved: sr.desireRelieved };
-    // 供奉 → 淫乱忠诚 +（打手被肉体收买）
-    const lg = CONST.供奉忠诚加成;
+    // 供奉 → 淫乱忠诚 +（打手被肉体收买）。性欲野兽升级:肉体收买加倍见效(×2)
+    const lg = CONST.供奉忠诚加成 * (engine.unlocked?.lust_beast ? 2 : 1);
     engine = { ...engine, loyalty: gainLoyalty(engine.loyalty, lg), loyaltyInfamy: (engine.loyaltyInfamy ?? 0) + lg };
     // 折线图:今日避孕套消耗累加
     if (sr.condomUsed > 0) engine = { ...engine, condomUsedToday: (engine.condomUsedToday ?? 0) + sr.condomUsed };

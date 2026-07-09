@@ -68,19 +68,21 @@ export const demoEventOptions: Record<string, EventOption> = {
   },
 
   // 天生NSFW:买避孕套(四档分级·按人数/堕落度选档·stages)
-  // 采购避孕套:四档逐级顶替(采购升级键+堕落度双闸门·同散步链)。
-  // 档1便利店(基础)→档2跨店扫荡(批发门路+堕20)→档3加长轿车代购(堕35)→档4黑市送货(送货渠道+堕50)
+  // 采购避孕套:五档逐级顶替(???解禁键+堕落度双闸门·同散步链·防跳阶段=设计保留)。
+  // 素买(基础)→戴玩具(???)→被打手带着买(???)→加长轿车代购(???)→黑市送货(扩张页送货渠道)
   buy_condoms: {
     id: 'buy_condoms', label: '采购避孕套', period: 'day', shape: 'born_nsfw',
     nsfw: { worldbookKey: 'wb_buy_condom' },
     stages: [
       { corruptionAtLeast: 0, ledgerKey: 'buy_first',
         corruptionWeight: 1, firstParadigm: { worldbookKey: 'wb_buy_condom_first' }, paradigm: { worldbookKey: 'wb_buy_condom' } },
-      { corruptionAtLeast: 20, unlockKey: 'buy_wholesale', ledgerKey: 'buy_l2_first',
+      { corruptionAtLeast: 20, unlockKey: 'buy_toy', ledgerKey: 'buy_toy_first',
+        corruptionWeight: 1, firstParadigm: { worldbookKey: 'wb_buy_toy' }, paradigm: { worldbookKey: 'wb_buy_toy' } },
+      { corruptionAtLeast: 35, unlockKey: 'buy_escort', ledgerKey: 'buy_l2_first',
         corruptionWeight: 1, firstParadigm: { worldbookKey: 'wb_buy_condom_l2' }, paradigm: { worldbookKey: 'wb_buy_condom_l2' } },
-      { corruptionAtLeast: 35, unlockKey: 'buy_convoy', ledgerKey: 'buy_l3_first',
+      { corruptionAtLeast: 50, unlockKey: 'buy_convoy_x', ledgerKey: 'buy_l3_first',
         corruptionWeight: 1, firstParadigm: { worldbookKey: 'wb_buy_condom_l3' }, paradigm: { worldbookKey: 'wb_buy_condom_l3' } },
-      { corruptionAtLeast: 50, unlockKey: 'condom_courier', ledgerKey: 'buy_l4_first',
+      { corruptionAtLeast: 55, unlockKey: 'condom_courier', ledgerKey: 'buy_l4_first',
         corruptionWeight: 2, firstParadigm: { worldbookKey: 'wb_buy_condom_l4' }, paradigm: { worldbookKey: 'wb_buy_condom_l4' } },
     ],
     // A4: 公共便利店采购,有曝光风险
@@ -378,9 +380,9 @@ export const demoEventOptions: Record<string, EventOption> = {
     first: { ledgerKey: 'violent_latex_first', paradigm: { worldbookKey: 'wb_violent_latex' }, corruptionWeight: 3 },
     needsContinuity: true,
   },
-  // 姜罚调教(药汁与姜块·语料:姜罚刑+液体刺激刑)
+  // 粘膜灼烧调教(灼烧药剂·语料:姜罚刑+液体刺激刑)
   serve_violent_ginger: {
-    id: 'serve_violent_ginger', label: '暴力供奉·姜罚', period: 'night', shape: 'born_nsfw', isServe: true,
+    id: 'serve_violent_ginger', label: '暴力供奉·粘膜灼烧', period: 'night', shape: 'born_nsfw', isServe: true,
     unlockRequires: ['gear_ginger', 'deep_corruption'],
     nsfw: { worldbookKey: 'wb_violent_ginger' },
     first: { ledgerKey: 'violent_ginger_first', paradigm: { worldbookKey: 'wb_violent_ginger' }, corruptionWeight: 4 },
@@ -507,7 +509,7 @@ export const demoSummaryTemplates: Record<string, string> = {
   serve_violent_water: '（已结算·水刑轮奸）',
   serve_violent_cane: '（已结算·杖笞调教）',
   serve_violent_latex: '（已结算·胶衣调教）',
-  serve_violent_ginger: '（已结算·姜罚调教）',
+  serve_violent_ginger: '（已结算·粘膜灼烧调教）',
   serve_violent_wax: '（已结算·温度调教）',
   serve_advance: '大小姐被{n}人极限轮奸',
   serve_pregnant: '大小姐挺着孕肚被{n}人使用',

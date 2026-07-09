@@ -38,8 +38,8 @@
         </svg>
         <div v-for="n in nodes" :key="n.def.id" class="node" :class="[n.state, { mystery: n.def.mystery, hybrid: isHybrid(n.def) }]" :style="{ left: n.x + 'px', top: n.y + 'px' }"
           @click="onNode(n)" @mouseenter="hover = n" @mouseleave="hover = null">
-          <div class="n-name">{{ n.def.mystery && n.lvl === 0 ? '？？？' : n.def.name }}<span v-if="n.def.mystery || isHybrid(n.def)" class="n-heart">♥</span></div>
-          <div class="n-lvl">{{ n.def.mystery ? (n.lvl > 0 ? '已解禁' : '待解禁') : (n.def.maxLevel > 1 ? `Lv.${n.lvl}/${n.def.maxLevel}` : (n.lvl > 0 ? '已建' : `¥${n.def.cost}`)) }}</div>
+          <div class="n-name">{{ n.def.mystery && n.lvl === 0 && !isRevealed(n.def) ? '？？？' : n.def.name }}<span v-if="n.def.mystery || isHybrid(n.def)" class="n-heart">♥</span></div>
+          <div class="n-lvl">{{ n.def.mystery ? (n.lvl > 0 ? '已解禁' : (isRevealed(n.def) ? '可解禁！' : '待揭晓')) : (n.def.maxLevel > 1 ? `Lv.${n.lvl}/${n.def.maxLevel}` : (n.lvl > 0 ? '已建' : `¥${n.def.cost}`)) }}</div>
           <div v-if="n.lvl >= n.def.maxLevel" class="n-check">✓</div>
           <div v-else-if="!n.def.mystery && n.state === 'locked'" class="n-check">🔒</div>
         </div>
@@ -48,25 +48,26 @@
 
     <!-- 选中/悬停节点详情 -->
     <div class="detail" v-if="detail" :class="{ 'detail-myst': detail.def.mystery, 'detail-hybrid': isHybrid(detail.def) }">
-      <!-- ???未解禁:只显条件不显内容 -->
-      <template v-if="detail.def.mystery && detail.lvl === 0">
-        <div class="d-top"><span class="d-name rose">？？？ <span class="n-heart">♥</span></span><span class="d-cost">自动解禁 · 无需花费</span></div>
-        <div class="d-desc dim">尚未揭晓的变化正在酝酿……满足条件后将自动降临。</div>
+      <!-- ???未揭晓:只显条件不显内容 -->
+      <template v-if="detail.def.mystery && detail.lvl === 0 && !isRevealed(detail.def)">
+        <div class="d-top"><span class="d-name rose">？？？ <span class="n-heart">♥</span></span><span class="d-cost">揭晓后可免费解禁</span></div>
+        <div class="d-desc dim">尚未揭晓的变化正在酝酿……满足条件后将翻开内容，由你决定是否解禁。</div>
         <div class="d-reqs">
           <span v-for="(q, i) in mysteryReqs(detail.def)" :key="i" class="d-req">{{ q }}</span>
         </div>
       </template>
       <template v-else>
         <div class="d-top"><span class="d-name" :class="{ rose: detail.def.mystery }">{{ detail.def.name }}<span v-if="detail.def.mystery" class="n-heart"> ♥</span></span>
-          <span class="d-cost">{{ detail.def.mystery ? '已解禁' : `¥${detail.def.cost}` }}{{ detail.def.maxLevel > 1 ? ` · Lv.${detail.lvl}/${detail.def.maxLevel}` : '' }}</span></div>
+          <span class="d-cost">{{ detail.def.mystery ? (detail.lvl > 0 ? '已解禁' : '已揭晓 · 解禁免费') : `¥${detail.def.cost}` }}{{ detail.def.maxLevel > 1 ? ` · Lv.${detail.lvl}/${detail.def.maxLevel}` : '' }}</span></div>
         <div class="d-desc">{{ detail.def.desc }}</div>
         <div class="d-foot">
           <span v-if="detail.def.corruptionGate" class="d-gate">需堕落度 ≥ {{ detail.def.corruptionGate[detail.lvl] ?? '—' }}</span>
           <span v-if="detail.def.corruptionRequired != null" class="d-gate">需堕落度 ≥ {{ detail.def.corruptionRequired }}</span>
           <span v-if="detail.def.corruptionOnBuy" class="d-corr">{{ detail.def.mystery ? '解禁' : '购买' }} · 堕落度 +{{ detail.def.corruptionOnBuy }}</span>
           <span v-if="detail.def.infamyOnBuy" class="d-corr">淫名 +{{ detail.def.infamyOnBuy }}</span>
-          <button v-if="!detail.def.mystery" class="buy" :disabled="!detail.can.ok" @click="r.buyUpgrade(detail.def.id)">
-            {{ detail.lvl >= detail.def.maxLevel ? '已满级' : (detail.can.ok ? (detail.lvl > 0 || detail.def.maxLevel > 1 ? '升级 ▲' : '建造 ▲') : detail.can.reason) }}
+          <button class="buy" :class="{ 'buy-rose': detail.def.mystery }" :disabled="!detail.can.ok" @click="r.buyUpgrade(detail.def.id)">
+            {{ detail.lvl >= detail.def.maxLevel ? (detail.def.mystery ? '已解禁' : '已满级')
+               : (detail.can.ok ? (detail.def.mystery ? '解禁 ♥（免费·结算代价）' : (detail.lvl > 0 || detail.def.maxLevel > 1 ? '升级 ▲' : '建造 ▲')) : detail.can.reason) }}
           </button>
         </div>
       </template>
@@ -155,12 +156,18 @@ const detail = computed(() => hover.value ?? selected.value);
 
 function onNode(n: Node) {
   selected.value = n;
+  // 普通/粉金:点击即买;???:点击只选中看详情,解禁必须按详情里的"解禁"钮(防误触·代价在解禁时结算)
   if (!n.def.mystery && n.can.ok) r.buyUpgrade(n.def.id);
 }
 
 /** 粉金混合节点:堕落+花钱双门槛(非mystery但有 corruptionRequired)。金边+绯红内芯+♥。 */
 function isHybrid(def: UpgradeDef): boolean {
   return !def.mystery && def.corruptionRequired != null;
+}
+
+/** ???是否已揭晓(堕落达标翻开内容·尚未解禁) */
+function isRevealed(def: UpgradeDef): boolean {
+  return (r.engine.mysteryRevealed ?? {})[def.id] === true;
 }
 
 /** ???未解禁时悬停可见的条件列表(前置若也是未解禁???则不剧透名字) */
@@ -230,6 +237,7 @@ function unlockNodeName(p: SkillPage): string {
 .d-req { font-size: 12px; color: var(--rose-hi); border: 1px solid rgba(210,74,106,.45); background: rgba(210,74,106,.08); border-radius: 5px; padding: 4px 10px; }
 .detail-myst { border-color: var(--rose) !important; }
 .detail-hybrid { border-color: var(--gold) !important; box-shadow: inset 0 0 12px rgba(210,74,106,.22); }
+.buy-rose { border-color: var(--rose) !important; color: var(--rose-hi) !important; background: rgba(210,74,106,.12) !important; }
 /* 粉金混合节点:金边 + 绯红内芯发光 + ♥(既要花钱又要堕落到位) */
 .node.hybrid { border-color: var(--gold) !important; box-shadow: inset 0 0 10px rgba(210,74,106,.32) !important; }
 .node.hybrid.maxed { border-color: var(--gold-hi) !important; background: linear-gradient(180deg, rgba(210,74,106,.12), rgba(201,162,74,.10)); }

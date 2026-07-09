@@ -32,17 +32,36 @@ export type AvSetting =
   // 布景棚(av_stage 升级)新增棚内场景
   | '电车车厢' | '和室' | '教堂圣坛' | '雨夜街头(棚内)';
 
-/** 需要「布景棚」升级才可选的场景 */
-export const STAGE_SETTINGS: AvSetting[] = ['电车车厢', '和室', '教堂圣坛', '雨夜街头(棚内)'];
+/**
+ * 场景→所需布景升级(一钮一tag)。null=初始免费(宅内现成:地下室/公厕项圈/宴席)。
+ */
+export const SETTING_REQ: Record<AvSetting, string | null> = {
+  '监禁地下室': null, '公共厕所': null, '庆功宴酒席': null,
+  '学校': 'av_set_school', '职场': 'av_set_office', '医院': 'av_set_clinic', '伦理乱伦': 'av_set_family',
+  '奇幻角色扮演': 'av_set_fantasy', '二次元角色扮演': 'av_set_cosplay', '偶像': 'av_set_idol',
+  '神社巫女': 'av_set_shrine', '婚礼新娘': 'av_set_bridal', '温泉旅馆': 'av_set_onsen',
+  '拍卖会': 'av_set_auction', '直播间': 'av_set_stream', '异种族交配': 'av_set_alien',
+  '电车车厢': 'av_set_train', '和室': 'av_set_washitsu', '教堂圣坛': 'av_set_church', '雨夜街头(棚内)': 'av_set_rain',
+};
 
-/** 情趣衣装(av_outfits 升级解锁·语料服装节有质感/暴露方式现成描写) */
+/** 情趣衣装(一件一钮·语料服装节有质感/暴露方式现成描写) */
 export type AvOutfit =
   | '女仆装' | '日式校服' | '体操服' | '修女服' | 'OL制服'
   | '旗袍' | '和服' | '泳装' | '婚纱' | '紧身胶衣';
 
-/** 人数档(默认低两档;高两档需 av_cams 多机位升级) */
+/** 衣装→所需衣装升级(一钮一tag) */
+export const OUTFIT_REQ: Record<AvOutfit, string> = {
+  '女仆装': 'av_out_maid', '日式校服': 'av_out_seifuku', '体操服': 'av_out_gym', '修女服': 'av_out_nun',
+  'OL制服': 'av_out_ol', '旗袍': 'av_out_qipao', '和服': 'av_out_kimono', '泳装': 'av_out_swim',
+  '婚纱': 'av_out_wedding', '紧身胶衣': 'av_out_latex',
+};
+
+/** 人数档(默认低两档;大部队需三机位,海量需环形机位) */
 export type AvCast = '少人数(2-3)' | '小队(5-6)' | '大部队(十余人)' | '海量(数十人)';
-export const CAST_NEEDS_CAMS: AvCast[] = ['大部队(十余人)', '海量(数十人)'];
+export const CAST_REQ: Partial<Record<AvCast, string>> = {
+  '大部队(十余人)': 'av_cam3',
+  '海量(数十人)': 'av_cam8',
+};
 
 export type AvPlay =
   | '口' | '手' | '足' | '小穴' | '臀'
@@ -98,13 +117,12 @@ export function canShootAv(engine: EngineState, def: AvDefinition): { ok: boolea
   if (def.plays.length === 0) return { ok: false, reason: '至少选一项玩法' };
   const cap = avPlayCap(engine.upgrades);
   if (def.plays.length > cap) return { ok: false, reason: `同时玩法tag上限 ${cap}（升级可提升）` };
-  // 新tag维度的升级门槛(布景棚/衣装库/多机位)
-  if (STAGE_SETTINGS.includes(def.setting) && !(engine.upgrades?.av_stage))
-    return { ok: false, reason: '该场景需「布景棚」升级' };
-  if (def.outfit && !(engine.upgrades?.av_outfits))
-    return { ok: false, reason: '衣装需「情趣衣装库」升级' };
-  if (def.cast && CAST_NEEDS_CAMS.includes(def.cast) && !(engine.upgrades?.av_cams))
-    return { ok: false, reason: '大规模拍摄需「多机位拍摄」升级' };
+  // 一钮一tag门槛:场景/衣装/人数档各查对应升级
+  const sReq = SETTING_REQ[def.setting];
+  if (sReq && !(engine.upgrades?.[sReq])) return { ok: false, reason: `该场景需「布景」升级` };
+  if (def.outfit && !(engine.upgrades?.[OUTFIT_REQ[def.outfit]])) return { ok: false, reason: `该衣装需对应「衣装」升级` };
+  const cReq = def.cast ? CAST_REQ[def.cast] : undefined;
+  if (cReq && !(engine.upgrades?.[cReq])) return { ok: false, reason: '该规模需「机位」升级' };
   return { ok: true };
 }
 

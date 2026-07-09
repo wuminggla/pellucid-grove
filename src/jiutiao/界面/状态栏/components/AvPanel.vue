@@ -34,24 +34,26 @@
           </div>
         </div>
         <div class="field">
-          <label>场景<span v-if="!hasStage" class="hint">(更多棚内场景需「布景棚」升级)</span></label>
+          <label>场景<span class="hint">(灰=需在升级页购入对应布景·一钮一场景)</span></label>
           <div class="chips">
-            <button v-for="s in settingsAvail" :key="s" class="chip" :class="{ on: def.setting === s }" @click="def.setting = s">{{ s }}</button>
+            <button v-for="s in SETTINGS" :key="s" class="chip" :class="{ on: def.setting === s, dis: !settingOk(s) }"
+              @click="settingOk(s) && (def.setting = s)">{{ s }}</button>
           </div>
         </div>
         <div class="field">
-          <label>衣装<span class="hint">{{ hasOutfits ? '(可不选)' : '(需「情趣衣装库」升级)' }}</span></label>
+          <label>衣装<span class="hint">(灰=需在升级页购入对应衣装·一钮一件)</span></label>
           <div class="chips">
             <button class="chip" :class="{ on: !def.outfit }" @click="def.outfit = undefined">便服/不指定</button>
-            <button v-for="o in OUTFITS" :key="o" class="chip" :class="{ on: def.outfit === o, dis: !hasOutfits }"
-              @click="hasOutfits && (def.outfit = o)">{{ o }}</button>
+            <button v-for="o in OUTFITS" :key="o" class="chip" :class="{ on: def.outfit === o, dis: !outfitOk(o) }"
+              @click="outfitOk(o) && (def.outfit = o)">{{ o }}</button>
           </div>
         </div>
         <div class="field">
-          <label>出演规模<span v-if="!hasCams" class="hint">(大规模需「多机位拍摄」升级)</span></label>
+          <label>出演规模<span class="hint">(大部队需三机位·海量需环形机位)</span></label>
           <div class="chips">
             <button class="chip" :class="{ on: !def.cast }" @click="def.cast = undefined">按题材默认</button>
-            <button v-for="c in castsAvail" :key="c" class="chip" :class="{ on: def.cast === c }" @click="def.cast = c">{{ c }}</button>
+            <button v-for="c in CASTS" :key="c" class="chip" :class="{ on: def.cast === c, dis: !castOk(c) }"
+              @click="castOk(c) && (def.cast = c)">{{ c }}</button>
           </div>
         </div>
         <div class="field">
@@ -98,7 +100,7 @@
 <script setup lang="ts">
 import { computed, reactive } from 'vue';
 import { useRunnerStore } from '../runner-store';
-import { defaultAvState, isAvSystemUnlocked, canShootAv, avSalesIncome, STAGE_SETTINGS, CAST_NEEDS_CAMS } from '../../../game/av/machine';
+import { defaultAvState, isAvSystemUnlocked, canShootAv, avSalesIncome, SETTING_REQ, OUTFIT_REQ, CAST_REQ } from '../../../game/av/machine';
 import { avPlayCap, avIncomeMultiplier, getLevel } from '../../../game/upgrade/machine';
 import type { AvTheme, AvSetting, AvPlay, AvDefinition, AvOutfit, AvCast } from '../../../game/av/machine';
 
@@ -114,12 +116,18 @@ const CASTS: AvCast[] = ['少人数(2-3)', '小队(5-6)', '大部队(十余人)'
 
 const def = reactive<AvDefinition>({ theme: '本格性爱', setting: '学校', plays: ['小穴'], durationHours: 8, setupNote: '', custom: '' });
 
-// 三个新tag维度的升级门槛
-const hasStage = computed(() => getLevel(r.engine.upgrades, 'av_stage') >= 1);
-const hasOutfits = computed(() => getLevel(r.engine.upgrades, 'av_outfits') >= 1);
-const hasCams = computed(() => getLevel(r.engine.upgrades, 'av_cams') >= 1);
-const settingsAvail = computed(() => hasStage.value ? SETTINGS : SETTINGS.filter(s => !STAGE_SETTINGS.includes(s)));
-const castsAvail = computed(() => hasCams.value ? CASTS : CASTS.filter(c => !CAST_NEEDS_CAMS.includes(c)));
+// 一钮一tag门槛:场景/衣装/人数档各查对应升级
+function settingOk(s: AvSetting): boolean {
+  const req = SETTING_REQ[s];
+  return !req || getLevel(r.engine.upgrades, req) >= 1;
+}
+function outfitOk(o: AvOutfit): boolean {
+  return getLevel(r.engine.upgrades, OUTFIT_REQ[o]) >= 1;
+}
+function castOk(c: AvCast): boolean {
+  const req = CAST_REQ[c];
+  return !req || getLevel(r.engine.upgrades, req) >= 1;
+}
 
 const playCap = computed(() => avPlayCap(r.engine.upgrades));
 function togglePlay(p: AvPlay) {

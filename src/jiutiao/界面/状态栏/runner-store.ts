@@ -238,10 +238,10 @@ export const useRunnerStore = defineStore('runner', () => {
     if (def.effect.kind === 'unlock' && def.effect.unlockKey === 'av') {
       engine.value = { ...engine.value, ...(initAvOnUnlock(engine.value) as any) };
     }
-    // AV 专项升级:周产能 / 时长上限(在 av 子状态上生效)
-    if (id === 'av_quota') {
+    // AV 专项升级(一钮一效果):摄制班底4钮=各+1周产能;电池存储5钮=各+24h时长
+    if (['av_crew1', 'av_crew2', 'av_crew3', 'av_crew4'].includes(id)) {
       engine.value = { ...engine.value, av: upgradeAvQuota(engine.value.av ?? defaultAvState(), 1) };
-    } else if (id === 'av_duration') {
+    } else if (['av_bat1', 'av_bat2', 'av_bat3', 'av_bat4', 'av_bat5'].includes(id)) {
       engine.value = { ...engine.value, av: upgradeAvDuration(engine.value.av ?? defaultAvState(), 1) };
     } else if (id === 'sex_stamina') {
       // 性爱持续时间增强:供奉吞吐略降(×0.7)、AV单部时长上限+24h
@@ -264,46 +264,34 @@ export const useRunnerStore = defineStore('runner', () => {
       }
       corrMsg = ` · 堕落度 +${def.corruptionOnBuy}` + (cr.cognitionAdvancedTo ? ` → ${cr.cognitionAdvancedTo}` : '');
     }
+    // ???/荒唐升级:淫名代价(解禁/购买时结算)
+    if (def.infamyOnBuy && def.infamyOnBuy > 0) {
+      engine.value = { ...engine.value, infamy: engine.value.infamy + def.infamyOnBuy };
+      corrMsg += ` · 淫名 +${def.infamyOnBuy}`;
+    }
     const lvl = engine.value.upgrades?.[id] ?? 1;
-    lastUpgrade.value = { ok: true, msg: `「${def.name}」已升至 Lv.${lvl}（花费¥${def.cost}）${corrMsg}。` };
+    lastUpgrade.value = def.mystery
+      ? { ok: true, msg: `❤「${def.name}」已解禁${corrMsg}。` }
+      : { ok: true, msg: `「${def.name}」已升至 Lv.${lvl}（花费¥${def.cost}）${corrMsg}。` };
     autoUnlockMysteries();
   }
 
   /**
-   * ???(mystery)自动解锁:条件满足即免费解锁(升级面板上"???"翻开)。
-   * 效果多为"色情数值叙事的负面加成"(+堕落/+淫名/事件范式顶替)。堕落增量可能级联触发下一个???,循环到稳定。
+   * ???(mystery)揭晓检查:条件满足→只把"???"翻开显示内容并通知,【不自动生效】。
+   * 解禁必须由玩家在升级页免费手动点(走 buyUpgrade·cost=0),堕落/淫名在点击时才结算——防雪崩,节奏交还玩家。
    */
   function autoUnlockMysteries() {
-    const msgs: string[] = [];
-    for (let guard = 0; guard < 10; guard++) {
-      const ready = pendingMysteries(engine.value as any);
-      if (!ready.length) break;
-      for (const def of ready) {
-        engine.value = applyUpgrade(engine.value as any, def); // cost=0
-        let extra = '';
-        if (def.corruptionOnBuy && def.corruptionOnBuy > 0) {
-          const cr = gainCorruption(
-            { corruption: engine.value.corruption, cognition: engine.value.cognition, claimedGates: engine.value.claimedGates },
-            def.corruptionOnBuy,
-          );
-          engine.value = { ...engine.value, corruption: cr.corruption, cognition: cr.cognition, claimedGates: cr.claimedGates };
-          for (const g of cr.firedGates) {
-            engine.value = { ...engine.value, money: engine.value.money + (g.reward.money ?? 0), thugTotal: engine.value.thugTotal + (g.reward.thugs ?? 0) };
-          }
-          extra += ` 堕落+${def.corruptionOnBuy}` + (cr.cognitionAdvancedTo ? `→${cr.cognitionAdvancedTo}` : '');
-        }
-        if (def.infamyOnBuy && def.infamyOnBuy > 0) {
-          engine.value = { ...engine.value, infamy: engine.value.infamy + def.infamyOnBuy };
-          extra += ` 淫名+${def.infamyOnBuy}`;
-        }
-        msgs.push(`❤ ???揭晓：「${def.name}」${extra}`);
-      }
-    }
-    if (msgs.length) {
-      lastMystery.value = [...lastMystery.value, ...msgs];
-      const d = day.value.dayNumber;
-      notifyLog.value = [...notifyLog.value, { day: d, label: `第${d}天 ❤解禁`, notices: msgs.map(t => ({ t, tone: 'rose' })) }].filter(x => x.day >= d - 1).slice(-60);
-    }
+    const revealed = engine.value.mysteryRevealed ?? {};
+    const fresh = pendingMysteries(engine.value as any).filter(d => !revealed[d.id]);
+    if (!fresh.length) return;
+    engine.value = {
+      ...engine.value,
+      mysteryRevealed: { ...revealed, ...Object.fromEntries(fresh.map(d => [d.id, true])) },
+    };
+    const msgs = fresh.map(d => `❤ ???揭晓：「${d.name}」——升级页可解禁(免费·解禁时才结算代价)`);
+    lastMystery.value = [...lastMystery.value, ...msgs];
+    const dnum = day.value.dayNumber;
+    notifyLog.value = [...notifyLog.value, { day: dnum, label: `第${dnum}天 ❤揭晓`, notices: msgs.map(t => ({ t, tone: 'rose' })) }].filter(x => x.day >= dnum - 1).slice(-60);
   }
 
   /** DEBUG 工具条(仅 DEBUG_BUILD·设置页):直接改变量跳到中后期测试点。堕落走 gainCorruption(触发认知/闸门/???级联)。 */
