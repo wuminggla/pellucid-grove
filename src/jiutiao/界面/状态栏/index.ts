@@ -1,3 +1,4 @@
+import './vue-flags'; // 必须第一个 import:补 __VUE_PROD_DEVTOOLS__ 等 flag(CDN pinia 依赖·否则黑屏)
 import App from './App.vue';
 import './global.css';
 import { BUILD_VERSION } from './version';
@@ -83,10 +84,20 @@ $(() => {
       //    收起功能不再单独做按钮，而是 provide 给 App，由左栏「退出」按钮调用（隐藏宿主回酒馆，状态保留）。
       const mountEl = topDoc.createElement('div');
       host.appendChild(mountEl);
-      const app = createApp(App);
-      app.provide('pellucidCollapse', () => { if (host) host.style.display = 'none'; });
-      app.use(createPinia()).mount(mountEl);
-      console.log('[pellucid] 全屏前端已挂载');
+      try {
+        const app = createApp(App);
+        app.provide('pellucidCollapse', () => { if (host) host.style.display = 'none'; });
+        app.use(createPinia()).mount(mountEl);
+        console.log('[pellucid] 全屏前端已挂载');
+      } catch (mountErr: any) {
+        // 挂载失败绝不留黑屏:把错误直接显示在全屏宿主里(可截图报修),并给退出按钮
+        const stack = mountErr?.stack || String(mountErr);
+        mountEl.innerHTML = '<div style="padding:24px;color:#e06666;font-family:monospace;font-size:13px;'
+          + 'white-space:pre-wrap;line-height:1.7;">[pellucid 挂载失败 · ' + '请把本屏截图发给开发]\n\n' + stack
+          + '\n\n<button onclick="document.getElementById(\'pellucid-fs\').style.display=\'none\'" '
+          + 'style="margin-top:12px;padding:8px 18px;cursor:pointer;">关闭返回酒馆</button></div>';
+        console.error('[pellucid] mount 失败', mountErr);
+      }
     }
 
     btn.addEventListener('click', open);
