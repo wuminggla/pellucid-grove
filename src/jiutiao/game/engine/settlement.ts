@@ -30,8 +30,9 @@ export interface ServeSettleResult {
  *  - **当场清偿欲望**：欲望 -= 本场供奉人数 × 供奉降欲量，clamp≥0（玩家盯着状态栏看它掉）。
  *  - 被供奉的人计入 servedThisNight（统计/显示用）。
  * @param throughputMultiplier 吞吐倍率（强制请假轮奸日=1.5，多服务人数同步放大扣套与降欲）
+ * @param reliefMultiplier 最终降欲倍率（口交等无套供奉=0.5；在所有吞吐/人数/升级加成算完后，对最终降欲值一次性乘）
  */
-export function settleServe(state: EngineState, throughputMultiplier = 1, consumeCondom = true): ServeSettleResult {
+export function settleServe(state: EngineState, throughputMultiplier = 1, consumeCondom = true, reliefMultiplier = 1): ServeSettleResult {
   // 服务人数 = min(在场打手数, 供奉格吞吐上限×倍率)。在场少则取在场,在场多则被吞吐封顶。
   const cap = Math.round((state.perSlotThroughput ?? 6) * throughputMultiplier);
   const served = Math.max(0, Math.min(state.presentCount, cap));
@@ -39,7 +40,8 @@ export function settleServe(state: EngineState, throughputMultiplier = 1, consum
   const need = consumeCondom ? condomCost(served, state.isDangerousPeriod) : 0;
   const used = Math.min(need, state.condomStock);
   const condomShort = consumeCondom && need > state.condomStock;
-  const relieved = desireRelief(served);
+  // 最终降欲 = 全部加成算完后的 desireRelief(served) 再乘 reliefMultiplier(口交×0.5)
+  const relieved = Math.round(desireRelief(served) * reliefMultiplier);
   return {
     state: {
       ...state,
@@ -129,7 +131,10 @@ export function settleDaily(state: EngineState, dayNumber: number): DailySettleR
   const garrisonPower = (next.garrison ?? 0) * baseMartialPerThug(next.upgrades) * weaponMult(next.upgrades);
   const threat = settleTurfThreat(next.regions, garrisonPower, Math.random);
   next.regions = threat.regions;
-  next.defenseLog = [...(next.defenseLog ?? []), { day: dayNumber, raids: threat.raids, lost: threat.lost }].slice(-14);
+  next.defenseLog = [...(next.defenseLog ?? []), {
+    day: dayNumber, raids: threat.raids, lost: threat.lost,
+    garrisonPower: Math.round(garrisonPower), records: threat.records, // 战报明细:敌强度 vs 我方常驻武力(玩家据此调驻守人数)
+  }].slice(-14);
   if (y.martial > 0) {
     next.martialPrestige = next.martialPrestige + y.martial;
     next.martialGainToday = (next.martialGainToday ?? 0) + y.martial; // 据点产出也算极道威望进账(防硬失败误杀有地盘玩家)

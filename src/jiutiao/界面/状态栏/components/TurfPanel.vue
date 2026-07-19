@@ -34,11 +34,20 @@
       <div class="g-tip">派打手驻守地盘：敌人反击时，<b>常驻武力 ≥ 敌进攻强度</b>即自动守住，否则随机丢一块已占地盘。驻防占用打手、<b>白天在场人数与攻打武力随之下降</b>（夜晚打手归宅不受影响）。占越多地盘、复仇越深，敌人反击越频繁越强。</div>
       <details v-if="defenseHistory.length" class="g-hist">
         <summary>防守历史（最近 {{ defenseHistory.length }} 天）</summary>
-        <div v-for="d in defenseHistory" :key="d.day" class="gh-row">
-          <span class="gh-day">第{{ d.day }}天</span>
-          <span v-if="d.raids === 0" class="gh-ok">平安无事</span>
-          <span v-else-if="!d.lost.length" class="gh-ok">被进攻{{ d.raids }}次·全守住</span>
-          <span v-else class="gh-bad">被进攻{{ d.raids }}次·丢失 {{ d.lost.join('、') }}</span>
+        <div v-for="d in defenseHistory" :key="d.day" class="gh-day-block">
+          <div class="gh-row">
+            <span class="gh-day">第{{ d.day }}天</span>
+            <span v-if="d.raids === 0" class="gh-ok">平安无事</span>
+            <span v-else-if="!d.lost.length" class="gh-ok">被进攻{{ d.raids }}次·全守住<template v-if="d.garrisonPower != null">（我方常驻武力 {{ d.garrisonPower }}）</template></span>
+            <span v-else class="gh-bad">被进攻{{ d.raids }}次·丢失 {{ d.lost.join('、') }}<template v-if="d.garrisonPower != null">（我方常驻武力 {{ d.garrisonPower }}）</template></span>
+          </div>
+          <!-- 逐次战报：敌强度 vs 我方常驻武力，为何丢地盘（旧存档无 records 不显示） -->
+          <div v-for="(rec, i) in (d.records ?? [])" :key="i" class="gh-row gh-rec" :class="rec.repelled ? 'gh-ok' : 'gh-bad'">
+            <span class="gh-day"></span>
+            <span v-if="rec.repelled">⚔ 第{{ rec.stage }}阶段敌袭 强度{{ rec.strength }} ≤ 我方{{ d.garrisonPower ?? '?' }} → 击退</span>
+            <span v-else-if="rec.lostRegion">⚔ 第{{ rec.stage }}阶段敌袭 强度{{ rec.strength }} &gt; 我方{{ d.garrisonPower ?? '?' }} → 防线被突破，丢失「{{ rec.lostRegion }}」</span>
+            <span v-else>⚔ 第{{ rec.stage }}阶段敌袭 强度{{ rec.strength }} &gt; 我方{{ d.garrisonPower ?? '?' }} → 防线被突破（该图已无地盘可丢）</span>
+          </div>
         </div>
       </details>
     </div>
@@ -216,6 +225,8 @@ function onCell(c: Cell) {
 .g-hist { margin-top: 8px; }
 .g-hist summary { font-size: 12px; color: var(--gold-dim); cursor: pointer; }
 .gh-row { display: flex; gap: 12px; font-size: 12px; padding: 3px 0 3px 12px; }
+.gh-day-block { margin-bottom: 2px; }
+.gh-rec { padding-top: 0; padding-bottom: 1px; font-size: 11px; opacity: 0.85; }
 .gh-day { color: var(--text-dim); min-width: 54px; }
 .gh-ok { color: var(--green); }
 .gh-bad { color: var(--rose-hi); }

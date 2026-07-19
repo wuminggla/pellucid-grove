@@ -427,10 +427,19 @@ export function occupiedRegionIds(regions: Record<string, RegionState> | undefin
   return REGIONS.filter(d => d.id !== HOME_REGION_ID && isRegionUnlocked(regions, d.id)).map(d => d.id);
 }
 
+/** 单次敌人反击的战报明细(玩家据此规划驻守人数) */
+export interface RaidRecord {
+  stage: number;          // 敌人来自第几阶段图
+  strength: number;       // 敌方进攻强度
+  repelled: boolean;      // 是否被常驻武力击退
+  lostRegion?: string;    // 未击退时丢失的地盘名
+}
+
 export interface TurfThreatResult {
   regions: Record<string, RegionState>;
   raids: number;      // 昨日敌人反击次数
   lost: string[];     // 丢失的地盘名(可多块)
+  records: RaidRecord[]; // 逐次战报(敌强度 vs 我方常驻武力·为何丢地盘)
 }
 
 /**
@@ -467,11 +476,12 @@ export function settleTurfThreat(
   rng: () => number,
 ): TurfThreatResult {
   const occupied = occupiedRegionIds(regions);
-  if (occupied.length === 0) return { regions: regions ?? {}, raids: 0, lost: [] };
+  if (occupied.length === 0) return { regions: regions ?? {}, raids: 0, lost: [], records: [] };
 
   let regs = { ...(regions ?? {}) };
   let totalRaids = 0;
   const lost: string[] = [];
+  const records: RaidRecord[] = [];
   for (let s = 1; s <= STAGE_COUNT; s++) {
     const stageOcc = occupied.filter(id => REGIONS_BY_ID[id]?.stage === s);
     if (stageOcc.length === 0) continue;
@@ -481,15 +491,21 @@ export function settleTurfThreat(
     const occ = [...stageOcc];
     for (let i = 0; i < raids; i++) {
       const strength = minStrength + Math.round(rng() * (maxStrength - minStrength)); // [下限,上限]
-      if (strength > garrisonPower && occ.length > 0) {
+      const breached = strength > garrisonPower; // 敌强度 > 常驻武力 = 防线被突破
+      if (breached && occ.length > 0) {
         const idx = Math.floor(rng() * occ.length) % occ.length;
         const id = occ.splice(idx, 1)[0];
         regs[id] = { ...regionState(regs, id), defeated: false };
-        lost.push(REGIONS_BY_ID[id]?.name ?? id);
+        const name = REGIONS_BY_ID[id]?.name ?? id;
+        lost.push(name);
+        records.push({ stage: s, strength, repelled: false, lostRegion: name });
+      } else {
+        // repelled=真击退(武力足够); 被突破但该图当晚已无地盘可丢时 repelled=false 且无 lostRegion
+        records.push({ stage: s, strength, repelled: !breached });
       }
     }
   }
-  return { regions: regs, raids: totalRaids, lost };
+  return { regions: regs, raids: totalRaids, lost, records };
 }
 
 /** 进攻结算结果 */
