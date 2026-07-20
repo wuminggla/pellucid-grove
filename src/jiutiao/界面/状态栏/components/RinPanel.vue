@@ -19,6 +19,13 @@
         <div class="sbody">
           <div class="inner-voice">{{ voice }}</div>
 
+          <!-- 结局倾向(批C2·endings.endingTendency 过程可感知) -->
+          <div class="group-t">结局倾向 · 大小姐正滑向何处</div>
+          <div class="tendency" :class="tendencyClass">
+            <span class="td-main">{{ tendency }}</span>
+            <span class="td-sub">{{ salvationOpen ? '「金盆洗手」仍有可能（认知未崩·堕落<50）' : '「金盆洗手」的门已经关上了' }}</span>
+          </div>
+
           <div class="group-t">身体开发度 · 四部位（0-4级·单向不可逆·点开看次数）</div>
           <details v-for="p in parts" :key="p.key" class="part">
             <summary>
@@ -54,8 +61,20 @@
 <script setup lang="ts">
 import { computed } from 'vue';
 import type { EngineState } from '../../../game/engine/types';
+import { endingTendency, isSalvationOpen } from '../../../game/endings/machine';
 
 const props = defineProps<{ engine: EngineState }>();
+
+// 结局倾向(批C2)
+const tendency = computed(() => endingTendency({
+  cognition: props.engine.cognition, corruption: props.engine.corruption, pregnant: props.engine.pregnant,
+}));
+const salvationOpen = computed(() => isSalvationOpen({
+  cognition: props.engine.cognition, corruption: props.engine.corruption, pregnant: props.engine.pregnant,
+}));
+const tendencyClass = computed(() => ({
+  解脱: 'td-free', 畸形团体: 'td-warped', 堕落生育: 'td-breed', 未定: '',
+}[tendency.value] ?? ''));
 
 const VOICE: Record<string, string> = {
   死撑: '"嘴上死撑着九条家的体面，绝不肯承认身体的任何一丝反应——那都是生理反射，根本不算数。"',
@@ -103,6 +122,12 @@ const parts = computed(() => {
 .sbody { border: 1px solid var(--gold-dim); border-top: none; border-radius: 0 0 10px 10px; padding: 13px; background: rgba(18,12,11,.7); }
 .inner-voice { margin: 0 0 10px; padding: 9px 11px; border-left: 3px solid var(--rose); background: rgba(210,74,106,.08); font-size: 13px; line-height: 1.75; color: #d9cfc5; font-style: italic; }
 .group-t { font-size: 11px; color: var(--gold-dim); letter-spacing: 3px; margin: 12px 0 8px; border-bottom: 1px dashed var(--line); padding-bottom: 4px; }
+.tendency { display: flex; flex-direction: column; gap: 3px; padding: 8px 10px; border: 1px solid var(--line); border-radius: 8px; }
+.tendency .td-main { font-size: 15px; letter-spacing: 4px; font-weight: bold; }
+.tendency .td-sub { font-size: 11px; color: var(--text-dim); }
+.tendency.td-free .td-main { color: var(--green); }
+.tendency.td-warped .td-main { color: var(--gold-hi); }
+.tendency.td-breed .td-main { color: var(--rose-hi); }
 .dots { display: flex; gap: 3px; }
 .dots i { width: 10px; height: 10px; border-radius: 50%; border: 1px solid var(--gold-dim); background: transparent; }
 .dots i.on { background: var(--rose); border-color: var(--rose-hi); box-shadow: 0 0 5px rgba(240,106,138,.45); }

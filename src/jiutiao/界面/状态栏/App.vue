@@ -178,8 +178,13 @@
         <div class="ending-box">
           <div class="ed-kicker">{{ r.ending.kind === 'revenge' ? '— 终 — ' : r.ending.kind === 'fall' ? '— 堕 — ' : '— 终 — ' }}</div>
           <div class="ed-title">{{ r.ending.title }}</div>
-          <div class="ed-text">{{ r.ending.text }}</div>
+          <!-- 结局AI演出(批C2): 演出正文生成完→替换静态文本;生成中→静态文本+提示;失败→静态文本 -->
+          <div v-if="r.endingProse" class="ed-text ed-prose">{{ r.endingProse }}</div>
+          <div v-else class="ed-text">{{ r.ending.text }}</div>
+          <div v-if="r.endingProseBusy" class="ed-gen">✦ {{ r.endingProseLabel }} · 终幕演出生成中……（完成后自动展开，也可先行操作）</div>
           <div class="ed-btns">
+            <!-- 结局回退按钮(接口占位·canRollback 恒false): 随"存档系统"待办落地后显示,支持回退最近自动存档/手动存档 -->
+            <button v-if="r.canRollback && r.ending.kind !== 'revenge'" class="primary-btn" @click="onRollback">回退存档</button>
             <button class="primary-btn" @click="confirmReset">重开本局</button>
             <button class="ghost-btn" @click="r.dismissEnding()">{{ r.ending.kind === 'fail' ? '关闭' : '继续游玩' }}</button>
           </div>
@@ -344,6 +349,11 @@ async function copyPromptAudit() {
   setTimeout(() => { saveToast.value = ''; }, 2600);
 }
 
+// 结局回退(批C2·接口占位): 存档系统待办落地后接真(回退最近自动存档/手动存档)
+function onRollback() {
+  if (r.rollbackFromEnding()) { saveToast.value = '✓ 已回退'; setTimeout(() => { saveToast.value = ''; }, 2600); }
+}
+
 // 设置·存档管理
 function confirmReset() {
   if (window.confirm('确定清空【当前聊天】的进度、从头开始这一局？\n（其它聊天的存档不受影响。此操作不可撤销）')) {
@@ -446,6 +456,9 @@ function confirmReset() {
 .ed-title { font-family: var(--brush); font-size: 56px; letter-spacing: 8px; margin: 14px 0 22px; color: var(--gold-hi); text-shadow: 0 0 24px rgba(201,162,74,.4); }
 .ending-overlay.fall .ed-title, .ending-overlay.fail .ed-title { color: var(--rose-hi); text-shadow: 0 0 24px rgba(240,106,138,.4); }
 .ed-text { font-size: 15px; color: var(--text); line-height: 2; margin-bottom: 30px; }
+.ed-text.ed-prose { white-space: pre-wrap; text-align: left; max-height: 46vh; overflow-y: auto; padding-right: 8px; }
+.ed-gen { font-size: 12px; color: var(--gold-dim); margin: -18px 0 22px; animation: pulse 1.6s ease-in-out infinite; }
+@keyframes pulse { 0%, 100% { opacity: .5; } 50% { opacity: 1; } }
 .ed-btns { display: flex; gap: 14px; justify-content: center; }
 .gen-overlay { position: fixed; inset: 0; background: rgba(10,6,8,.72); display: flex; align-items: center; justify-content: center; z-index: 200; }
 .gen-box { text-align: center; }

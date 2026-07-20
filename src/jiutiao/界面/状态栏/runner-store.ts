@@ -35,6 +35,9 @@ import { createTavernAi } from './tavern-ai';
 import { nextPendingSummary, upsertSummary, pendingBigRange, pendingBigMerge, applyBigMerge } from '../../game/memory/machine';
 import { DEVELOPMENT_LABELS } from '../../game/intrusion/machine';
 import type { DevelopmentLevel } from '../../game/intrusion/machine';
+import { routeEndingPerformance, buildEndingExpandRequest } from '../../game/endings/performance';
+import type { EndingKind } from '../../game/endings/performance';
+import { endingTendency, isSalvationOpen } from '../../game/endings/machine';
 import { getMemoryConfig } from './memory-settings';
 import type { ForcedEvent } from '../../game/events/machine';
 import type { DayState, SlotChoice, SlotPeriod } from '../../game/action-grid/types';
@@ -568,6 +571,7 @@ export const useRunnerStore = defineStore('runner', () => {
     failWarnings.value = r.daily.failWarnings ?? [];
     lastAttrition.value = r.daily.thugsLost ?? 0;
     forcedSeize.value = null;
+    // 结局回退接口(批C2占位): 每日自动存档随"存档系统"待办落地(README批次计划),此处不再写日快照。
     // 日终通知入历史(流失/硬失败/预警)
     {
       const ex: Notice[] = [];
@@ -640,6 +644,13 @@ export const useRunnerStore = defineStore('runner', () => {
     _loadingSave = false; persistNow();
   }
 
+  // ─── 结局回退·接口(批C2·占位) ───
+  // 待办"存档系统"(README批次计划): 手动存档槽(用户存档=保留一份当前快照)+每日自动存档;
+  // 坏结局(fail/fall)时玩家可选 回退到最近自动存档 或 回退到手动存档。
+  // 现在只留接口: canRollback 恒 false(overlay 按钮不显示),存档系统落地后接真。
+  const canRollback = computed(() => false);
+  function rollbackFromEnding(): boolean { return false; }
+
   // ─── 通知:当前格提示(只此一格) + 历史日志(最近两天) ───
   function buildSlotNotices(): Notice[] {
     const out: Notice[] = [];
@@ -676,6 +687,14 @@ export const useRunnerStore = defineStore('runner', () => {
     notifyLog.value = [...notifyLog.value, { day: d, label, notices }].filter(x => x.day >= d - 1).slice(-60);
   }
 
+  // 结局倾向(过程可感知·endings/machine 首次接入生产·RinPanel/状态显示用)
+  const tendencyNow = computed(() => endingTendency({
+    cognition: engine.value.cognition, corruption: engine.value.corruption, pregnant: engine.value.pregnant,
+  }));
+  const salvationOpenNow = computed(() => isSalvationOpen({
+    cognition: engine.value.cognition, corruption: engine.value.corruption, pregnant: engine.value.pregnant,
+  }));
+
   // ─── 结局/胜利判定 ───
   const dismissedEnding = ref<string | null>(null);
   const ending = computed(() => {
@@ -698,6 +717,29 @@ export const useRunnerStore = defineStore('runner', () => {
   function dismissEnding() { dismissedEnding.value = ending.value?.kind ?? null; }
   const showEnding = computed(() => !!ending.value && dismissedEnding.value !== ending.value!.kind);
 
+  // ─── 结局AI演出(批C2·七条孤儿范式接通) ───
+  // 结局触发→后台按堕落/怀孕路由范式(salvation/breeding/birth_show/ancestor_breeding/defeat)调 ai.expand,
+  // 生成演出正文替换 overlay 静态文本;失败/生成中=静态文本兜底(不阻塞 overlay 显示)。
+  const endingProse = ref<string | null>(null);       // 演出正文(生成完成后非null)
+  const endingProseBusy = ref(false);
+  const endingProseLabel = ref('');
+  let _endingProseFor: string | null = null;          // 已生成/正在生成的结局kind(防重复)
+  watch(ending, async (e) => {
+    if (!e || _endingProseFor === e.kind) return;
+    _endingProseFor = e.kind;
+    endingProse.value = null;
+    const perf = routeEndingPerformance(e.kind as EndingKind, engine.value);
+    endingProseLabel.value = perf.label;
+    endingProseBusy.value = true;
+    try {
+      const req = buildEndingExpandRequest(e.kind as EndingKind, engine.value, day.value.dayNumber);
+      const ex = await withTimeout(ai.expand(req), GEN_TIMEOUT_MS);
+      const text = (ex.text ?? '').trim();
+      if (text.length >= MIN_TEXT_LEN) endingProse.value = text;
+    } catch { /* 演出生成失败→overlay 保持静态文本 */ }
+    finally { endingProseBusy.value = false; }
+  });
+
   // 启动: 有存档→读回; 无→落初始并写一次。之后任意状态变化自动防抖存。
   const _hadSave = loadSave();
   if (!_hadSave) persistNow();
@@ -716,6 +758,8 @@ export const useRunnerStore = defineStore('runner', () => {
     pendingMap, currentMapKind, beginMapSelect, cancelMapSelect, resolveMapSlot,
     lastUpgrade, buyUpgrade, lastAv, queueAvShoot,
     ending, showEnding, dismissEnding,
+    endingProse, endingProseBusy, endingProseLabel, canRollback, rollbackFromEnding,
+    tendencyNow, salvationOpenNow,
     setFastForward, allocate, setChoice, clearChoice, fillEmpty,
     beginDay, beginNight, runCurrent, rerunLast, nextDay, loadState,
     useMock, useTavern, saveNow: persistNow, resetGame,
