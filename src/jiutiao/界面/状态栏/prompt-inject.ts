@@ -1,49 +1,56 @@
 // prompt-inject · 生成注入酒馆 generate 的游戏 prompt 文本
 // ============================================================
 //
-// 与 game/engine/prompt.ts(buildGamePrompt)的关系:
-//  - buildGamePrompt 是 v1 "自己拼完整 prompt(含预设 main/JB)"的组装器
-//  - 这里改为"只生成注入内容":世界书常驻条目 + 范式 + 态度 + 状态 + 输出格式
-//  - 预设 main/JB/文风/采样参数 交给酒馆 generate 自动套(不在注入里重复)
-//
-// 做法: 调 buildGamePrompt 但传一个 main/jailbreak 为空的预设,
-//   这样它生成的 system 只含【常驻世界书 + 记忆层】(我们的游戏内容,酒馆预设里没有),
-//   user 含【范式 + 态度 + 场景 + 规格 + 输出格式】。两段合并即为注入文本。
+// 与 game/engine/prompt.ts(buildGamePrompt)的关系(批B-2 重构后):
+//  - buildGamePrompt 组装 [system, user]:system=我们的 main+JB(demoPreset)+常驻世界书+记忆层,
+//    user=范式+态度+场景+规格+输出格式。
+//  - 本文件在其外再包: 任务框架(AI在游戏流水线中的角色) + 强指令(视角/衔接/反复读/时段) + 连贯性简报。
+//  - 酒馆第三方预设块不再默认注入(视角污染源·见 tavern-ai.ts 开关)。采样参数仍 same_as_preset。
 
 import { buildGamePrompt, buildExtractMessages } from '../../game/engine/prompt';
+import { demoPreset } from '../../game/worldbook/demo';
 import type { ExpandRequest, ExtractRequest } from '../../game/engine/types';
 import type { Lorebook, ChatPreset } from '../../sillytavern/types';
 
-// main/jailbreak 留空的预设: 让 buildGamePrompt 跳过预设提示词(交给酒馆),
-// 但仍组装常驻世界书 + 记忆 + 范式 + 态度 + 状态。
-const EMPTY_PRESET: ChatPreset = {
-  id: 'inject-empty',
-  name: 'inject',
-  settings: { main: '', jailbreak: '' },
-  createdAt: 0,
-  updatedAt: 0,
-} as ChatPreset;
+// 批B-2: 注入我们自己的 main+JB(demoPreset·3-5b 为九条会专门写的行为规范:
+//   直白露骨基调/感官四维/按范式补血肉不复读模板/成年基线)。
+//   此前这里传 EMPTY_PRESET 导致 main/JB 被整体旁路,只剩一句话兜底——
+//   行为规范根本没进 prompt,是"凹人设/复读语料"症状的主根因之一。
+const GAME_PRESET: ChatPreset = demoPreset;
 
 /**
  * 生成主 AI(正文)的注入文本:强指令 + 连贯性简报 + 世界书常驻 + 范式 + 态度 + 状态 + 输出格式。
  * @param directorBrief 副AI对最近正文产出的"连贯性简报"(代替前楼层内容)。空=开局首格,无前文。
  */
 export function buildGameInject(req: ExpandRequest, lorebook: Lorebook, directorBrief = ''): string {
-  const msgs = buildGamePrompt(req, { lorebook, preset: EMPTY_PRESET });
+  const msgs = buildGamePrompt(req, { lorebook, preset: GAME_PRESET });
   const sys = (msgs[0]?.content ?? '').trim();
   const user = (msgs[1]?.content ?? '').trim();
+
+  // 任务框架(批B-2·给AI解释"你当前的处境与任务"·弱模型缺这层框架更易漂):
+  const frame =
+    '【你的任务框架】\n'
+    + '《九条会》是一个经营+堕落的成人文字游戏:玩家扮演九条会会长,把每天的行动安排进格子,系统逐格结算。\n'
+    + '你在这条流水线里只负责一件事:把【本格行动】指定的这一个事件,按范式约束演成一段给玩家看的正文。\n'
+    + '数值(资金/人数/堕落度等)全部由游戏系统计算,你不用管结算,只管把这一格演好。\n'
+    + '你写的正文会直接显示在游戏界面里,前后格的正文由多次独立生成拼成一天——所以必须服从下方的衔接与时段约束。';
 
   // 强指令(置顶):
   //  #3 命中范式不跑偏 + 衔接连续状态不重置(堵不如疏:不发原始楼层,改发副AI简报)
   //  #2 思维链/尾部块放标签外
+  //  批B-2 新增: 视角硬约束(根治"主视角变你") + 反复读(根治弱模型照抄范式词表)
   const directive =
     '【最高指令·游戏事件生成】\n'
     + '你在为一个文字游戏生成【本格事件】的正文。遵守:\n'
     + '1. 命中范式:严格演下方【本格行动】指定的事件,严禁写成与之无关的其它场景(如把"口交侍奉"写成"便利店采购")。\n'
-    + '2. 衔接而非重置:必须承接下方【连贯性简报】描述的当前局面自然往下写——若简报指出凛已在某场景(如已在供奉现场),就从那个状态继续推进,严禁把场景退回更早的起点(如再写"她刚从外面回家/刚被叫来/刚进门")。无简报时(开局首格)才从本事件自身起笔。\n'
-    + '3. 只认简报:不要续写酒馆聊天楼层里的其它历史对话,本次只依据【连贯性简报】+【本格行动】。\n'
-    + '4. 防重复:不要重复【连贯性简报】中"防重复"列出的、最近已用过的开场/桥段/句式/意象,换新的写法。\n'
-    + '5. 【绝不跨时间段·硬约束】本格只演当前这一小段时间内发生的事,严禁擅自推进到别的时段、严禁给一整天收尾:\n'
+    + '2. 【叙事视角·硬约束】正文用第三人称,镜头始终跟随九条凛,以"凛/她"称呼主角。玩家角色=九条会会长,正文中只能以"会长"指代,且仅在事件需要时出场。【严禁】用"你"称呼任何角色、严禁第二人称叙事、严禁把玩家写成正文的"你"。\n'
+    + '3. 衔接而非重置:必须承接下方【连贯性简报】描述的当前局面自然往下写——若简报指出凛已在某场景(如已在供奉现场),就从那个状态继续推进,严禁把场景退回更早的起点(如再写"她刚从外面回家/刚被叫来/刚进门")。无简报时(开局首格)才从本事件自身起笔。\n'
+    + '4. 只认简报:不要续写酒馆聊天楼层里的其它历史对话,本次只依据【连贯性简报】+【本格行动】。\n'
+    + '5. 【反复读·硬约束】下方范式里的词表/例句/拟声/称呼锚点是【选词方向和写作约束】,不是让你抄写的文本:\n'
+    + '   · 严禁把范式中的例句/词表原样或近原样搬进正文,严禁成段罗列范式词汇;\n'
+    + '   · 每格用词要换血:同一个动作/部位/反应,换不同的写法,前文大概率已写过一遍,照抄只会让玩家审美疲劳;\n'
+    + '   · 不要重复【连贯性简报】中"防重复"列出的、最近已用过的开场/桥段/句式/意象。\n'
+    + '6. 【绝不跨时间段·硬约束】本格只演当前这一小段时间内发生的事,严禁擅自推进到别的时段、严禁给一整天收尾:\n'
     + '   · 若本格是【夜晚】事件: 绝对不许写到天亮/早晨/第二天/起床/晨光——后面可能还有别的夜晚行动格,写到天亮逻辑就崩。结尾停在本格事件刚结束的深夜。\n'
     + '   · 若本格是【白天】事件: 绝对不许写到天黑/入夜/夜晚/华灯初上。结尾停在本格事件刚结束的白天。\n'
     + '   · 正文是这一天里的一个片段,不是一天的总结。禁止出现"这一天结束了""一夜过去""翌日"之类的跨时段收尾。\n'
@@ -61,7 +68,7 @@ export function buildGameInject(req: ExpandRequest, lorebook: Lorebook, director
     ? '【本格时段·硬约束】现在是【白天】。正文绝对不许写到天黑/入夜/夜晚,结尾必须停在本格事件刚结束的白天。'
     : '';
 
-  return [directive, periodNote, briefBlock, sys, user].filter(Boolean).join('\n\n');
+  return [frame, directive, periodNote, briefBlock, sys, user].filter(Boolean).join('\n\n');
 }
 
 /**

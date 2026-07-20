@@ -99,9 +99,16 @@
             <button class="danger-btn" @click="confirmReset">重开本局（清空当前进度）</button>
           </div>
         </div>
+        <div class="set-box">
+          <h3>AI 生成 · 选项</h3>
+          <label class="srow toggle-row">
+            <input type="checkbox" v-model="includePreset" @change="onPresetToggle" />
+            <span><b>附加酒馆预设文风块</b>（默认关）：把你酒馆当前启用预设里的 main/nsfw/jailbreak 块一并发给 AI。想借第三方预设的文风时再开——多数社区预设是为对话式 RP 写的，可能把叙事视角带偏成"你"。</span>
+          </label>
+        </div>
         <div class="set-box dim-box">
-          <h3>API / 界面风格（待接）</h3>
-          <p class="lead">之后这里配置副 AI 端点、切换我们提供的其它 UI 风格。</p>
+          <h3>API（待接）</h3>
+          <p class="lead">之后这里配置副 AI 独立端点、切换我们提供的其它 UI 风格。</p>
         </div>
         <!-- DEBUG 工具条(仅测试构建·跳中后期测试点) -->
         <div v-if="DEBUG_BUILD" class="set-box debug-box">
@@ -120,6 +127,9 @@
             <button @click="r.debugAdjust('slots15')">行动格拉满(15)</button>
             <button @click="r.debugAdjust('desire0')">群体欲望清零</button>
             <button @click="r.debugAdjust('tp60')">吞吐拉满(60/格)</button>
+          </div>
+          <div class="set-btns dbg-btns">
+            <button @click="copyPromptAudit" title="导出最近几次实际发给AI的完整prompt(含预设块/简报/注入/AI原始返回),验证注入是否生效">📋 复制最近完整prompt</button>
           </div>
         </div>
       </div>
@@ -162,6 +172,7 @@
 <script setup lang="ts">
 import { ref, computed, inject, watch } from 'vue';
 import { useRunnerStore } from './runner-store';
+import { dumpPromptAudit, getIncludeTavernPreset, setIncludeTavernPreset } from './tavern-ai';
 import { BUILD_VERSION, DEBUG_BUILD } from './version';
 import Masthead from './components/Masthead.vue';
 import NavRail from './components/NavRail.vue';
@@ -282,6 +293,27 @@ function onNav(a: 'save' | 'exit') { if (a === 'exit') collapse?.(); }
 const saveToast = ref('');
 function closePins() { mast.value?.clearPin(); }
 
+// AI生成选项(批B-3):附加酒馆预设文风块开关(默认关·localStorage 全局偏好)
+const includePreset = ref(getIncludeTavernPreset());
+function onPresetToggle() { setIncludeTavernPreset(includePreset.value); }
+
+// DEBUG·prompt 审计导出(批B-1):复制最近一次实际发给 AI 的完整 prompt(实证"注入是否生效")
+async function copyPromptAudit() {
+  const text = dumpPromptAudit();
+  let ok = false;
+  try { await navigator.clipboard.writeText(text); ok = true; } catch { /* clipboard 不可用走兜底 */ }
+  if (!ok) {
+    try {
+      const ta = document.createElement('textarea');
+      ta.value = text; document.body.appendChild(ta); ta.select();
+      ok = document.execCommand('copy'); ta.remove();
+    } catch { ok = false; }
+  }
+  saveToast.value = ok ? '✓ 完整prompt已复制到剪贴板' : '✗ 复制失败(见控制台)';
+  if (!ok) console.log('[pellucid] prompt审计:\n' + text);
+  setTimeout(() => { saveToast.value = ''; }, 2600);
+}
+
 // 设置·存档管理
 function confirmReset() {
   if (window.confirm('确定清空【当前聊天】的进度、从头开始这一局？\n（其它聊天的存档不受影响。此操作不可撤销）')) {
@@ -350,6 +382,8 @@ function confirmReset() {
 .set-box h3 { font-family: var(--brush); font-size: 24px; color: var(--gold-hi); margin-bottom: 8px; }
 .set-box .lead { font-size: 14px; color: var(--text); line-height: 1.7; margin-bottom: 12px; }
 .set-box .srow { font-size: 13px; color: var(--text-dim); line-height: 1.7; padding: 7px 0; border-top: 1px dashed var(--line); }
+.set-box .toggle-row { display: flex; align-items: flex-start; gap: 10px; cursor: pointer; }
+.set-box .toggle-row input { margin-top: 4px; flex: none; accent-color: var(--gold-hi); }
 .set-box .srow b { color: var(--gold); font-weight: 400; }
 .set-btns { display: flex; gap: 12px; margin-top: 16px; }
 .danger-btn { font-family: var(--serif); background: rgba(179,33,46,.12); color: var(--red-hi); border: 1px solid var(--red); border-radius: 6px; padding: 12px 22px; font-size: 14px; cursor: pointer; }

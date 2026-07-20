@@ -31,7 +31,7 @@ import {
   demoEventOptions, demoSummaryTemplates, demoExtractBounds, demoForcedPool, createMockAi,
 } from '../../game/engine/mock-ai';
 import { demoLorebook } from '../../game/worldbook/demo';
-import { createTavernAi } from './tavern-ai';
+import { createTavernAi, getLastBriefStatus } from './tavern-ai';
 import type { ForcedEvent } from '../../game/events/machine';
 import type { DayState, SlotChoice, SlotPeriod } from '../../game/action-grid/types';
 import type { EngineState, SettleOptions, SettleResult, AiPort } from '../../game/engine/types';
@@ -442,6 +442,11 @@ export const useRunnerStore = defineStore('runner', () => {
       if (wasAi && text.length < MIN_TEXT_LEN) {
         lastEmpty.value = true;
         lastWarn.value = '本次生成内容为空或过短(可能被外部审核拦截/截断)。可点「重新生成」重试。';
+      }
+      // 简报失败可见(批B-4):副AI前情简报失败时明示,不再静默降级(此前用户完全无感知)
+      if (wasAi && aiMode.value === 'tavern' && getLastBriefStatus() === 'failed') {
+        lastWarn.value = (lastWarn.value ? lastWarn.value + ' ' : '')
+          + '⚠ 本格前情简报生成失败(副AI超时/空回),正文可能与上一格衔接不上,可「重新生成」。';
       }
       day.value = r.state.day;
       engine.value = nextEngine;

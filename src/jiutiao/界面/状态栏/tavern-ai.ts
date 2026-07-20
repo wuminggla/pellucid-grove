@@ -41,6 +41,19 @@ interface PresetPrompt { id: string; name: string; enabled: boolean; role: 'syst
 interface Preset { prompts: PresetPrompt[]; }
 declare function getPreset(name: 'in_use' | string): Preset;
 
+// ─── 第三方预设块开关(批B-3) ───
+// 此前无条件把酒馆当前预设的 main/nsfw/jailbreak 块注入在我们指令之前——
+// 社区预设多为"{{user}}与{{char}}对话式RP"写的(第二人称指令),是"主视角变你"的污染源。
+// 现默认关闭;想借第三方预设文风时在设置页手动打开。偏好存 localStorage(跨聊天全局)。
+const PRESET_TOGGLE_KEY = 'pellucid_include_tavern_preset';
+let includeTavernPreset = false;
+try { includeTavernPreset = localStorage.getItem(PRESET_TOGGLE_KEY) === '1'; } catch { /* 无localStorage环境默认关 */ }
+export function getIncludeTavernPreset(): boolean { return includeTavernPreset; }
+export function setIncludeTavernPreset(v: boolean) {
+  includeTavernPreset = v;
+  try { localStorage.setItem(PRESET_TOGGLE_KEY, v ? '1' : '0'); } catch { /* 忽略 */ }
+}
+
 /** 从当前预设抽出 JB/main/nsfw 系统块(保留过审基调+文风),转成 RolePrompt[]。 */
 function presetSystemBlocks(): RolePrompt[] {
   try {
@@ -64,11 +77,41 @@ const SAMPLING: CustomApiConfig = {
   max_tokens: 'same_as_preset',
 };
 
+// ─── prompt 审计(批B-1) ───
+// 记录最近几次实际发出的 ordered_prompts 全量与 AI 原始返回,
+// DEBUG 工具条一键导出——怀疑"注入是否生效"时直接看实证。
+export interface PromptAuditRecord {
+  when: string;
+  kind: 'expand' | 'brief' | 'extract';
+  label: string;
+  prompts: { role: string; content: string }[];
+  rawResponse?: string;
+}
+const AUDIT_KEEP = 6;
+const auditLog: PromptAuditRecord[] = [];
+function auditPush(rec: PromptAuditRecord) {
+  auditLog.push(rec);
+  if (auditLog.length > AUDIT_KEEP) auditLog.splice(0, auditLog.length - AUDIT_KEEP);
+}
+/** 导出审计日志为可读文本 */
+export function dumpPromptAudit(): string {
+  if (auditLog.length === 0) return '(暂无记录:先执行一个行动格)';
+  return auditLog.map(r =>
+    `====== [${r.kind}] ${r.label} - ${r.when} ======\n`
+    + r.prompts.map((p, i) => `--- prompt[${i}] role=${p.role} ---\n${p.content}`).join('\n\n')
+    + (r.rawResponse != null ? `\n\n--- AI raw ---\n${r.rawResponse}` : '')
+  ).join('\n\n\n');
+}
+
 // ─── 连贯性简报(代替前文)调参 ───
-const PROSE_KEEP = 3;          // 滚动缓冲保留最近 N 段正文(喂给副AI提炼简报)
-const PROSE_CHARS = 700;       // 每段截断字数(控副AI prompt 体积)
+// 批B-4: 滚动缓冲已迁入 EngineState.recentProse(engine/machine.ts settleSlot 维护,随存档持久化),
+//   这里只保留简报生成本身的参数。
 const BRIEF_TIMEOUT_MS = 45_000; // 副AI简报生成超时(失败则跳过,不阻断主生成)
-const MIN_PROSE_LEN = 20;      // 过短(空回/截断)不入缓冲
+
+// 简报状态(批B-4·失败可见): 每次 expand 后更新,UI 读取显示"⚠ 本格无前情简报"。
+export type BriefStatus = 'ok' | 'none' | 'failed';
+let lastBriefStatus: BriefStatus = 'none';
+export function getLastBriefStatus(): BriefStatus { return lastBriefStatus; }
 
 function withTimeout<T>(p: Promise<T>, ms: number): Promise<T> {
   return Promise.race([
@@ -86,23 +129,28 @@ export interface TavernAiOpts {
 
 /** 构造接酒馆 generateRaw 的 AiPort。 */
 export function createTavernAi(opts: TavernAiOpts): AiPort {
-  // 滚动缓冲:最近 N 段已生成正文。不发原始楼层历史(根治 #3),改由副AI提炼成
-  //   连贯性简报注入主AI(用户定的"堵不如疏")——既保逻辑连贯,又压连续事件格的审美疲劳。
-  let recentProse: string[] = [];
+  // 前情正文来自 req.state.recentProse(engine 维护·随存档持久化)。不发原始楼层历史(根治 #3),
+  //   改由副AI提炼成连贯性简报注入主AI(用户定的"堵不如疏")——既保逻辑连贯,又压连续事件格的审美疲劳。
 
   /** 副AI:读最近正文 → 产出连贯性简报(代替前文)。失败/无前文返回空串(不阻断主生成)。 */
   async function buildBrief(req: ExpandRequest): Promise<string> {
-    if (recentProse.length === 0) return '';
+    const recentProse = req.state.recentProse ?? [];
+    if (recentProse.length === 0) { lastBriefStatus = 'none'; return ''; }
     try {
       const briefPrompt = buildDirectorBriefPrompt(recentProse, req);
+      const briefPrompts = [{ role: 'system' as const, content: briefPrompt }];
       const rawBrief = await withTimeout(generateRaw({
-        ordered_prompts: [{ role: 'system', content: briefPrompt }],
+        ordered_prompts: briefPrompts,
         should_stream: false,
         should_silence: true,                            // 后台静默,不产生楼层消息
         custom_api: { ...(opts.extractApi ?? {}), max_tokens: 'unset' },
       }), BRIEF_TIMEOUT_MS);
-      return stripThinking(rawBrief);
+      auditPush({ when: new Date().toISOString(), kind: 'brief', label: req.resolution.option.label, prompts: briefPrompts, rawResponse: rawBrief });
+      const brief = stripThinking(rawBrief);
+      lastBriefStatus = brief ? 'ok' : 'failed';
+      return brief;
     } catch {
+      lastBriefStatus = 'failed';
       return ''; // 简报失败 → 主生成照常(退化为"只看范式")
     }
   }
@@ -114,8 +162,8 @@ export function createTavernAi(opts: TavernAiOpts): AiPort {
       // 2. 主AI 出正文(简报注入,代替前楼层)
       const inject = buildGameInject(req, opts.lorebook, brief);
       const ordered: (PlaceholderPrompt | RolePrompt)[] = [
-        ...presetSystemBlocks(),                         // 预设 JB/文风(过审基调)
-        { role: 'system', content: inject },             // 范式+态度+状态+简报+输出格式
+        ...(includeTavernPreset ? presetSystemBlocks() : []), // 酒馆预设块(默认关·批B-3开关)
+        { role: 'system', content: inject },             // 任务框架+强指令+简报+main/JB+世界书+范式+态度+状态+输出格式
         // 不放 'chat_history' → 不发楼层历史
       ];
       const raw = await generateRaw({
@@ -123,22 +171,26 @@ export function createTavernAi(opts: TavernAiOpts): AiPort {
         should_stream: false,
         custom_api: SAMPLING,
       });
+      auditPush({
+        when: new Date().toISOString(), kind: 'expand', label: req.resolution.option.label,
+        prompts: ordered.filter((p): p is RolePrompt => typeof p !== 'string'),
+        rawResponse: raw,
+      });
       const text = extractGameText(raw);
-      // 3. 有效正文入滚动缓冲(截断控体积,供下一格提炼简报)
-      if (text && text.length >= MIN_PROSE_LEN) {
-        recentProse = [...recentProse, text.slice(-PROSE_CHARS)].slice(-PROSE_KEEP);
-      }
+      // 正文入缓冲由 engine settleSlot 维护(EngineState.recentProse·批B-4),此处不再持有状态
       return { text, continuity: extractContinuity(raw) };
     },
 
     async extract(req: ExtractRequest): Promise<Record<string, unknown>> {
       const inject = buildExtractInject(req);
+      const exPrompts = [{ role: 'system' as const, content: inject }];
       const raw = await generateRaw({
-        ordered_prompts: [{ role: 'system', content: inject }],
+        ordered_prompts: exPrompts,
         should_stream: false,
         should_silence: true,                            // 后台静默
         custom_api: { ...(opts.extractApi ?? {}), max_tokens: 'unset' },
       });
+      auditPush({ when: new Date().toISOString(), kind: 'extract', label: '数值抽取', prompts: exPrompts, rawResponse: raw });
       return extractVarsJson(raw);
     },
   };

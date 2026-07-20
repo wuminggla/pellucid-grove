@@ -70,6 +70,7 @@ export interface EngineState {
   // —— 记忆层（叙事连贯性·随存档持久化）——
   narrativeLog?: import('../memory/machine').LogEntry[];        // 结构化日志(每格代码写)
   continuityNotes?: import('../memory/machine').ContinuityNote[]; // 延续摘要(里程碑+AI一句)
+  recentProse?: string[];       // 最近正文滚动缓冲(截断·供副AI提炼连贯性简报)。批B-4:从tavern-ai内存闭包迁入,刷新/读档不再丢前情
   // —— 强制事件信号（跨天，随存档持久化）——
   pendingForcedLeave?: boolean; // 夜晚欲望溢出 → 次日强制请假轮奸（霸全）。nextDay 消费后清除
   leaveHistory?: boolean[];     // 近期每日是否请假（滑动窗口保底用，保留最近20天）
