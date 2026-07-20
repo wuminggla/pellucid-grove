@@ -571,7 +571,8 @@ export const useRunnerStore = defineStore('runner', () => {
     failWarnings.value = r.daily.failWarnings ?? [];
     lastAttrition.value = r.daily.thugsLost ?? 0;
     forcedSeize.value = null;
-    // 结局回退接口(批C2占位): 每日自动存档随"存档系统"待办落地(README批次计划),此处不再写日快照。
+    // 每日自动存档(批C2.5): 成功推进新一天→"当天开始"入自动槽;硬失败不覆盖(自动档停在失败日早晨)
+    if (!r.daily.hardFail) autoDailySave();
     // 日终通知入历史(流失/硬失败/预警)
     {
       const ex: Notice[] = [];
@@ -644,12 +645,63 @@ export const useRunnerStore = defineStore('runner', () => {
     _loadingSave = false; persistNow();
   }
 
-  // ─── 结局回退·接口(批C2·占位) ───
-  // 待办"存档系统"(README批次计划): 手动存档槽(用户存档=保留一份当前快照)+每日自动存档;
-  // 坏结局(fail/fall)时玩家可选 回退到最近自动存档 或 回退到手动存档。
-  // 现在只留接口: canRollback 恒 false(overlay 按钮不显示),存档系统落地后接真。
-  const canRollback = computed(() => false);
-  function rollbackFromEnding(): boolean { return false; }
+  // ─── 存档系统(批C2.5·用户定稿方向) ───
+  // 手动存档=单槽(用户主动存·左栏按钮/设置页) + 每日自动存档=单槽(每次成功推进新一天写·硬失败当次不覆盖,
+  // 保证自动档永远停在"失败那天的早晨")。坏结局(fail/fall)时 overlay 给双回退: 最近自动档 / 手动档。
+  // chat 变量持久化(随聊天);无酒馆变量环境(本地dev)用内存兜底,功能照常可测。
+  const MANUAL_KEY = '九条会手动存档';
+  const AUTO_KEY = '九条会自动存档';
+  const _memSlots: Record<string, any> = {}; // 无 tavern vars 环境的内存兜底
+  function writeSlot(key: string, snap: unknown) {
+    _memSlots[key] = snap;
+    if (!hasTavernVars) return;
+    try { insertOrAssignVariables({ [key]: snap }, { type: 'chat' }); }
+    catch (e) { console.warn('[pellucid] 存档槽写入失败', key, e); }
+  }
+  function readSlot(key: string): any {
+    if (hasTavernVars) {
+      try { const v = ((getVariables({ type: 'chat' }) || {}) as any)[key]; if (v) return v; } catch { /* fallthrough */ }
+    }
+    return _memSlots[key] ?? null;
+  }
+  // 槽位天数信息(chat 变量非响应式→用 ref 镜像,写入/启动时同步,驱动 UI 按钮文案)
+  const manualSaveDay = ref<number | null>(null);
+  const autoSaveDay = ref<number | null>(null);
+  function refreshSlotInfo() {
+    manualSaveDay.value = readSlot(MANUAL_KEY)?.day?.dayNumber ?? null;
+    autoSaveDay.value = readSlot(AUTO_KEY)?.day?.dayNumber ?? null;
+  }
+  /** 手动存档(左栏「存档」/设置页): 当前状态存入手动槽 */
+  function manualSave() {
+    writeSlot(MANUAL_KEY, snapshot());
+    manualSaveDay.value = day.value.dayNumber;
+  }
+  /** 每日自动存档: nextDay 成功(非硬失败)后调用,写"当天开始"快照 */
+  function autoDailySave() {
+    writeSlot(AUTO_KEY, snapshot());
+    autoSaveDay.value = day.value.dayNumber;
+  }
+  /** 从快照恢复(通用): 状态回填+瞬态清理+结局清除+覆写主存档 */
+  function restoreFrom(snap: any): boolean {
+    if (!snap?.engine || !snap?.day) return false;
+    _loadingSave = true;
+    engine.value = JSON.parse(JSON.stringify(snap.engine));
+    day.value = JSON.parse(JSON.stringify(snap.day));
+    if (typeof snap.fastForward === 'boolean') fastForward.value = snap.fastForward;
+    lastSettle.value = null; lastServe.value = null; lastRecruit.value = null; lastBuyCondom.value = null; lastReward.value = null; lastProtection.value = null; lastAvIncome.value = null; lastWalk.value = null; lastOrgy.value = null; lastNight.value = null;
+    forcedLeaveToday.value = false; forcedSeize.value = null; reliefCleared.value = false;
+    hardFail.value = false; hardFailReason.value = null; failWarnings.value = []; error.value = null;
+    dismissedEnding.value = null; _endingProseFor = null; endingProse.value = null; endingProseBusy.value = false;
+    _loadingSave = false; persistNow();
+    return true;
+  }
+  /** 坏结局回退: target=最近自动档/手动档 */
+  function rollbackFromEnding(target: 'auto' | 'manual'): boolean {
+    return restoreFrom(readSlot(target === 'auto' ? AUTO_KEY : MANUAL_KEY));
+  }
+  /** 设置页读取手动存档(任意时刻·调用方先 confirm) */
+  function loadManualSave(): boolean { return restoreFrom(readSlot(MANUAL_KEY)); }
+  const canRollback = computed(() => autoSaveDay.value != null || manualSaveDay.value != null);
 
   // ─── 通知:当前格提示(只此一格) + 历史日志(最近两天) ───
   function buildSlotNotices(): Notice[] {
@@ -743,6 +795,7 @@ export const useRunnerStore = defineStore('runner', () => {
   // 启动: 有存档→读回; 无→落初始并写一次。之后任意状态变化自动防抖存。
   const _hadSave = loadSave();
   if (!_hadSave) persistNow();
+  refreshSlotInfo(); // 存档槽天数信息(批C2.5·驱动回退按钮文案)
   autoUnlockMysteries(); // 读档后补结:堕落度已到但???尚未解锁的补齐(如旧档升级)
   watch([day, engine, fastForward], schedulePersist, { deep: true });
 
@@ -759,6 +812,7 @@ export const useRunnerStore = defineStore('runner', () => {
     lastUpgrade, buyUpgrade, lastAv, queueAvShoot,
     ending, showEnding, dismissEnding,
     endingProse, endingProseBusy, endingProseLabel, canRollback, rollbackFromEnding,
+    manualSave, loadManualSave, manualSaveDay, autoSaveDay,
     tendencyNow, salvationOpenNow,
     setFastForward, allocate, setChoice, clearChoice, fillEmpty,
     beginDay, beginNight, runCurrent, rerunLast, nextDay, loadState,

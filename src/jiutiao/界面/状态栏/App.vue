@@ -94,8 +94,14 @@
           <div class="srow"><b>开新游戏</b>：给本角色【新建聊天】= 全新一局（空存档，从头开始）。或点下方「重开本局」清空当前这个聊天的进度。</div>
           <div class="srow"><b>删除存档</b>：删掉某个聊天 = 删掉它的存档；删除角色卡会连同它的聊天一起清掉。存档是「聊天作用域」，不留全局残留。</div>
           <div class="srow"><b>性能</b>：存档存在聊天的元数据里，<b>不进入发给 AI 的上下文</b>，不烧 token、不会让酒馆变卡。体积只含当前一天 + 精简记忆日志，增长很慢。</div>
-          <div class="srow" style="color:var(--green)">✓ 进度自动保存，无需手动存档。</div>
+          <div class="srow" style="color:var(--green)">✓ 进度自动保存；另有<b>每日自动存档</b>（每天开始时自动留一份，坏结局时可退回）。</div>
+          <div class="srow"><b>手动存档</b>（单槽·左栏「存档」按钮同此）：自己选个安稳的节点留档——坏结局时除了退回当天早晨，还可以退回这里。
+            <span v-if="r.manualSaveDay != null" style="color:var(--gold-hi)">当前手动存档：第{{ r.manualSaveDay }}天。</span>
+            <span v-else style="color:var(--text-dim)">尚未手动存档。</span>
+          </div>
           <div class="set-btns">
+            <button class="primary-btn" @click="doManualSave">立即手动存档</button>
+            <button v-if="r.manualSaveDay != null" class="ghost-btn" @click="doLoadManual">读取手动存档（第{{ r.manualSaveDay }}天）</button>
             <button class="danger-btn" @click="confirmReset">重开本局（清空当前进度）</button>
           </div>
         </div>
@@ -183,9 +189,10 @@
           <div v-else class="ed-text">{{ r.ending.text }}</div>
           <div v-if="r.endingProseBusy" class="ed-gen">✦ {{ r.endingProseLabel }} · 终幕演出生成中……（完成后自动展开，也可先行操作）</div>
           <div class="ed-btns">
-            <!-- 结局回退按钮(接口占位·canRollback 恒false): 随"存档系统"待办落地后显示,支持回退最近自动存档/手动存档 -->
-            <button v-if="r.canRollback && r.ending.kind !== 'revenge'" class="primary-btn" @click="onRollback">回退存档</button>
-            <button class="primary-btn" @click="confirmReset">重开本局</button>
+            <!-- 坏结局双回退(批C2.5·存档系统): 最近自动档=失败日早晨 / 手动档=玩家自己的存档点 -->
+            <button v-if="r.ending.kind !== 'revenge' && r.autoSaveDay != null" class="primary-btn" @click="onRollback('auto')">回到第{{ r.autoSaveDay }}天开始（自动存档）</button>
+            <button v-if="r.ending.kind !== 'revenge' && r.manualSaveDay != null" class="primary-btn" @click="onRollback('manual')">回到手动存档（第{{ r.manualSaveDay }}天）</button>
+            <button :class="r.ending.kind === 'revenge' ? 'primary-btn' : 'ghost-btn'" @click="confirmReset">重开本局</button>
             <button class="ghost-btn" @click="r.dismissEnding()">{{ r.ending.kind === 'fail' ? '关闭' : '继续游玩' }}</button>
           </div>
         </div>
@@ -320,7 +327,10 @@ function opts(period: SlotPeriod) {
 
 const collapse = inject<(() => void) | null>('pellucidCollapse', null);
 // 退出=收起回酒馆（进度本就自动存到聊天变量，无需手动存档按钮）
-function onNav(a: 'save' | 'exit') { if (a === 'exit') collapse?.(); }
+function onNav(a: 'save' | 'exit') {
+  if (a === 'exit') collapse?.();
+  else if (a === 'save') doManualSave(); // 批C2.5:左栏「存档」=写手动槽(进度本就自动存,这是玩家自己的回退锚点)
+}
 const saveToast = ref('');
 function closePins() { mast.value?.clearPin(); }
 
@@ -349,9 +359,26 @@ async function copyPromptAudit() {
   setTimeout(() => { saveToast.value = ''; }, 2600);
 }
 
-// 结局回退(批C2·接口占位): 存档系统待办落地后接真(回退最近自动存档/手动存档)
-function onRollback() {
-  if (r.rollbackFromEnding()) { saveToast.value = '✓ 已回退'; setTimeout(() => { saveToast.value = ''; }, 2600); }
+// 结局回退(批C2.5·存档系统): 最近自动档(失败日早晨) / 手动档
+function onRollback(target: 'auto' | 'manual') {
+  const ok = r.rollbackFromEnding(target);
+  saveToast.value = ok ? '✓ 已回退' : '✗ 回退失败(存档缺失)';
+  setTimeout(() => { saveToast.value = ''; }, 2600);
+}
+
+// 手动存档(左栏按钮/设置页)
+function doManualSave() {
+  r.manualSave();
+  saveToast.value = `✓ 已手动存档（第${r.manualSaveDay}天）`;
+  setTimeout(() => { saveToast.value = ''; }, 2600);
+}
+function doLoadManual() {
+  if (r.manualSaveDay == null) return;
+  if (window.confirm(`读取手动存档（第${r.manualSaveDay}天）？当前进度将被覆盖。`)) {
+    const ok = r.loadManualSave();
+    saveToast.value = ok ? '✓ 已读取手动存档' : '✗ 读取失败';
+    setTimeout(() => { saveToast.value = ''; }, 2600);
+  }
 }
 
 // 设置·存档管理
