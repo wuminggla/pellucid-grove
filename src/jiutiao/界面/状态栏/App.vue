@@ -230,8 +230,9 @@
       </div>
     </Transition>
 
-    <!-- 新手教程(批G2): full=每聊天首次(牌匾→开场白→目标→指引);guide=设置页重看(仅指引) -->
-    <TutorialOverlay v-if="showTutorial" :mode="tutMode" @close="closeTutorial" />
+    <!-- 新手引导(批G3): 序章overlay(牌匾→开场白→目标)→实操教学关(Day0·手把手);guide=设置页重看速查页 -->
+    <TutorialOverlay v-if="showTutorial" :mode="tutMode" @close="closeTutorial" @startStage="startTutStage" />
+    <TutorialStage v-if="tutStage" @done="finishTutStage" />
 
     <div v-if="r.busy" class="gen-overlay">
       <div class="gen-box"><div class="gen-spinner"></div><div class="gen-text">{{ r.genHint }}</div>
@@ -259,6 +260,7 @@ import AvPanel from './components/AvPanel.vue';
 import SavePanel from './components/SavePanel.vue';
 import ArchivePanel from './components/ArchivePanel.vue';
 import TutorialOverlay from './components/TutorialOverlay.vue';
+import TutorialStage from './components/TutorialStage.vue';
 import { buildMenu } from '../../game/events/machine';
 import { deriveEventUnlocked } from '../../game/engine/unlocked';
 import { demoEventOptions } from '../../game/engine/mock-ai';
@@ -372,13 +374,24 @@ function onNav(a: 'save' | 'exit') {
 const saveToast = ref('');
 function closePins() { mast.value?.clearPin(); }
 
-// 新手教程(批G2): full=每聊天首次自动(牌匾→开场白→目标→指引);guide=设置页重看(仅指引页)
+// 新手引导(批G3): 序章(牌匾→开场白→目标)→实操教学关(Day0)。guide=设置页重看速查页。
 const tutManual = ref(false);
-const showTutorial = computed(() => tutManual.value || !r.tutorialSeen);
+const tutStage = ref(false);        // 实操教学关进行中
+const tutDismissed = ref(false);    // 本次会话已跳过/完成(防重弹)
+const showTutorial = computed(() => tutManual.value || (!r.tutorialSeen && !tutStage.value && !tutDismissed.value));
 const tutMode = computed<'full' | 'guide'>(() => tutManual.value ? 'guide' : 'full');
-function closeTutorial() {
-  if (!tutManual.value) r.markTutorialSeen();
+function closeTutorial() { // 跳过序章=跳过全部教学
+  if (!tutManual.value) { r.markTutorialSeen(); tutDismissed.value = true; }
   tutManual.value = false;
+}
+function startTutStage() { // 序章末页交棒: 启动 Day0 教学关
+  tutDismissed.value = true;
+  r.startTutorialDay0();
+  tutStage.value = true;
+}
+function finishTutStage() {
+  tutStage.value = false;
+  r.markTutorialSeen();
 }
 function reopenTutorial() { tutManual.value = true; }
 

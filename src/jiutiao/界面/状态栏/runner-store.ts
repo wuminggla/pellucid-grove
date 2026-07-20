@@ -575,6 +575,7 @@ export const useRunnerStore = defineStore('runner', () => {
   }
 
   function nextDay() {
+    const settledDayNo = day.value.dayNumber; // 结算的是哪一天(批G3: day0=教学日免审)
     const r = advanceToNextDay(
       engine.value, day.value.dayNumber, engine.value.totalSlots ?? TOTAL_SLOTS,
       DEFAULT_FORCED_LEAVE_CHOICE,
@@ -589,8 +590,14 @@ export const useRunnerStore = defineStore('runner', () => {
     failWarnings.value = r.daily.failWarnings ?? [];
     lastAttrition.value = r.daily.thugsLost ?? 0;
     forcedSeize.value = null;
+    // 教学日免审(批G3): Day0 是手把手教学(只教操作),零威望/低资金不该消耗硬失败审核计数,
+    // 否则玩家第1天不打架就被警告/第2天硬失败——审核从第1天正式开始。
+    if (settledDayNo === 0) {
+      engine.value = { ...engine.value, martialZeroStreak: 0, moneyZeroStreak: 0 };
+      hardFail.value = false; hardFailReason.value = null; failWarnings.value = [];
+    }
     // 每日自动存档(批C2.5): 成功推进新一天→"当天开始"入自动槽;硬失败不覆盖(自动档停在失败日早晨)
-    if (!r.daily.hardFail) autoDailySave();
+    if (!r.daily.hardFail || settledDayNo === 0) autoDailySave();
     // 日终通知入历史(流失/硬失败/预警)
     {
       const ex: Notice[] = [];
@@ -783,6 +790,10 @@ export const useRunnerStore = defineStore('runner', () => {
   const TUT_KEY = '九条会教程已读';
   const tutorialSeen = ref<boolean>(!!readSlot(TUT_KEY));
   function markTutorialSeen() { tutorialSeen.value = true; writeSlot(TUT_KEY, true); }
+  /** 实操教学关(批G3·Day0): 3格微型的一天,收益真实入账,结算后进入第1天正式游戏 */
+  function startTutorialDay0() {
+    day.value = startDay(0, 3);
+  }
 
   /** 收藏当前选中/已结算格的完整正文 */
   function favoriteSlot(slot: { period: string; index: number; choice?: { label: string } | null; resultText?: string | null }): boolean {
@@ -912,7 +923,7 @@ export const useRunnerStore = defineStore('runner', () => {
     endingProse, endingProseBusy, endingProseLabel, canRollback, rollbackFromEnding,
     manualSlotInfos, autoSlotInfo, autoSaveDay, saveToSlot, loadFromSlot, loadAutoSave,
     favorites, addFavorite, removeFavorite, favoriteSlot, renameFavorite, togglePinFavorite,
-    tutorialSeen, markTutorialSeen,
+    tutorialSeen, markTutorialSeen, startTutorialDay0,
     tendencyNow, salvationOpenNow,
     setFastForward, allocate, setChoice, clearChoice, fillEmpty,
     beginDay, beginNight, runCurrent, rerunLast, nextDay, loadState,
