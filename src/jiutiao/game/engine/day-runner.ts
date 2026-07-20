@@ -15,6 +15,7 @@ import { totalShops } from '../turf/machine';
 import { desireGrowthMult, BASE_ACTION_SLOTS, MAX_ACTION_SLOTS, WALK_PER_SLOT } from '../upgrade/machine';
 import { scanForced } from '../events/machine';
 import { appendLog, appendContinuity, appendProse, upsertSummary, proseEntryId } from '../memory/machine';
+import { recruitFlavorLine } from './recruit-copy';
 import { deriveEventUnlocked } from './unlocked';
 import type { LogEntry } from '../memory/machine';
 import type { ForcedEvent } from '../events/machine';
@@ -34,6 +35,8 @@ export function forcedContextOf(engine: EngineState): ForcedContext {
     unlocked: deriveEventUnlocked(engine),
     condomStock: engine.condomStock,
     threatLevel: engine.threatLevel ?? 0,
+    bodyDevelopment: engine.bodyDevelopment,
+    erosionLastDay: engine.erosionLastDay,
   };
 }
 
@@ -44,13 +47,18 @@ export function forcedContextOf(engine: EngineState): ForcedContext {
  */
 export function applyForcedInserts(
   day: DayState, engine: EngineState, pool: ForcedEvent[] | undefined, period: SlotPeriod,
+  rng: () => number = Math.random,
 ): { day: DayState; engine: EngineState; fired: ForcedEvent | null } {
   if (!pool || pool.length === 0) return { day, engine, fired: null };
   const inserts = pool.filter(e => e.intensity === 'insert_slot');
-  const ev = scanForced(inserts, forcedContextOf(engine));
+  // 批C1: 扫描上下文补充 时段/天数/随机数(daily_erosion 白天概率触发+同日去重)
+  const scanCtx: ForcedContext = {
+    ...forcedContextOf(engine), period, dayNumber: day.dayNumber, roll: rng(),
+  };
+  const ev = scanForced(inserts, scanCtx);
   if (!ev) return { day, engine, fired: null };
   const day2 = insertEventSlot(day, period, ev.label, { optionId: ev.optionId, label: ev.label });
-  const ctx = forcedContextOf(engine);
+  const ctx = scanCtx;
   // 应用 once 标签 + onApply 副作用补丁（如 E3 真播种 → pregnant=true）
   let engine2: EngineState = engine;
   if (ev.once && ev.ledgerKey) {
@@ -129,9 +137,14 @@ export async function runCurrentSlot(
 
   // 供奉吞吐倍率(请假轮奸日×1.5)——传给 settleSlot,让叙事人数与下方 settleServe 结算同源
   const serveMult = state.day.forcedLeave ? CONST.请假轮奸吞吐倍率 : 1;
+  // 招募文案变体(批C1): 按 极道威望vs淫名 占比选风味线,注入 AI 路径的文案方向(prompt.ts flavorHint);
+  // 快进路径在结算后用 recruitSummaryText 覆盖模板。
+  const recruitFlavor = slot.choice.optionId === 'recruit'
+    ? recruitFlavorLine(state.engine.martialPrestige, state.engine.infamy, opts.rng ?? Math.random)
+    : undefined;
   const settle = await settleSlot(state.engine, {
     optionId: slot.choice.optionId,
-    params: slot.choice.params,
+    params: recruitFlavor ? { ...slot.choice.params, flavorHint: recruitFlavor } : slot.choice.params,
   }, { ...opts, serveMult, dayNumber: state.day.dayNumber });
 
   // 供奉类格子：执行后扣避孕套 + 当场降欲 + 计入被供奉人数（由 EventOption.isServe 判定）
@@ -159,6 +172,10 @@ export async function runCurrentSlot(
     engine = { ...engine, thugTotal: rr.thugTotal, money: rr.money, recruitQuota: rr.recruitQuota };
     if (rr.cost > 0) engine = { ...engine, moneyLog: appendMoneyLog(engine.moneyLog, dayNo0, `招募${rr.recruited}打手`, -rr.cost) };
     recruit = { recruited: rr.recruited, cost: rr.cost, reason: rr.reason };
+    // 快进路径: 通用模板换成 风味线+结果 的完整文案(批C1·10变体)
+    if (settle.events.renderMode === 'fast_summary' && recruitFlavor) {
+      settle.resultText = `${recruitFlavor}\n${rr.recruited > 0 ? `本次招入 ${rr.recruited} 名打手,花费 ¥${rr.cost}。` : '本次没有招到人(额度已尽或资金不足)。'}`;
+    }
   }
 
   // 采购避孕套格：即时结算（当场加库存、扣钱）
@@ -214,8 +231,10 @@ export async function runCurrentSlot(
   let dayForInsert = dayRunning;
   let forcedInsert: ForcedEvent | null = null;
   {
-    const fi = applyForcedInserts(dayForInsert, engine, opts.forcedPool, slot.period);
+    const fi = applyForcedInserts(dayForInsert, engine, opts.forcedPool, slot.period, opts.rng ?? Math.random);
     dayForInsert = fi.day; engine = fi.engine; forcedInsert = fi.fired;
+    // daily_erosion 触发→记天数(同日去重)
+    if (fi.fired?.id === 'daily_erosion') engine = { ...engine, erosionLastDay: state.day.dayNumber };
   }
 
   // 记忆层:每格写结构化日志(代码·覆盖所有格) + 代码可知的延续摘要(认知跨档/首次)

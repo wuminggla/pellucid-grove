@@ -233,7 +233,7 @@ export const demoEventOptions: Record<string, EventOption> = {
     unlockRequires: ['courtyard'],
     sfw: { worldbookKey: 'wb_garden_sfw' },
     nsfw: { worldbookKey: 'wb_garden_rock' },
-    erosionGate: { corruptionAtLeast: 50 },
+    erosionGate: { custom: ctx => ctx.unlocked.nsfw_garden_rock === true }, // 批C1:并入???解禁制(m_garden_rock)
     first: { ledgerKey: 'garden_rock_first', paradigm: { worldbookKey: 'wb_garden_rock_first' }, corruptionWeight: 1 },
     needsContinuity: true,
   },
@@ -266,7 +266,7 @@ export const demoEventOptions: Record<string, EventOption> = {
     unlockRequires: ['dailytoy'],
     sfw: { worldbookKey: 'wb_garbage_sfw' },
     nsfw: { worldbookKey: 'wb_garbage' },
-    erosionGate: { corruptionAtLeast: 50 },
+    erosionGate: { custom: ctx => ctx.unlocked.nsfw_garbage === true }, // 批C1:并入???解禁制(m_garbage)
     first: { ledgerKey: 'garbage_first', paradigm: { worldbookKey: 'wb_garbage_first' }, corruptionWeight: 2 },
     needsContinuity: true,
   },
@@ -307,12 +307,14 @@ export const demoEventOptions: Record<string, EventOption> = {
     id: 'serve_oral', label: '口交侍奉', period: 'night', shape: 'born_nsfw', isServe: true, noCondom: true,
     nsfw: { worldbookKey: 'wb_serve_oral' },
     first: { ledgerKey: 'serve_oral_first', paradigm: { worldbookKey: 'wb_serve_oral_first' }, corruptionWeight: 2 },
+    develops: { part: '口腔', chance: 0.35 }, // 批C1:反复口交开发口腔(概率推进·四部位面板成长)
   },
 
   serve_vaginal: {
     id: 'serve_vaginal', label: '供奉', period: 'night', shape: 'born_nsfw', isServe: true,
     nsfw: { worldbookKey: 'wb_serve_vaginal' },
     first: { ledgerKey: 'serve_vaginal_first', paradigm: { worldbookKey: 'wb_serve_vaginal_first' }, corruptionWeight: 2 },
+    develops: { part: '小穴', chance: 0.35 },
   },
 
   serve_anal: {
@@ -320,6 +322,7 @@ export const demoEventOptions: Record<string, EventOption> = {
     unlockRequires: ['anal_unlocked'],
     nsfw: { worldbookKey: 'wb_serve_anal' },
     first: { ledgerKey: 'serve_anal_first', paradigm: { worldbookKey: 'wb_serve_anal_first' }, corruptionWeight: 3 },
+    develops: { part: '肛门', chance: 0.35 },
   },
 
   // 暴力供奉(地下室·受虐癖线)。建成地下室即可;细分刑具按受虐癖/深堕落逐档解锁。
@@ -456,6 +459,7 @@ export const demoEventOptions: Record<string, EventOption> = {
     nsfw: { worldbookKey: 'wb_condom_zero_3' },
     first: { ledgerKey: 'condom_zero_3', paradigm: { worldbookKey: 'wb_condom_zero_3' }, corruptionWeight: 4 },
     needsContinuity: true,
+    develops: { part: '子宫生育', chance: 1 }, // 批C1:真播种必推进子宫线
   },
 
   forced_leave: {
@@ -464,6 +468,17 @@ export const demoEventOptions: Record<string, EventOption> = {
     first: { ledgerKey: 'forced_leave_first', paradigm: { worldbookKey: 'wb_forced_leave_first' }, corruptionWeight: 3 },
     needsContinuity: true,
     hiddenInMenu: true, // 只由欲望溢出强制霸全触发,绝不出现在玩家可选菜单
+  },
+
+  // ═══ A4 白天突发侵蚀(批C1·设计正典§4"开发度过阈值→白天自动NSFW事件") ═══
+  daily_erosion: {
+    id: 'daily_erosion', label: '身体擅自发情', period: 'day', shape: 'born_nsfw',
+    nsfw: { worldbookKey: 'wb_daily_erosion' },
+    first: { ledgerKey: 'daily_erosion_first', paradigm: { worldbookKey: 'wb_daily_erosion_first' }, corruptionWeight: 2 },
+    // 白天在外/在宅被开发过的身体擅自求欢=A面NSFW,曝光风险高(隐瞒失败转淫名较多)
+    a4: { martialBase: 4, transferRatio: 0.5, loyaltyOnFail: 2 },
+    needsContinuity: true,
+    hiddenInMenu: true, // 只由开发度阈值扫描强制插格,不出现在玩家菜单
   },
 };
 
@@ -492,6 +507,23 @@ export const demoForcedPool: ForcedEvent[] = [
     condition: c => (c.condomStock ?? 1) <= 0,
     // E3 触发副作用: 设置怀孕状态(钩到 endings.pregnant)
     onApply: () => ({ pregnant: true }),
+  },
+  // ─── A4 白天突发侵蚀(批C1·非一次性·白天概率触发) ───
+  // 条件: 白天 && 任一部位开发度过 A4 阈值(口/穴≥2·肛≥3·子宫≥4) && 今日未触发过 && 概率命中。
+  // 概率随过阈部位数上升(1个=12%/2个=20%/3+=28%),身体越被开发白天越压不住。
+  {
+    id: 'daily_erosion', priority: 5, once: false,
+    intensity: 'insert_slot', optionId: 'daily_erosion', label: '身体擅自发情(突发)',
+    condition: c => {
+      if (c.period !== 'day') return false;
+      if (c.dayNumber != null && c.erosionLastDay === c.dayNumber) return false; // 同日只一次
+      const dev = c.bodyDevelopment ?? {};
+      const thresholds: Record<string, number> = { 口腔: 2, 小穴: 2, 肛门: 3, 子宫生育: 4 };
+      const ready = Object.entries(thresholds).filter(([p, t]) => (dev[p] ?? 1) >= t).length;
+      if (ready === 0) return false;
+      const prob = ready >= 3 ? 0.28 : ready === 2 ? 0.20 : 0.12;
+      return (c.roll ?? 1) < prob;
+    },
   },
   // 注:旧的"地盘骚扰强占行动格"已移除。地盘反击改为推进一天时结算(settleTurfThreat),
   //    不占行动格,只按 派驻常驻武力 vs 敌进攻强度 判定是否丢地盘,历史在地盘界面查看。

@@ -124,6 +124,16 @@ export interface EventOption {
     /** 本事件推进的身体部位(可选·随结算 advanceBodyDevelopment) */
     developsPart?: '口腔' | '小穴' | '肛门' | '子宫生育';
   };
+  /**
+   * 身体开发度推进(批C1·独立于 a4)。纯 B 面 NSFW 事件(夜晚供奉等)无隐瞒问题不设 a4,
+   * 但反复被使用照样开发身体——每次 NSFW 态结算按 chance 概率推进对应部位 1 级。
+   * 概率推进(非必然)让四部位面板有渐进成长感,也把"开发速度"变成可调平参数。
+   */
+  develops?: {
+    part: '口腔' | '小穴' | '肛门' | '子宫生育';
+    /** 每次结算的推进概率 0..1 */
+    chance: number;
+  };
 }
 
 /** 事件解析输入上下文（从游戏状态提取） */
@@ -143,6 +153,16 @@ export interface EventContext {
 export interface ForcedContext extends EventContext {
   condomStock?: number;   // 避孕套库存（归零链触发）
   threatLevel?: number;   // 地盘威胁等级（骚扰/火并防守触发；0=无。地盘系统未做先占位）
+  /** 身体开发度(批C1·A4 白天突发侵蚀扫描用: 部位过阈值→daily_erosion 可触发) */
+  bodyDevelopment?: Record<string, number>;
+  /** 当前时段(批C1·daily_erosion 只在白天触发) */
+  period?: 'day' | 'night';
+  /** 当前天数(批C1·同日只触发一次 daily_erosion) */
+  dayNumber?: number;
+  /** 上次 daily_erosion 触发的天数(engine.erosionLastDay) */
+  erosionLastDay?: number;
+  /** 本次扫描的随机数 0..1(rng 注入·概率性触发用) */
+  roll?: number;
 }
 
 /** 渲染方式（v3 §3 四档） */

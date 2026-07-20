@@ -67,11 +67,12 @@ const voice = computed(() => VOICE[props.engine.cognition] ?? VOICE['动摇']);
 
 const parts = computed(() => {
   const b = props.engine.bodyDevelopment ?? {};
+  // 缺省=1(被迫接受)与引擎 getDevelopment 一致(批C1 对齐,此前 UI 缺省0与引擎不同源)
   return [
-    { key: '口腔', name: '口腔', lv: b.口腔 ?? 0, cnt: ['口交', '口内射', '颜射'] },
-    { key: '小穴', name: '小穴', lv: b.小穴 ?? 0, cnt: ['插入', '内射', '高潮'] },
-    { key: '肛门', name: '肛门', lv: b.肛门 ?? 0, cnt: ['插入', '内射', '高潮'] },
-    { key: '子宫', name: '子宫', lv: b.子宫生育 ?? 0, cnt: ['宫颈侵入', '中出', '子宫高潮'] },
+    { key: '口腔', name: '口腔', lv: b.口腔 ?? 1, cnt: ['口交', '口内射', '颜射'] },
+    { key: '小穴', name: '小穴', lv: b.小穴 ?? 1, cnt: ['插入', '内射', '高潮'] },
+    { key: '肛门', name: '肛门', lv: b.肛门 ?? 1, cnt: ['插入', '内射', '高潮'] },
+    { key: '子宫', name: '子宫', lv: b.子宫生育 ?? 1, cnt: ['宫颈侵入', '中出', '子宫高潮'] },
   ];
 });
 </script>

@@ -207,6 +207,9 @@ export const MYSTERY_TURF_UPGRADES: UpgradeDef[] = [
   { id: 'm_festival', category: 'expansion', name: '人墙里的祭典', desc: '打手在人潮里围成移动的真空,浴衣下不许穿——「逛祭典」翻面', cost: 0, maxLevel: 1, mystery: true, corruptionRequired: 40, requires: [{ upgradeId: 'annex_district', minLevel: 1 }], effect: { kind: 'unlock', unlockKey: 'nsfw_festival' }, corruptionOnBuy: 2 },
   { id: 'm_concert', category: 'expansion', name: '一墙之隔', desc: 'VIP包间外万人狂欢,包间内……——「看演唱会」翻面', cost: 0, maxLevel: 1, mystery: true, corruptionRequired: 45, requires: [{ upgradeId: 'annex_halfcity', minLevel: 1 }], effect: { kind: 'unlock', unlockKey: 'nsfw_concert' }, corruptionOnBuy: 3 },
   { id: 'm_ancestor', category: 'expansion', name: '牌位前的供品', desc: '先祖面前的另一种供奉——「参拜先祖」翻面', cost: 0, maxLevel: 1, mystery: true, corruptionRequired: 60, requires: [{ upgradeId: 'annex_shrine', minLevel: 1 }], effect: { kind: 'unlock', unlockKey: 'nsfw_ancestor' }, corruptionOnBuy: 3 },
+  // 批C1 场所清尾: 庭院假山/扫除垃圾堆 并入 ??? 解禁制(与其余场所统一·street 保持堕落30自动翻面供早期内容)
+  { id: 'm_garden_rock', category: 'expansion', name: '假山的用途', desc: '庭院深处的假山挡住所有视线——「散步」路过时翻面为野战', cost: 0, maxLevel: 1, mystery: true, corruptionRequired: 45, requires: [{ upgradeId: 'annex_estate', minLevel: 1 }], effect: { kind: 'unlock', unlockKey: 'nsfw_garden_rock' }, corruptionOnBuy: 2 },
+  { id: 'm_garbage', category: 'facility', name: '扫除的去向', desc: '让手下扫除的"垃圾"堆到了哪里——「让手下扫除」翻面', cost: 0, maxLevel: 1, mystery: true, corruptionRequired: 45, requires: [{ upgradeId: 'm_diet', minLevel: 1 }], effect: { kind: 'unlock', unlockKey: 'nsfw_garbage' }, corruptionOnBuy: 2 },
 ];
 
 // ───────────────────────────────────────

@@ -37,12 +37,14 @@ export const NODE_META: Record<string, NodeMeta> = {
   studio:        { page: 'house', col: 1, row: 0 },
   basement:      { page: 'house', col: 2, row: 0 },
   annex_estate:  { page: 'house', col: 3, row: 0 },
+  m_garden_rock: { page: 'house', col: 4, row: 1 }, // 批C1:假山野战???(庭院启用下挂)
   annex_shrine:  { page: 'house', col: 3, row: 1 },
   m_ancestor:    { page: 'house', col: 3, row: 2 },
   // 凛·自己(含并入的日常淫乱化:张贴链/假阳具饮食/如厕/椅子):
   // c0饮食链 c1睡眠+张贴 c2床 c3浴场 c4淫乱化根 c5散步链 c6性技链 c7欲望+衣物链
   life_diet:   { page: 'rin', col: 0, row: 0 },
   m_diet:      { page: 'rin', col: 0, row: 1 },
+  m_garbage:   { page: 'rin', col: 0, row: 2 }, // 批C1:扫除的去向???(假阳具饮食下挂)
   life_sleep:  { page: 'rin', col: 1, row: 0 },
   life_bed:    { page: 'rin', col: 2, row: 0 },
   m_sleep:      { page: 'rin', col: 1, row: 1 },

@@ -33,6 +33,8 @@ import {
 import { demoLorebook } from '../../game/worldbook/demo';
 import { createTavernAi } from './tavern-ai';
 import { nextPendingSummary, upsertSummary, pendingBigRange, pendingBigMerge, applyBigMerge } from '../../game/memory/machine';
+import { DEVELOPMENT_LABELS } from '../../game/intrusion/machine';
+import type { DevelopmentLevel } from '../../game/intrusion/machine';
 import { getMemoryConfig } from './memory-settings';
 import type { ForcedEvent } from '../../game/events/machine';
 import type { DayState, SlotChoice, SlotPeriod } from '../../game/action-grid/types';
@@ -645,6 +647,15 @@ export const useRunnerStore = defineStore('runner', () => {
     if (lastServe.value) out.push({ t: `供奉 ${lastServe.value.served}人 · 欲望-${lastServe.value.desireRelieved} · 套-${lastServe.value.condomUsed}` + (lastServe.value.condomShort ? '（库存不足!）' : ''), tone: lastServe.value.condomShort ? 'err' : 'rose' });
     if (lastSettle.value?.events.isFirstSpecial) out.push({ t: `◆ 首次特殊 堕落+${lastSettle.value.events.corruptionGain}` + (lastSettle.value.events.cognitionAdvancedTo ? ` → ${lastSettle.value.events.cognitionAdvancedTo}` : ''), tone: 'rose' });
     if (lastSettle.value?.events.firedGateIds.length) out.push({ t: '◆ ' + lastSettle.value.events.firedGateIds.map(g => '堕落度（' + g.replace(/\D/g, '') + '）').join('、') + ' 奖励', tone: 'gold' });
+    // A4 日常侵蚀反馈(批C1): 隐瞒成败玩家可见 + 身体开发度推进
+    {
+      const a4 = lastSettle.value?.events.a4;
+      if (a4) {
+        if (a4.martialGained > 0) out.push({ t: `🤫 无人声张——白日宣淫被打手们内部消化,极道威望 +${a4.martialGained}`, tone: 'ok' });
+        if (a4.martialTransferred > 0) out.push({ t: `👁 被外人撞见了！风声传了出去——极道威望 -${a4.martialTransferred} 转为淫名` + (a4.loyaltyDelta > 0 ? `,共担秘密·忠诚 +${a4.loyaltyDelta}` : ''), tone: 'warn' });
+        if (a4.developedPart) out.push({ t: `🌡 ${a4.developedPart}开发度 → ${DEVELOPMENT_LABELS[(a4.developedTo ?? 0) as DevelopmentLevel] ?? a4.developedTo}`, tone: 'rose' });
+      }
+    }
     if (lastRecruit.value && lastRecruit.value.recruited > 0) out.push({ t: `+${lastRecruit.value.recruited}打手 (¥${lastRecruit.value.cost})`, tone: 'ok' });
     if (lastBuyCondom.value && lastBuyCondom.value.bought > 0) out.push({ t: `+${lastBuyCondom.value.bought}避孕套`, tone: 'ok' });
     if (lastReward.value && lastReward.value.gained > 0) out.push({ t: `犒赏打手 · 极道忠诚 +${lastReward.value.gained}`, tone: 'gold' });

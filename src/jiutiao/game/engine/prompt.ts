@@ -104,12 +104,18 @@ export function buildGamePrompt(req: ExpandRequest, ctx: GamePromptCtx): Array<{
     ? '[多人铁律] ①打手是matched群像:一律匿名(用"为首的壮汉/络腮胡/年轻的那个"等特征代称),【绝不给打手起名字】,不塑造任何单个打手的持续角色;②本事件是多人轮换场面,严禁写成一对一恋爱式二人转;③正文必须实写本格事件本身的性爱过程(范式规定的玩法),不许只写氛围/对话而跳过事件内容。\n'
     : '';
 
+  // 文案方向提示(批C1·招募10变体等): day-runner 按数值状态选好风味线,AI 按此方向展开(不照抄)
+  const flavorHint = typeof req.choice.params?.flavorHint === 'string'
+    ? `[文案方向] 本格按此方向展开(用自己的话写,不要照抄): ${req.choice.params.flavorHint}\n`
+    : '';
+
   const user =
     `[本格行动] ${option.label}${isNsfw ? '（NSFW·♥）' : ''}\n`
     + `${paradigmText}\n\n`
     + `${ATTITUDE_LAYER[attitude] ?? ''}\n`
     + `${sceneLine}\n`
     + crowdRule
+    + flavorHint
     + `[扩写规格] ${SPEC_BY_MODE[renderMode] ?? '正常扩写。'}\n`
     + `[输出格式] ${outputSpec}\n`
     + `请按以上范式与态度生成本格正文。`;

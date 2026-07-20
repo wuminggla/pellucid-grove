@@ -209,6 +209,23 @@ export async function settleSlot(
     }
   }
 
+  // —— 身体开发度推进(批C1·B面NSFW事件·独立于a4) ——
+  // 夜晚供奉等反复使用照样开发身体:按 develops.chance 概率推进,四部位面板随游玩渐进成长。
+  if (option.develops && resolution.isNsfw) {
+    const roll = opts.rng ? opts.rng() : 0.5;
+    if (roll < option.develops.chance) {
+      const adv = advanceBodyDevelopment(next, option.develops.part, 1);
+      if (adv.advanced) {
+        next = adv.state;
+        a4Report = {
+          ...(a4Report ?? { concealed: true, martialGained: 0, martialTransferred: 0, loyaltyDelta: 0 }),
+          developedPart: option.develops.part,
+          developedTo: adv.newLevel,
+        };
+      }
+    }
+  }
+
   return {
     state: next,
     resultText,

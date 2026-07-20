@@ -80,6 +80,7 @@ export interface EngineState {
   leaveHistory?: boolean[];     // 近期每日是否请假（滑动窗口保底用，保留最近20天）
   // —— 地盘信号（地盘系统未做，先占位供强制事件扫描）——
   threatLevel?: number;         // 地盘威胁等级（骚扰/火并防守强占触发；0=无。由 stability 派生）
+  erosionLastDay?: number;      // 上次 A4 白天突发侵蚀(daily_erosion)触发的天数(同日去重·批C1)
   // —— 地盘（区域/据点·turf 模块）——
   regions?: Record<string, import('../turf/types').RegionState>; // 各区域运行时状态(boss击败/降门槛/驻守)
   stability?: number;           // 地盘稳定系数 0~100(旧·保留)
