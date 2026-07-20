@@ -117,8 +117,10 @@ const parts = computed(() => {
 <style scoped>
 .rin { border-left: 2px solid #000; background: linear-gradient(180deg, #100b09, #0b0807);
   box-shadow: inset 3px 0 8px rgba(0,0,0,.5); display: flex; flex-direction: column; overflow: hidden; }
-/* 批F1#3: 立绘框 横向×1.2(178→214) 纵向×1.6(237→380) */
-.portrait { flex: none; position: relative; width: 214px; height: 380px; margin: 16px auto 12px; border-radius: 6px; overflow: hidden;
+/* 批F1#3: 立绘框 横向×1.2(178→214) 纵向×1.6(237→380);
+   批D0(用户反馈): 视窗高截短为85%(380→323)腾出下方状态栏空间——但立绘渲染尺寸不变(见 .p-img 固定px),
+   顶部对齐,视窗装不下的部分直接裁掉,人物大小不受视窗缩短影响。 */
+.portrait { flex: none; position: relative; width: 214px; height: 323px; margin: 16px auto 12px; border-radius: 6px; overflow: hidden;
   background: linear-gradient(180deg, #1a141a, #0d0a0c); border: 1px solid var(--gold-dim);
   box-shadow: 0 8px 22px rgba(0,0,0,.55), inset 0 0 0 4px #0a0706, inset 0 0 0 5px rgba(201,162,74,.35); }
 .portrait .photo { position: absolute; inset: 5px; border-radius: 3px; overflow: hidden;
@@ -126,8 +128,9 @@ const parts = computed(() => {
               radial-gradient(120% 80% at 50% 120%, rgba(0,0,0,.7), transparent 60%),
               linear-gradient(180deg, #241b22, #100b0e); }
 .portrait .photo .hint { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; flex-direction: column; gap: 5px; color: rgba(239,230,218,.28); font-size: 11px; letter-spacing: 3px; }
-/* 批F1#3: 图片只显示上4/5(脚部1/5裁掉)——img 拉到125%高,容器裁掉底部25% */
-.portrait .photo .p-img { position: absolute; top: 0; left: 0; width: 100%; height: 125%; object-fit: cover; object-position: top center; }
+/* 批F1#3+批D0: 图片渲染尺寸固定 475px 高(=原380视窗的125%,即当前人物大小),不随视窗缩放。
+   顶部对齐,视窗(323px)装不下的底部直接被容器裁掉。改视窗高只需动 .portrait,人物大小不变。 */
+.portrait .photo .p-img { position: absolute; top: 0; left: 0; width: 100%; height: 475px; object-fit: cover; object-position: top center; }
 .portrait .photo .p-outfit { position: absolute; right: 6px; bottom: 6px; font-size: 10px; letter-spacing: 2px; color: var(--gold-dim); background: rgba(0,0,0,.45); padding: 2px 8px; border-radius: 4px; }
 .portrait .photo .hint .cam { font-size: 24px; }
 .portrait .plate { position: absolute; left: 0; right: 0; bottom: 0; padding: 8px 0 9px; text-align: center;
