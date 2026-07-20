@@ -17,6 +17,10 @@
 
     <!-- 已结算正文 -->
     <div v-if="showProse" class="prose"><span class="first">{{ first }}</span>{{ rest }}</div>
+    <!-- 收藏本段(批E2·留档): 满意的正文存进留档页随时回看 -->
+    <div v-if="showProse" class="fav-row">
+      <button class="fav-btn" @click="onFav">{{ favDone ? '✓ 已收藏到留档' : '❤ 收藏本段正文' }}</button>
+    </div>
 
     <!-- 进行中 -->
     <div v-else-if="slot.status === 'running'" class="hint-pane">⏳ 本格正在生成…</div>
@@ -41,12 +45,23 @@
 </template>
 
 <script setup lang="ts">
-import { computed } from 'vue';
+import { computed, ref, watch } from 'vue';
 import type { ActionSlot, SlotPeriod } from '../../../game/action-grid/types';
+import { useRunnerStore } from '../runner-store';
 
 interface MenuOpt { optionId: string; label: string; isNsfw: boolean }
 const props = defineProps<{ slot: ActionSlot | null; period: SlotPeriod; options: MenuOpt[] }>();
 defineEmits<{ pick: [optionId: string, label: string]; clear: [] }>();
+
+// 收藏本段(批E2·留档)
+const r = useRunnerStore();
+const favDone = ref(false);
+watch(() => props.slot, () => { favDone.value = false; });
+function onFav() {
+  if (!props.slot) return;
+  if (r.favoriteSlot(props.slot as any)) favDone.value = true;
+  else favDone.value = true; // 已收藏过同样置✓(去重)
+}
 
 // 中文大写计数(1起):壹..玖/拾/拾壹..拾玖/廿/廿壹..廿玖/卅... 行动格上限约20,做到卌冗余。
 const D = ['', '壹', '贰', '叁', '肆', '伍', '陆', '柒', '捌', '玖'];
@@ -90,6 +105,9 @@ const tagClass = computed(() => ({
 .d-tag.nsfw { background: rgba(179,33,46,.18); color: var(--red-hi); }
 
 .prose { font-size: 15px; line-height: 2; color: var(--text); white-space: pre-wrap; }
+.fav-row { margin-top: 10px; }
+.fav-btn { font-family: var(--serif); background: transparent; border: 1px solid var(--line); color: var(--rose-hi); border-radius: 6px; padding: 6px 14px; font-size: 12px; cursor: pointer; }
+.fav-btn:hover { border-color: var(--rose); }
 .prose .first { font-family: var(--brush); font-size: 32px; color: var(--gold-hi); float: left; line-height: 1; margin: 6px 12px 0 0; }
 
 .hint-pane { color: var(--text-dim); font-size: 14px; padding: 20px 0; text-align: center; }

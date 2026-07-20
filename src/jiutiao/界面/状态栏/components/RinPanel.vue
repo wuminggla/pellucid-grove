@@ -6,9 +6,15 @@
 -->
 <template>
   <aside class="rin">
-    <!-- 竖幅人像照（常驻） -->
+    <!-- 立绘(批E2·时段+事件换装;背景/插图层为发布后迭代预留) -->
     <div class="portrait">
-      <div class="photo"><div class="hint"><span class="cam">❏</span>竖幅人像照</div></div>
+      <div class="photo">
+        <!-- 背景层(接口预留·portrait.background) -->
+        <img class="p-img" :src="portrait.url" :alt="`九条凛·${portrait.label}`" @error="imgFailed = true" v-show="!imgFailed" />
+        <div v-if="imgFailed" class="hint"><span class="cam">❏</span>立绘加载中…</div>
+        <!-- 插图层(接口预留·portrait.illustration) -->
+        <div class="p-outfit">{{ portrait.label }}</div>
+      </div>
       <div class="plate">九 条 凛</div>
     </div>
 
@@ -59,11 +65,23 @@
 </template>
 
 <script setup lang="ts">
-import { computed } from 'vue';
+import { computed, ref, watch } from 'vue';
 import type { EngineState } from '../../../game/engine/types';
 import { endingTendency, isSalvationOpen } from '../../../game/endings/machine';
+import { resolvePortrait } from '../../../game/engine/portraits';
+import { useRunnerStore } from '../runner-store';
 
 const props = defineProps<{ engine: EngineState }>();
+
+// 立绘(批E2): 夜晚睡衣/白天按当前格事件(极道=正装·外出采购=休闲)。无当前格按时段(白天默认正装)。
+const r = useRunnerStore();
+const imgFailed = ref(false);
+const portrait = computed(() => {
+  const cur = r.currentSlot;
+  const period = cur?.period ?? (String(r.day.phase ?? '').startsWith('night') ? 'night' : 'day');
+  return resolvePortrait(period, cur?.choice?.optionId ?? null);
+});
+watch(() => portrait.value.url, () => { imgFailed.value = false; }); // 换装时重试加载
 
 // 结局倾向(批C2)
 const tendency = computed(() => endingTendency({
@@ -107,6 +125,8 @@ const parts = computed(() => {
               radial-gradient(120% 80% at 50% 120%, rgba(0,0,0,.7), transparent 60%),
               linear-gradient(180deg, #241b22, #100b0e); }
 .portrait .photo .hint { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; flex-direction: column; gap: 5px; color: rgba(239,230,218,.28); font-size: 11px; letter-spacing: 3px; }
+.portrait .photo .p-img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; object-position: top center; }
+.portrait .photo .p-outfit { position: absolute; right: 6px; bottom: 6px; font-size: 10px; letter-spacing: 2px; color: var(--gold-dim); background: rgba(0,0,0,.45); padding: 2px 8px; border-radius: 4px; }
 .portrait .photo .hint .cam { font-size: 24px; }
 .portrait .plate { position: absolute; left: 0; right: 0; bottom: 0; padding: 8px 0 9px; text-align: center;
   background: linear-gradient(180deg, transparent, rgba(8,5,4,.85)); font-family: var(--brush); font-size: 24px; color: var(--gold-hi); text-shadow: 0 2px 6px #000; letter-spacing: 5px; }

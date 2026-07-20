@@ -724,6 +724,43 @@ export const useRunnerStore = defineStore('runner', () => {
   function loadFromSlot(i: number): boolean { return restoreFrom(readSlot(MANUAL_KEYS[i] ?? '')); }
   /** 读取自动档 */
   function loadAutoSave(): boolean { return restoreFrom(readSlot(AUTO_KEY)); }
+
+  // ─── 留档(正文回忆·批E2) ───
+  // 玩家收藏满意的正文段落随时回看;近期原文档案(proseArchive 3天窗)也在留档页可查/补救收藏。
+  // 持久化: chat 变量`九条会留档`(随聊天·上限100条,超出丢最老)。
+  const FAV_KEY = '九条会留档';
+  const FAV_CAP = 100;
+  type FavEntry = { id: string; day: number; label: string; text: string; savedAt: string };
+  const favorites = ref<FavEntry[]>([]);
+  function loadFavorites() {
+    const v = readSlot(FAV_KEY);
+    favorites.value = Array.isArray(v) ? v : [];
+  }
+  function persistFavorites() { writeSlot(FAV_KEY, JSON.parse(JSON.stringify(favorites.value))); }
+  /** 收藏一段正文(去重: 同 id 不重复收) */
+  function addFavorite(entry: { id: string; day: number; label: string; text: string }): boolean {
+    if (!entry.text?.trim()) return false;
+    if (favorites.value.some(f => f.id === entry.id)) return false;
+    const fav: FavEntry = { ...entry, savedAt: new Date().toLocaleString('zh-CN', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' }) };
+    favorites.value = [...favorites.value, fav].slice(-FAV_CAP);
+    persistFavorites();
+    return true;
+  }
+  function removeFavorite(id: string) {
+    favorites.value = favorites.value.filter(f => f.id !== id);
+    persistFavorites();
+  }
+  /** 收藏当前选中/已结算格的完整正文 */
+  function favoriteSlot(slot: { period: string; index: number; choice?: { label: string } | null; resultText?: string | null }): boolean {
+    const text = (slot.resultText ?? '').trim();
+    if (!text) return false;
+    return addFavorite({
+      id: `${day.value.dayNumber}-${slot.period}-${slot.index}`,
+      day: day.value.dayNumber,
+      label: slot.choice?.label ?? '事件',
+      text,
+    });
+  }
   /** 坏结局快捷回退=自动档(失败日早晨) */
   function rollbackFromEnding(): boolean { return loadAutoSave(); }
   const autoSaveDay = computed(() => autoSlotInfo.value?.day ?? null);
@@ -821,7 +858,8 @@ export const useRunnerStore = defineStore('runner', () => {
   // 启动: 有存档→读回; 无→落初始并写一次。之后任意状态变化自动防抖存。
   const _hadSave = loadSave();
   if (!_hadSave) persistNow();
-  refreshSlotInfo(); // 存档槽天数信息(批C2.5·驱动回退按钮文案)
+  refreshSlotInfo(); // 存档槽天数信息(批E1·驱动存档页/回退按钮文案)
+  loadFavorites();   // 留档收藏(批E2)
   autoUnlockMysteries(); // 读档后补结:堕落度已到但???尚未解锁的补齐(如旧档升级)
   watch([day, engine, fastForward], schedulePersist, { deep: true });
 
@@ -839,6 +877,7 @@ export const useRunnerStore = defineStore('runner', () => {
     ending, showEnding, dismissEnding,
     endingProse, endingProseBusy, endingProseLabel, canRollback, rollbackFromEnding,
     manualSlotInfos, autoSlotInfo, autoSaveDay, saveToSlot, loadFromSlot, loadAutoSave,
+    favorites, addFavorite, removeFavorite, favoriteSlot,
     tendencyNow, salvationOpenNow,
     setFastForward, allocate, setChoice, clearChoice, fillEmpty,
     beginDay, beginNight, runCurrent, rerunLast, nextDay, loadState,

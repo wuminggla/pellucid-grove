@@ -87,6 +87,8 @@
 
       <SavePanel v-else-if="view === '存档'" />
 
+      <ArchivePanel v-else-if="view === '留档'" />
+
       <!-- ===== 设置 · 存档管理 ===== -->
       <div v-else-if="view === '设置'" class="settings">
         <div class="set-box">
@@ -175,6 +177,12 @@
         </div>
       </div>
 
+      <!-- 大小姐页: 定位=立绘系统完全体宿主(换装画廊+场景背景+NSFW插图回看·发布后迭代) -->
+      <div v-else-if="view === '大小姐'" class="placeholder">
+        <div class="ph-t">大小姐</div>
+        <div class="ph-s">此页预留给「立绘画廊」——换装立绘 / 场景背景 / 插图回看（发布后迭代）。<br>当前立绘随时段与行动自动换装（见右栏），详细状态见右栏「秘密状态」。</div>
+      </div>
+
       <!-- ===== 其它页签：占位 ===== -->
       <div v-else class="placeholder">
         <div class="ph-t">{{ view }}</div>
@@ -233,6 +241,7 @@ import TurfPanel from './components/TurfPanel.vue';
 import UpgradePanel from './components/UpgradePanel.vue';
 import AvPanel from './components/AvPanel.vue';
 import SavePanel from './components/SavePanel.vue';
+import ArchivePanel from './components/ArchivePanel.vue';
 import { buildMenu } from '../../game/events/machine';
 import { deriveEventUnlocked } from '../../game/engine/unlocked';
 import { demoEventOptions } from '../../game/engine/mock-ai';
