@@ -275,9 +275,10 @@ export const demoEventOptions: Record<string, EventOption> = {
   },
 
   // ─── AV 系统 ────────────────────────────────────
-  // 首次AV: 摄影室升级解锁后强制触发(里程碑·一次性·标 first 走 ai_full 重点扩写)
+  // 首次AV(批F2重做): 解锁摄影室当天的【夜间】强制演出——从供奉现场自然生长(打手提议→寸止逼答应→抬去摄影室)。
+  // 触发=夜间专属插入格(insert_slot·不占预算·演完即消,玩家没排夜间格也能触发)。
   av_first: {
-    id: 'av_first', label: '拍摄第一部AV', period: 'day', shape: 'born_nsfw',
+    id: 'av_first', label: '拍摄第一部AV', period: 'night', shape: 'born_nsfw',
     unlockRequires: ['studio_unlocked'],
     nsfw: { worldbookKey: 'wb_av_first' },
     first: {
@@ -288,7 +289,7 @@ export const demoEventOptions: Record<string, EventOption> = {
     infamyReward: 5,  // 首次AV直接给5淫名(钩到淫名引入)
     needsContinuity: true,
     pinned: true,
-    hiddenInMenu: true, // 由强制事件(建成摄影室后)自动演出,不进玩家菜单
+    hiddenInMenu: true, // 由强制事件(建成摄影室当天夜间)自动演出,不进玩家菜单
   },
 
   // 玩家定制AV: 仅由影业面板下单(queueAvShoot)置入行动格·受周次数限·注入定制范式
@@ -497,11 +498,13 @@ export const demoEventOptions: Record<string, EventOption> = {
 
 /** 强制事件池 */
 export const demoForcedPool: ForcedEvent[] = [
-  // ─── 首次AV强制演出(建成摄影室解锁av后·一次性·里程碑引入淫名) ───
+  // ─── 首次AV强制演出(批F2: 建成摄影室当天【夜间】·从供奉现场自然生长·一次性) ───
+  // period 限定=只在夜间时段扫描命中→插入夜间专属临时格(不占预算,演完即消)。
+  // 玩家白天买摄影室→当晚无论有没有排夜间格,进入夜间时段后本事件都会插格演出。
   {
     id: 'av_first_forced', ledgerKey: 'av_first_inserted', priority: 0, once: true,
     intensity: 'insert_slot', optionId: 'av_first', label: '拍摄第一部AV',
-    condition: c => c.unlocked?.av === true && c.triggeredLedger?.av_first !== true,
+    condition: c => c.period === 'night' && c.unlocked?.av === true && c.triggeredLedger?.av_first !== true,
   },
   // ─── 生育线三连(避孕套归零·once+ledgerKey 依次触发) ──────────
   {

@@ -51,6 +51,11 @@ const SPEC_BY_MODE: Record<string, string> = {
   ai_brief: '这是日常SFW行动，略写，简短交代结果+少量氛围，推进数值即可。',
 };
 
+/** 事件级篇幅覆盖(批F2): 剧情特别长的事件明确允许并要求长文,压过默认规格 */
+const LENGTH_OVERRIDE: Record<string, string> = {
+  av_first: '【篇幅·硬要求】本格剧情节拍多(供奉→提议→寸止拉锯→答应→摄影室正片),明确允许且要求长文:正文不少于5000字,不许略写或跳节拍。',
+};
+
 /** 从预设取采样参数(传 api-router) */
 export function presetSampling(preset: ChatPreset): Record<string, unknown> {
   const s = preset.settings ?? {};
@@ -121,6 +126,7 @@ export function buildGamePrompt(req: ExpandRequest, ctx: GamePromptCtx): Array<{
     + crowdRule
     + flavorHint
     + `[扩写规格] ${SPEC_BY_MODE[renderMode] ?? '正常扩写。'}\n`
+    + (LENGTH_OVERRIDE[option.id] ? `${LENGTH_OVERRIDE[option.id]}\n` : '')
     + `[输出格式] ${outputSpec}\n`
     + `请按以上范式与态度生成本格正文。`;
 

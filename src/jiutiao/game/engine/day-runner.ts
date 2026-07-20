@@ -5,7 +5,7 @@
 import {
   markRunning, completeCurrent, currentSlot, startDay, buildForcedLeaveDay, insertEventSlot, lockSlot,
 } from '../action-grid/machine';
-import { settleSlot, PROSE_CHARS, PROSE_MIN_LEN } from './machine';
+import { settleSlot, PROSE_MIN_LEN } from './machine';
 import { settleServe, settleBuyCondoms, settleDaily } from './settlement';
 import {
   CONST, slidingWindowRelief, settleRecruit, dailyDesireDemand, desireOverflow, availableThugs,
@@ -249,7 +249,7 @@ export async function runCurrentSlot(
         ...engine,
         proseArchive: appendProse(engine.proseArchive, {
           id: pid, day: dayNo, period: slot.period, slot: slot.index,
-          label: slot.choice.label, text: text.slice(-PROSE_CHARS), needsSummary: !isFast,
+          label: slot.choice.label, text, needsSummary: !isFast, // 批F2: 档案存完整正文(留档页回看/补救收藏用),注入时才截断
         }, dayNo),
         ...(isFast ? {
           eventSummaries: upsertSummary(engine.eventSummaries, { id: pid, day: dayNo, label: slot.choice.label, text }, dayNo),

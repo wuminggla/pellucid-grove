@@ -10,7 +10,7 @@ import {
   beginDay as beginDayFn, beginNight as beginNightFn, fillEmpty as fillEmptyFn, currentSlot,
   markRunning, completeCurrent,
 } from '../../game/action-grid/machine';
-import { runCurrentSlot, settleNight, advanceToNextDay, applyForcedSeizes } from '../../game/engine/day-runner';
+import { runCurrentSlot, settleNight, advanceToNextDay, applyForcedSeizes, applyForcedInserts } from '../../game/engine/day-runner';
 import type { RunnerState } from '../../game/engine/day-runner';
 import { dailyDesireDemand, availableThugs, weeklyRecruitQuota, combatPower, presentCountFrom, appendMoneyLog } from '../../game/economy/machine';
 import { weaponMult, baseMartialPerThug, prestigeMultiplier, UPGRADES_BY_ID, canUpgrade, applyUpgrade, pendingMysteries, scoutRateBonus, avIncomeMultiplier } from '../../game/upgrade/machine';
@@ -401,6 +401,22 @@ export const useRunnerStore = defineStore('runner', () => {
       day.value = beginNightFn(day.value); error.value = null;
       // 推进到夜晚后,白天最后一格的快照已失效 → 清掉,避免"重生成上一格"误回退白天格
       lastSettle.value = null; lastServe.value = null; lastRecruit.value = null; lastBuyCondom.value = null; preRunSnapshot = null;
+      // 批F2: 进入夜间时段先扫一次夜间强制事件(av_first等)。
+      // 覆盖"玩家没排任何夜间格"的场景——nightCount=0时 beginNight 直接 settled,
+      // 逐格扫描(runCurrentSlot内)永不会跑,这里兜底插入专属临时格并把时段拉回 running。
+      {
+        const fi = applyForcedInserts(day.value, engine.value, demoForcedPool, 'night', Math.random);
+        if (fi.fired) {
+          engine.value = fi.engine;
+          let d = fi.day;
+          if (d.phase === 'night_settled') {
+            // 0夜间格被插入1格 → 时段改回执行中,cursor指向插入格
+            const idx = d.nightSlots.findIndex(s => s.inserted && s.status === 'planned');
+            d = { ...d, phase: 'night_running', cursor: { period: 'night', index: Math.max(0, idx) } };
+          }
+          day.value = d;
+        }
+      }
       return true;
     } catch (e) { error.value = (e as Error).message; return false; }
   }
@@ -432,7 +448,7 @@ export const useRunnerStore = defineStore('runner', () => {
       for (let i = 0; i < 10; i++) { // 每轮上限10条(防意外循环;更多欠账下次继续)
         const pending = nextPendingSummary(engine.value.proseArchive, engine.value.eventSummaries);
         if (!pending) break;
-        const text = (await port.summarize({ kind: 'event', text: pending.text, meta: { day: pending.day, label: pending.label } }))?.trim();
+        const text = (await port.summarize({ kind: 'event', text: pending.text.slice(-1400), meta: { day: pending.day, label: pending.label } }))?.trim(); // 批F2:档案已存完整正文,总结输入截尾控token
         if (!text) break; // 空回=失败,留待下次
         engine.value = {
           ...engine.value,
@@ -730,7 +746,7 @@ export const useRunnerStore = defineStore('runner', () => {
   // 持久化: chat 变量`九条会留档`(随聊天·上限100条,超出丢最老)。
   const FAV_KEY = '九条会留档';
   const FAV_CAP = 100;
-  type FavEntry = { id: string; day: number; label: string; text: string; savedAt: string };
+  type FavEntry = { id: string; day: number; label: string; text: string; savedAt: string; pinned?: boolean };
   const favorites = ref<FavEntry[]>([]);
   function loadFavorites() {
     const v = readSlot(FAV_KEY);
@@ -748,6 +764,18 @@ export const useRunnerStore = defineStore('runner', () => {
   }
   function removeFavorite(id: string) {
     favorites.value = favorites.value.filter(f => f.id !== id);
+    persistFavorites();
+  }
+  /** 重命名收藏标题(批F2) */
+  function renameFavorite(id: string, label: string) {
+    const t = label.trim();
+    if (!t) return;
+    favorites.value = favorites.value.map(f => f.id === id ? { ...f, label: t } : f);
+    persistFavorites();
+  }
+  /** 置顶/取消置顶收藏(批F2·置顶项列表页排最前) */
+  function togglePinFavorite(id: string) {
+    favorites.value = favorites.value.map(f => f.id === id ? { ...f, pinned: !f.pinned } : f);
     persistFavorites();
   }
   /** 收藏当前选中/已结算格的完整正文 */
@@ -877,7 +905,7 @@ export const useRunnerStore = defineStore('runner', () => {
     ending, showEnding, dismissEnding,
     endingProse, endingProseBusy, endingProseLabel, canRollback, rollbackFromEnding,
     manualSlotInfos, autoSlotInfo, autoSaveDay, saveToSlot, loadFromSlot, loadAutoSave,
-    favorites, addFavorite, removeFavorite, favoriteSlot,
+    favorites, addFavorite, removeFavorite, favoriteSlot, renameFavorite, togglePinFavorite,
     tendencyNow, salvationOpenNow,
     setFastForward, allocate, setChoice, clearChoice, fillEmpty,
     beginDay, beginNight, runCurrent, rerunLast, nextDay, loadState,

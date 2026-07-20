@@ -85,7 +85,7 @@ export function needsContinuitySummary(needsFlag: boolean | undefined, cognition
 // 三层注入: [远期概要·大总结] + [近期事件总结·小总结滑动窗] + [前文原文·最近K事件]。
 // 窗口每日滑动(第11天注入2-11天),永不突然断档。大总结按整窗后台静默触发,未完成不注入。
 
-/** 原文档案条目(每格正文尾部截断入档,供"注入原文"档位与事后小总结) */
+/** 原文档案条目(批F2: 存完整正文——留档页回看/补救收藏是完整版;prompt注入与小总结时才按 PROSE_CHARS 截断) */
 export interface ProseEntry {
   id: string;          // 唯一键: `${day}-${period}-${slot}`
   day: number;
@@ -220,10 +220,11 @@ export function renderTieredMemory(
   if (wins.length) {
     parts.push('[近期事件总结]\n' + wins.map(s => `第${s.day}天·${s.label}:${s.text}`).join('\n'));
   }
-  // 前文原文(最近K事件·细节保真层)
+  // 前文原文(最近K事件·细节保真层)。批F2: 档案存完整正文,注入时才截尾部(控token)
+  const INJECT_PROSE_CHARS = 700;
   if (prose.length) {
     parts.push('[前文原文·最近事件(新正文必须衔接其结尾状态)]\n'
-      + prose.map(p => `【第${p.day}天${PERIOD_CN[p.period]}#${p.slot} ${p.label}】\n${p.text}`).join('\n\n'));
+      + prose.map(p => `【第${p.day}天${PERIOD_CN[p.period]}#${p.slot} ${p.label}】\n${p.text.slice(-INJECT_PROSE_CHARS)}`).join('\n\n'));
   }
   return parts.join('\n\n');
 }
