@@ -510,17 +510,17 @@ export const demoForcedPool: ForcedEvent[] = [
   {
     id: 'condom_zero', ledgerKey: 'condom_zero_1', priority: 1, once: true,
     intensity: 'insert_slot', optionId: 'condom_zero', label: '避孕套归零·裸体买套',
-    condition: c => (c.condomStock ?? 1) <= 0,
+    condition: c => c.triggeredLedger?.buy_first === true && (c.condomStock ?? 1) <= 0, // 批G2:首次采购(约定确立)后归零才触发,防开局套0误触
   },
   {
     id: 'condom_zero_2', ledgerKey: 'condom_zero_2', priority: 2, once: true,
     intensity: 'insert_slot', optionId: 'condom_zero_2', label: '避孕套归零·口戴废套',
-    condition: c => (c.condomStock ?? 1) <= 0,
+    condition: c => c.triggeredLedger?.buy_first === true && (c.condomStock ?? 1) <= 0, // 批G2:首次采购(约定确立)后归零才触发,防开局套0误触
   },
   {
     id: 'condom_zero_3', ledgerKey: 'condom_zero_3', priority: 3, once: true,
     intensity: 'insert_slot', optionId: 'condom_zero_3', label: '避孕套归零·真播种',
-    condition: c => (c.condomStock ?? 1) <= 0,
+    condition: c => c.triggeredLedger?.buy_first === true && (c.condomStock ?? 1) <= 0, // 批G2:首次采购(约定确立)后归零才触发,防开局套0误触
     // E3 触发副作用: 设置怀孕状态(钩到 endings.pregnant)
     onApply: () => ({ pregnant: true }),
   },

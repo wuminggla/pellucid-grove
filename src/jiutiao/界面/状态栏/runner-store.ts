@@ -57,7 +57,8 @@ function initialEngine(): EngineState {
     triggeredSpecials: {}, unlocked: {},
     corruption: 0, cognition: '死撑', claimedGates: {},
     money: DEBUG_BUILD ? 500000 : 8000, thugTotal, garrison, loyalty, loyaltyMartial: Math.round(loyalty / 2), loyaltyInfamy: Math.round(loyalty / 2),
-    condomStock: DEBUG_BUILD ? 3000 : 480, desire: morning, desireCapacity: DEBUG_BUILD ? 400 : 60, desireAddedThisMorning: morning,
+    // 批G2:初始套=0(教程警示玩家第一天必须采购·DEBUG高配档除外)
+    condomStock: DEBUG_BUILD ? 3000 : 0, desire: morning, desireCapacity: DEBUG_BUILD ? 400 : 60, desireAddedThisMorning: morning,
     // DEBUG: 吞吐随打手规模同步抬高(300人日增需求300,每格60×5夜格才平衡;保持6会结构性卡死)
     perSlotThroughput: DEBUG_BUILD ? 60 : 6,
     infamy: 0, martialPrestige: DEBUG_BUILD ? 150 : 0,
@@ -778,6 +779,11 @@ export const useRunnerStore = defineStore('runner', () => {
     favorites.value = favorites.value.map(f => f.id === id ? { ...f, pinned: !f.pinned } : f);
     persistFavorites();
   }
+  // ─── 新手教程标记(批G2·每聊天=每局一次) ───
+  const TUT_KEY = '九条会教程已读';
+  const tutorialSeen = ref<boolean>(!!readSlot(TUT_KEY));
+  function markTutorialSeen() { tutorialSeen.value = true; writeSlot(TUT_KEY, true); }
+
   /** 收藏当前选中/已结算格的完整正文 */
   function favoriteSlot(slot: { period: string; index: number; choice?: { label: string } | null; resultText?: string | null }): boolean {
     const text = (slot.resultText ?? '').trim();
@@ -906,6 +912,7 @@ export const useRunnerStore = defineStore('runner', () => {
     endingProse, endingProseBusy, endingProseLabel, canRollback, rollbackFromEnding,
     manualSlotInfos, autoSlotInfo, autoSaveDay, saveToSlot, loadFromSlot, loadAutoSave,
     favorites, addFavorite, removeFavorite, favoriteSlot, renameFavorite, togglePinFavorite,
+    tutorialSeen, markTutorialSeen,
     tendencyNow, salvationOpenNow,
     setFastForward, allocate, setChoice, clearChoice, fillEmpty,
     beginDay, beginNight, runCurrent, rerunLast, nextDay, loadState,

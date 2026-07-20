@@ -101,6 +101,7 @@
           <div class="srow" style="color:var(--green)">✓ 进度自动保存；<b>存档栏位</b>（4手动+1每日自动）在左栏「存档」页管理，坏结局时可从任意栏位读回。</div>
           <div class="set-btns">
             <button class="primary-btn" @click="view = '存档'">打开存档界面</button>
+            <button class="ghost-btn" @click="reopenTutorial">重看新手教程（指引页）</button>
             <button class="danger-btn" @click="confirmReset">重开本局（清空当前进度）</button>
           </div>
         </div>
@@ -229,6 +230,9 @@
       </div>
     </Transition>
 
+    <!-- 新手教程(批G2): full=每聊天首次(牌匾→开场白→目标→指引);guide=设置页重看(仅指引) -->
+    <TutorialOverlay v-if="showTutorial" :mode="tutMode" @close="closeTutorial" />
+
     <div v-if="r.busy" class="gen-overlay">
       <div class="gen-box"><div class="gen-spinner"></div><div class="gen-text">{{ r.genHint }}</div>
         <div class="gen-sub">{{ r.aiMode === 'tavern' ? '调用酒馆 API（可能需数秒到数十秒）' : 'mock 模拟' }}</div></div>
@@ -254,6 +258,7 @@ import UpgradePanel from './components/UpgradePanel.vue';
 import AvPanel from './components/AvPanel.vue';
 import SavePanel from './components/SavePanel.vue';
 import ArchivePanel from './components/ArchivePanel.vue';
+import TutorialOverlay from './components/TutorialOverlay.vue';
 import { buildMenu } from '../../game/events/machine';
 import { deriveEventUnlocked } from '../../game/engine/unlocked';
 import { demoEventOptions } from '../../game/engine/mock-ai';
@@ -366,6 +371,16 @@ function onNav(a: 'save' | 'exit') {
 }
 const saveToast = ref('');
 function closePins() { mast.value?.clearPin(); }
+
+// 新手教程(批G2): full=每聊天首次自动(牌匾→开场白→目标→指引);guide=设置页重看(仅指引页)
+const tutManual = ref(false);
+const showTutorial = computed(() => tutManual.value || !r.tutorialSeen);
+const tutMode = computed<'full' | 'guide'>(() => tutManual.value ? 'guide' : 'full');
+function closeTutorial() {
+  if (!tutManual.value) r.markTutorialSeen();
+  tutManual.value = false;
+}
+function reopenTutorial() { tutManual.value = true; }
 
 // AI生成选项(批B-3):附加酒馆预设文风块开关(默认开·localStorage 全局偏好)
 const includePreset = ref(getIncludeTavernPreset());
