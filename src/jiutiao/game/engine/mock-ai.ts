@@ -325,6 +325,16 @@ export const demoEventOptions: Record<string, EventOption> = {
     develops: { part: '肛门', chance: 0.35 },
   },
 
+  // 浴场供奉(批C3·淫窟子页消费链: m_bath_serve??? 解禁 bath_serve 键→本事件入夜晚菜单)
+  serve_bath: {
+    id: 'serve_bath', label: '浴场供奉', period: 'night', shape: 'born_nsfw', isServe: true,
+    unlockRequires: ['bath_serve'],
+    nsfw: { worldbookKey: 'wb_bath_serve' },
+    first: { ledgerKey: 'serve_bath_first', paradigm: { worldbookKey: 'wb_bath_serve_first' }, corruptionWeight: 2 },
+    develops: { part: '小穴', chance: 0.35 },
+    needsContinuity: true,
+  },
+
   // 暴力供奉(地下室·受虐癖线)。建成地下室即可;细分刑具按受虐癖/深堕落逐档解锁。
   serve_violent: {
     id: 'serve_violent', label: '暴力供奉', period: 'night', shape: 'born_nsfw', isServe: true,
@@ -534,6 +544,7 @@ export const demoSummaryTemplates: Record<string, string> = {
   serve_oral: '大小姐为{n}人进行了口交侍奉',
   serve_vaginal: '大小姐供奉了{n}人',
   serve_anal: '大小姐被{n}人开发了后穴',
+  serve_bath: '大小姐在浴场侍奉了{n}人',
   serve_violent: '暴力供奉已完成',
   serve_violent_hang: '（已结算·吊颈轮奸）',
   serve_violent_horse: '（已结算·三角木马）',

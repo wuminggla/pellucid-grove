@@ -6,6 +6,7 @@
 import type { ExpandRequest, ExtractRequest } from './types';
 import type { Lorebook, ChatPreset } from '../../sillytavern/types';
 import { renderConstantBlock, getParadigmByKey } from '../worldbook/machine';
+import { renderHouseStateBlock } from '../worldbook/state-entries';
 import { buildMemoryContext } from '../memory/machine';
 import { replaceMacros } from '../../sillytavern/prompt-assembler';
 
@@ -81,6 +82,9 @@ export function buildGamePrompt(req: ExpandRequest, ctx: GamePromptCtx): Array<{
   if (preset.settings?.jailbreak) sysParts.push(mc(String(preset.settings.jailbreak)));
   const constants = renderConstantBlock(lorebook);
   if (constants) sysParts.push(constants);
+  // 大宅现行状态(批C3): 已购"荒唐升级"的状态设定→全场景可引用(升级的叙事后效)
+  const houseState = renderHouseStateBlock(state);
+  if (houseState) sysParts.push(houseState);
   if (memory?.storyThread) sysParts.push(`[故事脉络]\n${memory.storyThread}`);
   if (memory?.recentLog) sysParts.push(`[近期发生]\n${memory.recentLog}`);
   const system = sysParts.join('\n\n');
