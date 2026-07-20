@@ -148,8 +148,20 @@
               <input type="text" v-model.trim="exApi.apiurl" @change="onExApiChange" placeholder="https://…/v1" /></label>
             <label>API Key（⚠ 明文存于本机浏览器，勿在共用设备使用）
               <input type="password" v-model.trim="exApi.key" @change="onExApiChange" placeholder="sk-…" /></label>
-            <label>模型名（如 gpt-4o-mini / deepseek-chat）
-              <input type="text" v-model.trim="exApi.model" @change="onExApiChange" placeholder="模型名" /></label>
+            <label>模型
+              <div class="model-row">
+                <!-- 抓到列表→下拉选择;未抓取/手动模式→文本输入。两种方式都可用 -->
+                <select v-if="modelList.length && !modelManual" v-model="exApi.model" @change="onExApiChange">
+                  <option value="" disabled>— 选择模型 —</option>
+                  <option v-for="m in modelList" :key="m" :value="m">{{ m }}</option>
+                </select>
+                <input v-else type="text" v-model.trim="exApi.model" @change="onExApiChange" placeholder="模型名（如 gpt-4o-mini / deepseek-chat）" />
+                <button class="fetch-btn" @click="onFetchModels" :disabled="modelFetching">{{ modelFetching ? '获取中…' : '获取模型列表' }}</button>
+                <button v-if="modelList.length" class="fetch-btn ghost" @click="modelManual = !modelManual">{{ modelManual ? '从列表选' : '手动输入' }}</button>
+              </div>
+              <div v-if="modelFetchErr" class="model-err">✗ {{ modelFetchErr }}</div>
+              <div v-else-if="modelList.length" class="mem-hint">已获取 {{ modelList.length }} 个模型。</div>
+            </label>
             <div class="mem-hint">改动即时生效（下一次后台总结/抽取起走新端点）。</div>
           </div>
         </div>
@@ -229,7 +241,7 @@ import { ref, computed, inject, watch } from 'vue';
 import { useRunnerStore } from './runner-store';
 import { dumpPromptAudit, getIncludeTavernPreset, setIncludeTavernPreset } from './tavern-ai';
 import { getMemoryConfig, setMemoryConfig, PROSE_MODE_LABELS } from './memory-settings';
-import { getExtractApiConfig, setExtractApiConfig } from './api-settings';
+import { getExtractApiConfig, setExtractApiConfig, fetchModelList } from './api-settings';
 import { BUILD_VERSION, DEBUG_BUILD } from './version';
 import Masthead from './components/Masthead.vue';
 import NavRail from './components/NavRail.vue';
@@ -367,6 +379,24 @@ function onMemChange() { setMemoryConfig({ ...memCfg.value }); }
 const exApi = ref(getExtractApiConfig());
 function onExApiChange() { setExtractApiConfig({ ...exApi.value }); }
 
+// 模型列表抓取(批G): GET {apiurl}/models(OpenAI兼容)→下拉选择;手动输入仍可用
+const modelList = ref<string[]>([]);
+const modelManual = ref(false);
+const modelFetching = ref(false);
+const modelFetchErr = ref('');
+async function onFetchModels() {
+  modelFetching.value = true; modelFetchErr.value = '';
+  try {
+    modelList.value = await fetchModelList(exApi.value.apiurl, exApi.value.key);
+    modelManual.value = false;
+    // 当前填的模型不在列表里→保留但切手动模式,避免下拉显示空选中
+    if (exApi.value.model && !modelList.value.includes(exApi.value.model)) modelManual.value = true;
+  } catch (e) {
+    modelFetchErr.value = (e as Error).message;
+    modelList.value = [];
+  } finally { modelFetching.value = false; }
+}
+
 // DEBUG·prompt 审计导出(批B-1):复制最近一次实际发给 AI 的完整 prompt(实证"注入是否生效")
 async function copyPromptAudit() {
   const text = dumpPromptAudit();
@@ -472,6 +502,13 @@ function confirmReset() {
 .api-form label { font-size: 12px; color: var(--text-dim); display: flex; flex-direction: column; gap: 4px; }
 .api-form input { background: rgba(0,0,0,.3); border: 1px solid var(--line); border-radius: 6px; padding: 8px 10px; color: var(--text); font-size: 13px; font-family: inherit; }
 .api-form input:focus { outline: none; border-color: var(--gold-dim); }
+.model-row { display: flex; gap: 8px; align-items: stretch; }
+.model-row input, .model-row select { flex: 1; min-width: 0; background: rgba(0,0,0,.3); border: 1px solid var(--line); border-radius: 6px; padding: 8px 10px; color: var(--text); font-size: 13px; font-family: inherit; }
+.model-row select option { background: #1a1410; color: var(--text); }
+.fetch-btn { flex: none; font-family: var(--serif); background: linear-gradient(180deg, var(--gold-hi), var(--gold)); color: #1a120a; border: none; border-radius: 6px; padding: 0 14px; font-size: 12px; font-weight: 700; cursor: pointer; }
+.fetch-btn:disabled { opacity: .5; cursor: wait; }
+.fetch-btn.ghost { background: transparent; border: 1px solid var(--line); color: var(--text-dim); font-weight: 400; }
+.model-err { margin-top: 6px; font-size: 12px; color: var(--red-hi); }
 .set-box .srow b { color: var(--gold); font-weight: 400; }
 .set-btns { display: flex; gap: 12px; margin-top: 16px; }
 .danger-btn { font-family: var(--serif); background: rgba(179,33,46,.12); color: var(--red-hi); border: 1px solid var(--red); border-radius: 6px; padding: 12px 22px; font-size: 14px; cursor: pointer; }

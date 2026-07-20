@@ -32,6 +32,27 @@ export function setExtractApiConfig(cfg: ExtractApiConfig) {
 }
 
 /**
+ * 从端点抓取可用模型列表(批G·OpenAI 兼容 GET {apiurl}/models)。
+ * 返回模型 id 数组(按字母排序)。网络/鉴权/格式错误抛 Error(调用方展示给用户)。
+ */
+export async function fetchModelList(apiurl: string, key: string): Promise<string[]> {
+  const base = apiurl.trim().replace(/\/+$/, '');
+  if (!base) throw new Error('先填写端点 URL');
+  const resp = await fetch(`${base}/models`, {
+    method: 'GET',
+    headers: key.trim() ? { Authorization: `Bearer ${key.trim()}` } : {},
+  });
+  if (!resp.ok) throw new Error(`端点返回 ${resp.status} ${resp.statusText}`);
+  const json = await resp.json().catch(() => { throw new Error('响应不是有效 JSON'); });
+  // OpenAI 格式 {data:[{id}]};部分兼容端点直接返回数组
+  const arr = Array.isArray(json?.data) ? json.data : (Array.isArray(json) ? json : null);
+  if (!arr) throw new Error('响应格式不是 OpenAI 兼容的模型列表');
+  const ids = arr.map((m: any) => typeof m === 'string' ? m : m?.id).filter((x: any) => typeof x === 'string' && x);
+  if (!ids.length) throw new Error('模型列表为空');
+  return [...new Set(ids as string[])].sort();
+}
+
+/**
  * 供 generateRaw custom_api 的副端点配置。未启用/未填端点 → undefined(回落主端点)。
  * source 固定 'openai'(酒馆 custom_api 的 OpenAI 兼容通道)。
  */
