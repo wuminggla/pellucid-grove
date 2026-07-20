@@ -6,8 +6,15 @@
   收益真实入账(保护费的钱+买到的套=开局资源)。文案原则: 大白话,宁繁勿涩。
 -->
 <template>
-  <div class="stage-overlay">
-    <div class="stage-inner">
+  <!-- 批G4#3: 收尾说明(end)时遮罩变透视——底下已是第1天真实界面,说明"左边/右边"时用户能看到实物 -->
+  <div class="stage-overlay" :class="{ reveal: step === 'end' }">
+    <div v-if="step === 'end'" class="end-card">
+      <div class="gb-popup-text" v-html="popup?.text"></div>
+      <div class="gb-popup-btns">
+        <button v-for="b in popup?.btns" :key="b.label" class="gb-btn" :class="{ gold: b.gold }" @click="b.onClick">{{ b.label }}</button>
+      </div>
+    </div>
+    <div v-else class="stage-inner">
       <!-- 步骤说明横幅(大白话) -->
       <div class="guide-banner" :class="{ pulse: bannerPulse }">
         <div class="gb-tag">新手教学 · 第 {{ stepNo }}/8 步</div>
@@ -193,13 +200,13 @@ async function finishNight() {
   r.nextDay(); // Day0 结算 → 第1天
   step.value = 'end';
   popup.value = {
-    text: '<b>教学结束！</b>剩下几件事口头交代一下：<br>'
-      + '· <b>左边一排按钮</b>是各个界面：「行动」就是你刚玩的这里；「地盘」打架抢地盘；「升级」花钱变强（带♥的按钮是色色的东西）；「影业」以后解锁。<br>'
-      + '· <b>右边</b>是大小姐本人：立绘、她的秘密状态、还有「结局倾向」——实时告诉你这一局正在滑向哪个结局。<br>'
-      + '· <b>存档</b>：进度随时自动保存，另外有 4 个手动存档位＋1 个每天自动档，输了可以退回去。<br>'
+    text: '<b>教学结束！</b>教学的幕布已经掀开——你现在看到的就是<b>真实的游戏界面</b>（正式的第 1 天）。对照着看：<br>'
+      + '· <b>看左边那一竖排按钮</b>：「行动」就是你刚玩的这套；「地盘」打架抢地盘；「升级」花钱变强（带♥的是色色的东西）；「影业」以后解锁；「存档」「留档」「设置」也在这排。<br>'
+      + '· <b>看右边那一栏</b>：大小姐本人——立绘、她的秘密状态、还有「结局倾向」，实时告诉你这一局正在滑向哪个结局。<br>'
+      + '· <b>存档</b>：进度随时自动保存，另有 4 个手动档＋1 个每天自动档，输了可以退回去。<br>'
       + '· <b>留档</b>：看到写得好的正文，点正文下面的「❤ 收藏」，以后随时回看。<br>'
-      + '· 别忘了：<b>晚上要供奉</b>稳住打手的忠诚，<b>避孕套见底</b>前记得亲自去买。<br>'
-      + '接下来是正式的第 1 天——九条会的复兴，从今天开始。',
+      + '· 最后两句忠告：<b>晚上要供奉</b>稳住打手的忠诚；<b>避孕套见底</b>前记得让大小姐亲自去买。<br>'
+      + '九条会的复兴，从今天开始。',
     btns: [{ label: '开始经营 ▸', gold: true, onClick: () => { popup.value = null; emit('done'); } }],
   };
 }
@@ -207,6 +214,9 @@ async function finishNight() {
 
 <style scoped>
 .stage-overlay { position: fixed; inset: 0; z-index: 88; background: rgba(8, 5, 4, .97); display: flex; align-items: flex-start; justify-content: center; overflow-y: auto; }
+/* 收尾透视(批G4#3): 遮罩变淡·底下第1天真实界面可见·说明卡收窄居中不挡左右 */
+.stage-overlay.reveal { background: rgba(8, 5, 4, .38); align-items: center; transition: background .5s; }
+.end-card { width: min(560px, 82vw); max-height: 82vh; overflow-y: auto; border: 1px solid var(--gold-dim); border-radius: 14px; background: linear-gradient(180deg, rgba(20,14,10,.97), rgba(12,8,6,.97)); padding: 22px 26px; box-shadow: 0 18px 60px rgba(0,0,0,.8); }
 .stage-inner { width: min(860px, 94vw); padding: 26px 0 40px; display: flex; flex-direction: column; gap: 16px; }
 .guide-banner { border: 1px solid var(--gold-dim); border-radius: 12px; background: linear-gradient(180deg, rgba(201,162,74,.08), var(--panel)); padding: 16px 22px; }
 .guide-banner.pulse { animation: bannerGlow 2.2s ease-in-out infinite; }

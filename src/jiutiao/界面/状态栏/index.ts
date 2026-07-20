@@ -35,17 +35,25 @@ $(() => {
     const local = document.getElementById('app');
     if (!local) { console.warn('[pellucid] 无 #app'); return; }
 
-    // —— 楼层里只放一个展开按钮 ——
+    // —— 楼层里只放 木纹底板+金色展开按钮(批G4·用户定稿:开卡只见这一块) ——
     local.innerHTML = '';
+    const wrap = document.createElement('div');
+    wrap.style.cssText = [
+      'padding:34px 22px', 'border-radius:12px', 'border:1px solid #43350f',
+      'background:linear-gradient(180deg,rgba(0,0,0,.16),rgba(0,0,0,.44)),'
+        + 'repeating-linear-gradient(90deg,#181109 0px,#251a0e 6px,#120c07 13px,#221708 20px,#0f0a06 27px,#27190c 34px)',
+      'box-shadow:inset 0 0 24px rgba(0,0,0,.6),0 8px 24px rgba(0,0,0,.45)',
+    ].join(';');
     const btn = document.createElement('button');
     btn.textContent = '⚔ 展 开 · 九 条 会';
     btn.style.cssText = [
-      'display:block', 'width:100%', 'max-width:460px', 'margin:8px auto', 'padding:15px',
+      'display:block', 'width:100%', 'max-width:460px', 'margin:0 auto', 'padding:15px',
       'font-family:"YFFYT","KingHwaOldSong",serif', 'font-size:24px', 'letter-spacing:8px',
       'color:#1a120a', 'cursor:pointer', 'border:1px solid #43350f', 'border-radius:10px',
       'background:linear-gradient(180deg,#ecc878,#c9a24a)', 'box-shadow:0 6px 20px rgba(0,0,0,.5)',
     ].join(';');
-    local.appendChild(btn);
+    wrap.appendChild(btn);
+    local.appendChild(wrap);
 
     let host: HTMLElement | null = null;   // 顶层全屏宿主
     let inlineMounted = false;             // 退化路径已挂载标记

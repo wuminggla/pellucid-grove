@@ -234,7 +234,8 @@
     <TutorialOverlay v-if="showTutorial" :mode="tutMode" @close="closeTutorial" @startStage="startTutStage" />
     <TutorialStage v-if="tutStage" @done="finishTutStage" />
 
-    <div v-if="r.busy" class="gen-overlay">
+    <!-- 批G4#2: 教学关有自己的生成遮罩,主遮罩不同时弹(否则两层"生成中"文字叠加=重影bug) -->
+    <div v-if="r.busy && !tutStage" class="gen-overlay">
       <div class="gen-box"><div class="gen-spinner"></div><div class="gen-text">{{ r.genHint }}</div>
         <div class="gen-sub">{{ r.aiMode === 'tavern' ? '调用酒馆 API（可能需数秒到数十秒）' : 'mock 模拟' }}</div></div>
     </div>
