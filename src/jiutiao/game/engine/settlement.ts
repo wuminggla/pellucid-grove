@@ -7,7 +7,7 @@ import {
 } from '../economy/machine';
 import { isAvUnlocked, auditMartial } from '../prestige/machine';
 import { weaponMult, baseMartialPerThug, loyaltyDecayReduction, condomDailyFrom } from '../upgrade/machine';
-import { dailyYields, threatLevelFrom, totalShops, settleTurfThreat } from '../turf/machine';
+import { dailyYields, threatLevelFrom, totalShops, settleTurfThreat, fortifiedPower } from '../turf/machine';
 
 // 地盘攻守玩法(威望主来源)已接入(v33+ 攻打/骚扰/刺探/贿赂在行动格·占领有每日威望产出),
 //   玩家可结构性赚极道威望(攻打关卡 + 占领据点日产)→ 解除暂挂,启用威望轨硬失败。
@@ -127,13 +127,17 @@ export function settleDaily(state: EngineState, dayNumber: number): DailySettleR
   next.condomStock = next.condomStock + y.condom + condomDailyFrom(next.upgrades); // 据点产出 + 送货上门(后期便利升级)
   next.money = next.money + y.money;
   if (y.money > 0) next.moneyLog = appendMoneyLog(next.moneyLog, dayNumber, '据点日产', y.money);
-  // 地盘反击(敌人来攻已占地盘·敌强度>常驻武力则随机丢一块地盘)。常驻武力=派驻打手×每人基础武力×武器乘区。
+  // 地盘反击(敌人来攻已占地盘·敌强度>有效常驻武力则随机丢一块地盘)。
+  // 常驻武力=派驻打手×每人基础武力×武器乘区;有效武力=常驻×(1+加固×10%)(批B6-5·加固接真)。
   const garrisonPower = (next.garrison ?? 0) * baseMartialPerThug(next.upgrades) * weaponMult(next.upgrades);
-  const threat = settleTurfThreat(next.regions, garrisonPower, Math.random);
+  const fortifyLv = next.turfFortifyBonus ?? 0;
+  const threat = settleTurfThreat(next.regions, garrisonPower, Math.random, fortifyLv);
   next.regions = threat.regions;
   next.defenseLog = [...(next.defenseLog ?? []), {
     day: dayNumber, raids: threat.raids, lost: threat.lost,
-    garrisonPower: Math.round(garrisonPower), records: threat.records, // 战报明细:敌强度 vs 我方常驻武力(玩家据此调驻守人数)
+    garrisonPower: Math.round(garrisonPower), fortifyLevels: fortifyLv,
+    effectivePower: fortifiedPower(garrisonPower, fortifyLv),
+    records: threat.records, // 战报明细:敌强度 vs 我方有效武力(玩家据此调驻守人数/买加固)
   }].slice(-14);
   if (y.martial > 0) {
     next.martialPrestige = next.martialPrestige + y.martial;

@@ -70,7 +70,11 @@ export interface EngineState {
   // —— 记忆层（叙事连贯性·随存档持久化）——
   narrativeLog?: import('../memory/machine').LogEntry[];        // 结构化日志(每格代码写)
   continuityNotes?: import('../memory/machine').ContinuityNote[]; // 延续摘要(里程碑+AI一句)
-  recentProse?: string[];       // 最近正文滚动缓冲(截断·供副AI提炼连贯性简报)。批B-4:从tavern-ai内存闭包迁入,刷新/读档不再丢前情
+  // 分层记忆(批B6·纪律性总结:生成无条件,注入由设置决定)
+  proseArchive?: import('../memory/machine').ProseEntry[];      // 原文档案(最近3天·截断)
+  eventSummaries?: import('../memory/machine').EventSummary[];  // 小总结(每事件一条·后台生成·保留60天)
+  bigSummaries?: import('../memory/machine').BigSummary[];      // 大总结(整窗压缩·滚动合并)
+  bigSummaryTo?: number;        // 已完成大总结的最后一天(0/undefined=从未)
   // —— 强制事件信号（跨天，随存档持久化）——
   pendingForcedLeave?: boolean; // 夜晚欲望溢出 → 次日强制请假轮奸（霸全）。nextDay 消费后清除
   leaveHistory?: boolean[];     // 近期每日是否请假（滑动窗口保底用，保留最近20天）
@@ -81,7 +85,9 @@ export interface EngineState {
   stability?: number;           // 地盘稳定系数 0~100(旧·保留)
   defenseLog?: {
     day: number; raids: number; lost: string[];
-    garrisonPower?: number; // 当日我方常驻武力(战报对比用·旧存档无此字段)
+    garrisonPower?: number; // 当日我方常驻武力(基础·战报对比用·旧存档无此字段)
+    fortifyLevels?: number; // 当日据点加固等级(每级+10%)
+    effectivePower?: number; // 有效武力=常驻×(1+加固×10%)(实际判定值)
     records?: import('../turf/machine').RaidRecord[]; // 逐次战报明细(敌强度/击退与否/丢失区域·旧存档无此字段)
   }[]; // 地盘防守历史(保留最近14天)
 }
@@ -100,6 +106,8 @@ export interface ExpandRequest {
   state: EngineState;
   /** 本格实际处理人数(与数值结算同一来源)。正文中的人数以此为准,防止叙事与变量脱钩 */
   serveCount?: number;
+  /** 当前天数(批B6·三层记忆窗口滑动定位) */
+  dayNumber?: number;
 }
 
 /** AI2 抓数值请求 */
@@ -121,9 +129,19 @@ export interface ExpandResult {
   continuity?: string;   // <continuity> 一句话延续摘要(记忆层桶4),无则 undefined
 }
 
+/** 后台总结请求(批B6·纪律性总结) */
+export interface SummarizeRequest {
+  kind: 'event' | 'period' | 'merge'; // 小总结单事件 / 大总结整窗 / 大总结滚动合并
+  text: string;                       // 待压缩文本(事件正文 或 拼接的小总结/大总结)
+  meta?: { day?: number; label?: string; fromDay?: number; toDay?: number };
+}
+
 export interface AiPort {
+  /** 出正文。req.dayNumber 供三层记忆窗口滑动定位(缺省用原文档案最新天兜底)。 */
   expand(req: ExpandRequest): Promise<ExpandResult>;
   extract(req: ExtractRequest): Promise<Record<string, unknown>>;
+  /** 后台总结(可选·mock 用截断实现)。失败抛错,调用方留待下次重试。 */
+  summarize?(req: SummarizeRequest): Promise<string>;
 }
 
 /** 结算一个格的选项 */
@@ -136,6 +154,8 @@ export interface SettleOptions {
   summaryTemplates?: Record<string, string>;
   /** 供奉吞吐倍率(请假轮奸日=1.5)。settleSlot 用它算 serveCount,保证叙事人数与结算同源 */
   serveMult?: number;
+  /** 当前天数(批B6·由 day-runner 传入,进 ExpandRequest 供记忆窗口定位) */
+  dayNumber?: number;
   /** extract 数值的合法范围（防胡诌），如 { presentCount: [0, 2000] } */
   extractBounds?: Record<string, [number, number]>;
   /** 强制事件池（强占/临时格，结算时按条件扫描触发） */

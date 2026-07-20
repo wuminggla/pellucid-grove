@@ -14,9 +14,11 @@
 //   都是 constant 蓝灯(范式按 key 直取,非绿灯扫描),且玩家第三方世界书不归我们管。
 //   若实测有世界书漏入干扰,再考虑 overrides 屏蔽。
 
-import { buildGameInject, buildExtractInject, buildDirectorBriefPrompt } from './prompt-inject';
+import { buildGameInject, buildExtractInject } from './prompt-inject';
 import { extractGameText, extractContinuity, extractVarsJson, stripThinking } from './extract';
-import type { AiPort, ExpandRequest, ExtractRequest, ExpandResult } from '../../game/engine/types';
+import { renderTieredMemory } from '../../game/memory/machine';
+import { getMemoryConfig } from './memory-settings';
+import type { AiPort, ExpandRequest, ExtractRequest, ExpandResult, SummarizeRequest } from '../../game/engine/types';
 import type { Lorebook } from '../../sillytavern/types';
 
 // ─── 酒馆 generateRaw / getPreset 最小类型声明 ───
@@ -41,13 +43,12 @@ interface PresetPrompt { id: string; name: string; enabled: boolean; role: 'syst
 interface Preset { prompts: PresetPrompt[]; }
 declare function getPreset(name: 'in_use' | string): Preset;
 
-// ─── 第三方预设块开关(批B-3) ───
-// 此前无条件把酒馆当前预设的 main/nsfw/jailbreak 块注入在我们指令之前——
-// 社区预设多为"{{user}}与{{char}}对话式RP"写的(第二人称指令),是"主视角变你"的污染源。
-// 现默认关闭;想借第三方预设文风时在设置页手动打开。偏好存 localStorage(跨聊天全局)。
+// ─── 第三方预设块开关(批B-3;批B6 用户实测确认不影响人称→默认改回开启) ───
+// 抽酒馆当前预设的 main/nsfw/jailbreak 块注入(借第三方预设文风)。不想借时在设置页关闭。
+// 偏好存 localStorage(跨聊天全局)。
 const PRESET_TOGGLE_KEY = 'pellucid_include_tavern_preset';
-let includeTavernPreset = false;
-try { includeTavernPreset = localStorage.getItem(PRESET_TOGGLE_KEY) === '1'; } catch { /* 无localStorage环境默认关 */ }
+let includeTavernPreset = true;
+try { includeTavernPreset = localStorage.getItem(PRESET_TOGGLE_KEY) !== '0'; } catch { /* 无localStorage环境默认开 */ }
 export function getIncludeTavernPreset(): boolean { return includeTavernPreset; }
 export function setIncludeTavernPreset(v: boolean) {
   includeTavernPreset = v;
@@ -82,7 +83,7 @@ const SAMPLING: CustomApiConfig = {
 // DEBUG 工具条一键导出——怀疑"注入是否生效"时直接看实证。
 export interface PromptAuditRecord {
   when: string;
-  kind: 'expand' | 'brief' | 'extract';
+  kind: 'expand' | 'summary' | 'extract';
   label: string;
   prompts: { role: string; content: string }[];
   rawResponse?: string;
@@ -103,15 +104,49 @@ export function dumpPromptAudit(): string {
   ).join('\n\n\n');
 }
 
-// ─── 连贯性简报(代替前文)调参 ───
-// 批B-4: 滚动缓冲已迁入 EngineState.recentProse(engine/machine.ts settleSlot 维护,随存档持久化),
-//   这里只保留简报生成本身的参数。
-const BRIEF_TIMEOUT_MS = 45_000; // 副AI简报生成超时(失败则跳过,不阻断主生成)
+// ─── 后台总结调参(批B6·事后小总结取代生成前串行简报 → 正文生成不再排队等总结) ───
+const SUMMARIZE_TIMEOUT_MS = 60_000; // 后台总结超时(失败留待下次重试,不影响游玩)
 
-// 简报状态(批B-4·失败可见): 每次 expand 后更新,UI 读取显示"⚠ 本格无前情简报"。
-export type BriefStatus = 'ok' | 'none' | 'failed';
-let lastBriefStatus: BriefStatus = 'none';
-export function getLastBriefStatus(): BriefStatus { return lastBriefStatus; }
+// ─── 总结提示词(批B6·给弱模型的目的性说明,用户定稿的过滤规则) ───
+// 小总结: 单事件正文 → 前情条目
+function eventSummaryPrompt(text: string, meta?: SummarizeRequest['meta']): string {
+  return (
+    '你是文字游戏《九条会》的"前情记录员"。下面是刚生成的一段事件正文,把它压缩成给后续正文AI看的"前情条目"。\n'
+    + '【为什么要总结】后续每段正文由独立AI生成,它看不到这段原文,只看你的条目。条目的用途只有三个:\n'
+    + '1. 让后文知道"什么已经写过了"(用过的桥段/开场/意象),避免重复;\n'
+    + '2. 让后文知道主角九条凛此刻的状态与态度(身体状态/情绪/认知变化/所在场所);\n'
+    + '3. 让后文知道环境与局面的变化(场所变化/新出现且以后还会出现的人物物件/关系变化)。\n'
+    + '【不要记】\n'
+    + '- 不改变凛的状态、也不改变周围环境的一次性小事:记了等于没记,后文按常态写即可,这种条目直接省略;\n'
+    + '- 过程流水账(先做了A再做了B):只记结果与留下的状态;\n'
+    + '- 精确数值(资金/打手数/避孕套数等):游戏系统的变量已经记录,不占总结。涉及规模变动只记规模级别(如"打手已是数百人规模"),让后文表现出对应规模感即可。\n'
+    + '【输出】2-4条要点,每条一句话,总字数不超过120字。直接输出要点,不要解释,不要思维链。\n'
+    + `【事件】第${meta?.day ?? '?'}天·${meta?.label ?? ''}\n【正文】\n${text}`
+  );
+}
+// 大总结: 一个时间窗的小总结 → 时期概要
+function periodSummaryPrompt(text: string, meta?: SummarizeRequest['meta']): string {
+  return (
+    `你是文字游戏《九条会》的"前情记录员"。下面是第${meta?.fromDay ?? '?'}-${meta?.toDay ?? '?'}天的逐事件前情条目,把这一时期压缩成一段"时期概要",给后续正文AI看。\n`
+    + '【要记】这一时期结束时与开始时相比的阶段性变化:\n'
+    + '- 九条凛的状态/态度/认知的净变化;\n'
+    + '- 势力与场所的净变化(只记规模级别,不记精确数);\n'
+    + '- 已经从"新鲜事"变成"日常常态"的事(标注"已成常态",后文按常态处理,不再当新鲜事写);\n'
+    + '- 仍需长期记住的独特事实(人物/物件/约定)。\n'
+    + '【不要记】已被后续发展覆盖的中间状态;一次性细节;精确数值。\n'
+    + '【输出】3-6条要点,总字数不超过200字。直接输出,不要解释。\n'
+    + `【前情条目】\n${text}`
+  );
+}
+// 滚动合并: 多段时期概要 → 更长跨度概要("大大总结")
+function mergeSummaryPrompt(text: string): string {
+  return (
+    '你是文字游戏《九条会》的"前情记录员"。把下面多段"时期概要"合并成一段更长跨度的概要。\n'
+    + '保留: 九条凛的关键转变节点、当前已成常态的事、仍然有效的独特事实。丢弃: 中间过程、已被覆盖的旧状态。\n'
+    + '【输出】4-8条要点,总字数不超过250字。直接输出,不要解释。\n'
+    + `【时期概要】\n${text}`
+  );
+}
 
 function withTimeout<T>(p: Promise<T>, ms: number): Promise<T> {
   return Promise.race([
@@ -129,40 +164,18 @@ export interface TavernAiOpts {
 
 /** 构造接酒馆 generateRaw 的 AiPort。 */
 export function createTavernAi(opts: TavernAiOpts): AiPort {
-  // 前情正文来自 req.state.recentProse(engine 维护·随存档持久化)。不发原始楼层历史(根治 #3),
-  //   改由副AI提炼成连贯性简报注入主AI(用户定的"堵不如疏")——既保逻辑连贯,又压连续事件格的审美疲劳。
-
-  /** 副AI:读最近正文 → 产出连贯性简报(代替前文)。失败/无前文返回空串(不阻断主生成)。 */
-  async function buildBrief(req: ExpandRequest): Promise<string> {
-    const recentProse = req.state.recentProse ?? [];
-    if (recentProse.length === 0) { lastBriefStatus = 'none'; return ''; }
-    try {
-      const briefPrompt = buildDirectorBriefPrompt(recentProse, req);
-      const briefPrompts = [{ role: 'system' as const, content: briefPrompt }];
-      const rawBrief = await withTimeout(generateRaw({
-        ordered_prompts: briefPrompts,
-        should_stream: false,
-        should_silence: true,                            // 后台静默,不产生楼层消息
-        custom_api: { ...(opts.extractApi ?? {}), max_tokens: 'unset' },
-      }), BRIEF_TIMEOUT_MS);
-      auditPush({ when: new Date().toISOString(), kind: 'brief', label: req.resolution.option.label, prompts: briefPrompts, rawResponse: rawBrief });
-      const brief = stripThinking(rawBrief);
-      lastBriefStatus = brief ? 'ok' : 'failed';
-      return brief;
-    } catch {
-      lastBriefStatus = 'failed';
-      return ''; // 简报失败 → 主生成照常(退化为"只看范式")
-    }
-  }
+  // 前情来自三层记忆(EngineState 持久化·批B6): 大总结+窗口小总结+最近原文,注入量由设置决定。
+  // 不发原始楼层历史(根治 #3)。生成前不再串行等副AI简报——小总结改为事后后台生成(runner-store worker)。
 
   return {
     async expand(req: ExpandRequest): Promise<ExpandResult> {
-      // 1. 副AI 先提炼连贯性简报(有前文时)
-      const brief = await buildBrief(req);
-      // 2. 主AI 出正文(简报注入,代替前楼层)
-      const inject = buildGameInject(req, opts.lorebook, brief);
+      // 三层记忆注入(纯函数渲染,无AI调用,零延迟)
+      const nowDay = req.dayNumber
+        ?? Math.max(0, ...(req.state.proseArchive ?? []).map(p => p.day)); // 兜底:档案里最新一天
+      const memoryText = renderTieredMemory(req.state, nowDay, getMemoryConfig());
+      const inject = buildGameInject(req, opts.lorebook, memoryText);
       const ordered: (PlaceholderPrompt | RolePrompt)[] = [
-        ...(includeTavernPreset ? presetSystemBlocks() : []), // 酒馆预设块(默认关·批B-3开关)
+        ...(includeTavernPreset ? presetSystemBlocks() : []), // 酒馆预设块(默认开·设置页可关)
         { role: 'system', content: inject },             // 任务框架+强指令+简报+main/JB+世界书+范式+态度+状态+输出格式
         // 不放 'chat_history' → 不发楼层历史
       ];
@@ -177,8 +190,28 @@ export function createTavernAi(opts: TavernAiOpts): AiPort {
         rawResponse: raw,
       });
       const text = extractGameText(raw);
-      // 正文入缓冲由 engine settleSlot 维护(EngineState.recentProse·批B-4),此处不再持有状态
+      // 正文入档由 day-runner 维护(EngineState.proseArchive·批B6),此处不持有状态
       return { text, continuity: extractContinuity(raw) };
+    },
+
+    /** 后台总结(批B6·纪律性小总结/大总结/滚动合并)。走副API端点,静默,失败抛错由 worker 留待下次。 */
+    async summarize(req: SummarizeRequest): Promise<string> {
+      const prompt = req.kind === 'event' ? eventSummaryPrompt(req.text, req.meta)
+        : req.kind === 'period' ? periodSummaryPrompt(req.text, req.meta)
+        : mergeSummaryPrompt(req.text);
+      const sumPrompts = [{ role: 'system' as const, content: prompt }];
+      const raw = await withTimeout(generateRaw({
+        ordered_prompts: sumPrompts,
+        should_stream: false,
+        should_silence: true,                            // 后台静默,不产生楼层消息
+        custom_api: { ...(opts.extractApi ?? {}), max_tokens: 'unset' },
+      }), SUMMARIZE_TIMEOUT_MS);
+      auditPush({
+        when: new Date().toISOString(), kind: 'summary',
+        label: req.kind === 'event' ? `小总结·${req.meta?.label ?? ''}` : req.kind === 'period' ? `大总结·${req.meta?.fromDay}-${req.meta?.toDay}天` : '大总结合并',
+        prompts: sumPrompts, rawResponse: raw,
+      });
+      return stripThinking(raw);
     },
 
     async extract(req: ExtractRequest): Promise<Record<string, unknown>> {

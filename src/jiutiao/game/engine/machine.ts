@@ -14,10 +14,9 @@ import type {
 } from './types';
 import type { EventContext } from '../events/types';
 
-// 连贯性缓冲调参(批B-4·原 tavern-ai 闭包常量迁入引擎层)
-export const PROSE_KEEP = 3;      // 保留最近 N 段正文
-export const PROSE_CHARS = 700;   // 每段截断字数(控副AI prompt 体积)
-export const PROSE_MIN_LEN = 20;  // 过短(空回/截断)不入缓冲
+// 原文档案调参(批B6·分层记忆:入档由 day-runner 做,此处只出常量)
+export const PROSE_CHARS = 700;   // 每段截断字数(控注入/总结 prompt 体积)
+export const PROSE_MIN_LEN = 20;  // 过短(空回/截断)不入档
 
 /**
  * 快进总结词模板填充（不调AI）。例："大小姐被{n}人插入了" + {n:36} → "大小姐被36人插入了"。
@@ -111,7 +110,7 @@ export async function settleSlot(
     // 快进不调AI：叙事数值用场景上下文兜底；快进无延续摘要
   } else {
     const ai: AiPort = opts.ai;
-    const ex = await ai.expand({ resolution, attitude, choice, state, serveCount });
+    const ex = await ai.expand({ resolution, attitude, choice, state, serveCount, dayNumber: opts.dayNumber });
     resultText = ex.text;
     continuity = ex.continuity;
     const req: ExtractRequest = { narrative: resultText, choice, state };
@@ -126,11 +125,7 @@ export async function settleSlot(
   let next: EngineState = { ...state };
   void extracted;
 
-  // —— 连贯性缓冲(批B-4) —— 最近正文入 engine 随存档持久化(刷新/读档不丢前情),
-  //   供下一格副AI提炼简报。快进总结词也入(短句照样告诉下一格"刚发生了什么")。
-  if (resultText && resultText.length >= PROSE_MIN_LEN) {
-    next.recentProse = [...(state.recentProse ?? []), resultText.slice(-PROSE_CHARS)].slice(-PROSE_KEEP);
-  }
+  // (批B6) 原文入档改由 day-runner 做(需要 dayNumber 上下文),settleSlot 不再持有正文缓冲。
 
   // —— 堕落结算（仅首次里程碑）——
   let cognitionAdvancedTo = null as SettleResult['events']['cognitionAdvancedTo'];

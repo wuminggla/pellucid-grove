@@ -54,9 +54,9 @@ export const FACILITY_UPGRADES: UpgradeDef[] = [
   { id: 'm_feast_hostess', category: 'facility', name: '宴席上的女主人', desc: '设宴时凛以女主人身份斟酒陪席——桌布下有手探进她腿间，宾客毫不知情，她必须若无其事地维持谈笑，绝不能让任何人看出破绽(威望进账+25%)', cost: 0, maxLevel: 1, mystery: true, corruptionRequired: 40, requires: [{ upgradeId: 'prestige_feast', minLevel: 1 }], effect: { kind: 'prestigeMult', perLevel: 0.25 }, corruptionOnBuy: 3, infamyOnBuy: 3 },
 
   // ══ 据点·制度与耳目链(金:帮派治理表面;???:约束凛的荒谬淫规·解构尊严=娱乐化) ══
-  { id: 'rule_code', category: 'facility', name: '立下会规', desc: '白纸黑字的帮规，赏罚分明，据点不容懈怠(据点加固+1)', cost: 3000, maxLevel: 1, effect: { kind: 'turfFortify', perLevel: 1 } },
+  { id: 'rule_code', category: 'facility', name: '立下会规', desc: '白纸黑字的帮规，赏罚分明，据点不容懈怠(据点加固+1：防守时常驻武力+10%)', cost: 3000, maxLevel: 1, effect: { kind: 'turfFortify', perLevel: 1 } },
   { id: 'rule_spy', category: 'facility', name: '布置暗探', desc: '街面眼线网，敌人动向早一步知道(刺探成功率+10%)', cost: 3500, maxLevel: 1, requires: [{ upgradeId: 'rule_code', minLevel: 1 }], effect: { kind: 'scoutRate', perLevel: 0.10 } },
-  { id: 'rule_patrol', category: 'facility', name: '巡查制度', desc: '干部轮班巡查各据点，怠惰无所遁形(据点加固+2)', cost: 4000, maxLevel: 1, requires: [{ upgradeId: 'rule_code', minLevel: 1 }], effect: { kind: 'turfFortify', perLevel: 2 } },
+  { id: 'rule_patrol', category: 'facility', name: '巡查制度', desc: '干部轮班巡查各据点，怠惰无所遁形(据点加固+2：防守时常驻武力再+20%)', cost: 4000, maxLevel: 1, requires: [{ upgradeId: 'rule_code', minLevel: 1 }], effect: { kind: 'turfFortify', perLevel: 2 } },
   { id: 'm_rule_greet', category: 'facility', name: '会规·问好的规矩', desc: '会规添了荒唐一条:打手见到大小姐可以直接掏出肉棒，她必须向那根肉棒问好——再往后，是转过身、用小穴对着它问好，由龟头在穴口浅浅一顶算作还礼，仿佛小穴才是她真正的正面', cost: 0, maxLevel: 1, mystery: true, corruptionRequired: 35, requires: [{ upgradeId: 'rule_code', minLevel: 1 }], effect: { kind: 'unlock', unlockKey: 'rule_greet' }, corruptionOnBuy: 4, infamyOnBuy: 2 },
   { id: 'm_rule_meal', category: 'facility', name: '会规·进食的规矩', desc: '又一条荒唐会规:大小姐的嘴只配吃流食，真正的"餐盘"是她的小穴——打手们把食物塞进去，再就着她的体温取食，最日常的吃饭成了最羞耻的仪式', cost: 0, maxLevel: 1, mystery: true, corruptionRequired: 50, requires: [{ upgradeId: 'rule_code', minLevel: 1 }], effect: { kind: 'unlock', unlockKey: 'rule_meal' }, corruptionOnBuy: 5 },
 ];

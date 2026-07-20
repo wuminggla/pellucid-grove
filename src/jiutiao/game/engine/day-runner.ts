@@ -5,7 +5,7 @@
 import {
   markRunning, completeCurrent, currentSlot, startDay, buildForcedLeaveDay, insertEventSlot, lockSlot,
 } from '../action-grid/machine';
-import { settleSlot } from './machine';
+import { settleSlot, PROSE_CHARS, PROSE_MIN_LEN } from './machine';
 import { settleServe, settleBuyCondoms, settleDaily } from './settlement';
 import {
   CONST, slidingWindowRelief, settleRecruit, dailyDesireDemand, desireOverflow, availableThugs,
@@ -14,7 +14,7 @@ import {
 import { totalShops } from '../turf/machine';
 import { desireGrowthMult, BASE_ACTION_SLOTS, MAX_ACTION_SLOTS, WALK_PER_SLOT } from '../upgrade/machine';
 import { scanForced } from '../events/machine';
-import { appendLog, appendContinuity } from '../memory/machine';
+import { appendLog, appendContinuity, appendProse, upsertSummary, proseEntryId } from '../memory/machine';
 import { deriveEventUnlocked } from './unlocked';
 import type { LogEntry } from '../memory/machine';
 import type { ForcedEvent } from '../events/machine';
@@ -132,7 +132,7 @@ export async function runCurrentSlot(
   const settle = await settleSlot(state.engine, {
     optionId: slot.choice.optionId,
     params: slot.choice.params,
-  }, { ...opts, serveMult });
+  }, { ...opts, serveMult, dayNumber: state.day.dayNumber });
 
   // 供奉类格子：执行后扣避孕套 + 当场降欲 + 计入被供奉人数（由 EventOption.isServe 判定）
   let engine = settle.state;
@@ -220,6 +220,24 @@ export async function runCurrentSlot(
 
   // 记忆层:每格写结构化日志(代码·覆盖所有格) + 代码可知的延续摘要(认知跨档/首次)
   const dayNo = state.day.dayNumber;
+  // 分层记忆(批B6):正文尾部入原文档案。AI正文→待后台小总结;快进总结词自身即总结→直落小总结。
+  {
+    const text = (settle.resultText ?? '').trim();
+    if (text.length >= PROSE_MIN_LEN) {
+      const isFast = settle.events.renderMode === 'fast_summary';
+      const pid = proseEntryId(dayNo, slot.period, slot.index);
+      engine = {
+        ...engine,
+        proseArchive: appendProse(engine.proseArchive, {
+          id: pid, day: dayNo, period: slot.period, slot: slot.index,
+          label: slot.choice.label, text: text.slice(-PROSE_CHARS), needsSummary: !isFast,
+        }, dayNo),
+        ...(isFast ? {
+          eventSummaries: upsertSummary(engine.eventSummaries, { id: pid, day: dayNo, label: slot.choice.label, text }, dayNo),
+        } : {}),
+      };
+    }
+  }
   const logEntry = {
     day: dayNo, period: slot.period, slot: slot.index,
     eventId: slot.choice.optionId, label: slot.choice.label,

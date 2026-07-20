@@ -16,7 +16,7 @@ import { dailyDesireDemand, availableThugs, weeklyRecruitQuota, combatPower, pre
 import { weaponMult, baseMartialPerThug, prestigeMultiplier, UPGRADES_BY_ID, canUpgrade, applyUpgrade, pendingMysteries, scoutRateBonus, avIncomeMultiplier } from '../../game/upgrade/machine';
 import {
   REGIONS_BY_ID, canDefeat, defeatRegion, regionState, effectiveThreshold,
-  settleScout, settleBribe, settleOffensiveHarass, SCOUT_COST, BRIBE_COST, isRevengeComplete,
+  settleScout, settleBribe, settleOffensiveHarass, SCOUT_COST, BRIBE_COST, isRevengeComplete, fortifiedPower,
 } from '../../game/turf/machine';
 import {
   canShootAv, buildAvPrompt, consumeShoot, defaultAvState, initAvOnUnlock,
@@ -31,7 +31,9 @@ import {
   demoEventOptions, demoSummaryTemplates, demoExtractBounds, demoForcedPool, createMockAi,
 } from '../../game/engine/mock-ai';
 import { demoLorebook } from '../../game/worldbook/demo';
-import { createTavernAi, getLastBriefStatus } from './tavern-ai';
+import { createTavernAi } from './tavern-ai';
+import { nextPendingSummary, upsertSummary, pendingBigRange, pendingBigMerge, applyBigMerge } from '../../game/memory/machine';
+import { getMemoryConfig } from './memory-settings';
 import type { ForcedEvent } from '../../game/events/machine';
 import type { DayState, SlotChoice, SlotPeriod } from '../../game/action-grid/types';
 import type { EngineState, SettleOptions, SettleResult, AiPort } from '../../game/engine/types';
@@ -120,6 +122,9 @@ export const useRunnerStore = defineStore('runner', () => {
   // 常驻(派驻)武力:守地盘用。=派驻打手×每人基础武力×武器乘区。
   const garrisonPowerNow = computed(() =>
     Math.round((engine.value.garrison ?? 0) * baseMartialPerThug(engine.value.upgrades) * weaponMult(engine.value.upgrades)));
+  // 有效常驻武力(批B6-5):常驻×(1+据点加固×10%)。防守判定实际用这个值。
+  const garrisonEffectiveNow = computed(() => fortifiedPower(garrisonPowerNow.value, engine.value.turfFortifyBonus ?? 0));
+  const fortifyLevelsNow = computed(() => engine.value.turfFortifyBonus ?? 0);
   const lastTurf = ref<{ ok: boolean; msg: string } | null>(null);
   type MapKind = 'scout' | 'bribe' | 'attack' | 'harass';
   // 地图选择模式(攻打/刺探/贿赂/骚扰事件格执行中):非空时主区展开地图选目标
@@ -410,6 +415,71 @@ export const useRunnerStore = defineStore('runner', () => {
     ]);
   }
 
+  // ─── 后台总结 worker(批B6·纪律性总结:生成无条件,注入由设置决定) ───
+  // 每格正文生成后/跨天时触发,静默逐条补齐小总结;失败留待下次,不影响游玩。
+  let summarizing = false;
+  async function drainSummaries() {
+    const port = ai;
+    if (summarizing || !port.summarize) return;
+    summarizing = true;
+    try {
+      for (let i = 0; i < 10; i++) { // 每轮上限10条(防意外循环;更多欠账下次继续)
+        const pending = nextPendingSummary(engine.value.proseArchive, engine.value.eventSummaries);
+        if (!pending) break;
+        const text = (await port.summarize({ kind: 'event', text: pending.text, meta: { day: pending.day, label: pending.label } }))?.trim();
+        if (!text) break; // 空回=失败,留待下次
+        engine.value = {
+          ...engine.value,
+          eventSummaries: upsertSummary(engine.value.eventSummaries, { id: pending.id, day: pending.day, label: pending.label, text }, day.value.dayNumber),
+        };
+      }
+    } catch { /* 静默:下次slot完成/跨天再试 */ }
+    finally { summarizing = false; }
+  }
+
+  // 大总结(跨整窗边界后台静默触发·完成才注入·未完成置空) + 超阈值滚动合并("大大总结")
+  let bigRunning = false;
+  async function runBigSummary() {
+    const port = ai;
+    const cfg = getMemoryConfig();
+    if (bigRunning || !port.summarize || !cfg.bigEnabled) return;
+    bigRunning = true;
+    try {
+      const nowDay = day.value.dayNumber;
+      const range = pendingBigRange(nowDay, engine.value.bigSummaryTo ?? 0, cfg.windowDays);
+      if (range) {
+        const items = (engine.value.eventSummaries ?? []).filter(s => s.day >= range.fromDay && s.day <= range.toDay);
+        if (items.length === 0) {
+          // 该窗无小总结(远期已清理/纯空窗)→ 推进游标防卡死
+          engine.value = { ...engine.value, bigSummaryTo: range.toDay };
+        } else {
+          const joined = items.map(s => `第${s.day}天·${s.label}:${s.text}`).join('\n');
+          const text = (await port.summarize({ kind: 'period', text: joined, meta: range }))?.trim();
+          if (text) {
+            engine.value = {
+              ...engine.value,
+              bigSummaries: [...(engine.value.bigSummaries ?? []), { fromDay: range.fromDay, toDay: range.toDay, text }],
+              bigSummaryTo: range.toDay,
+            };
+          }
+        }
+      }
+      // 滚动合并: 大总结超阈值 → 最老N条合并为一条(机制统一的"大大总结")
+      const m = pendingBigMerge(engine.value.bigSummaries);
+      if (m) {
+        const joined = m.map(b => `第${b.fromDay}-${b.toDay}天:${b.text}`).join('\n');
+        const text = (await port.summarize({ kind: 'merge', text: joined }))?.trim();
+        if (text) {
+          engine.value = {
+            ...engine.value,
+            bigSummaries: applyBigMerge(engine.value.bigSummaries ?? [], { fromDay: m[0].fromDay, toDay: m[m.length - 1].toDay, text }),
+          };
+        }
+      }
+    } catch { /* 静默:下次跨天再试 */ }
+    finally { bigRunning = false; }
+  }
+
   // 真正执行一格(供 runCurrent 首次 + rerunLast 复用)。snapshot 是执行前状态。
   async function execCurrentFrom(snapshot: { day: DayState; engine: EngineState }) {
     busy.value = true; error.value = null; lastEmpty.value = false; lastWarn.value = null;
@@ -443,11 +513,7 @@ export const useRunnerStore = defineStore('runner', () => {
         lastEmpty.value = true;
         lastWarn.value = '本次生成内容为空或过短(可能被外部审核拦截/截断)。可点「重新生成」重试。';
       }
-      // 简报失败可见(批B-4):副AI前情简报失败时明示,不再静默降级(此前用户完全无感知)
-      if (wasAi && aiMode.value === 'tavern' && getLastBriefStatus() === 'failed') {
-        lastWarn.value = (lastWarn.value ? lastWarn.value + ' ' : '')
-          + '⚠ 本格前情简报生成失败(副AI超时/空回),正文可能与上一格衔接不上,可「重新生成」。';
-      }
+      // (批B6)生成前串行简报已退役:前情=三层记忆纯函数注入(零延迟);小总结改为事后后台生成(见 drainSummaries)
       day.value = r.state.day;
       engine.value = nextEngine;
       lastSettle.value = r.settle;
@@ -464,6 +530,7 @@ export const useRunnerStore = defineStore('runner', () => {
       const sl = ranSlot ? `${ranSlot.period === 'day' ? '昼' : '夜'}#${ranSlot.index + 1}` : '';
       const extra: Notice[] = nightInfo ? [{ t: `夜结：供奉${nightInfo.servedToday}人·结余${nightInfo.desireLeftover}` + (nightInfo.overflowImminent ? ' ⚠次日白日供奉' : ''), tone: nightInfo.overflowImminent ? 'warn' : 'dim' }] : [];
       logNotices(`第${day.value.dayNumber}天 ${sl}`, extra);
+      void drainSummaries(); // 批B6:事后小总结(后台静默,不阻塞下一格)
     } catch (e) {
       error.value = (e as Error).message;
     } finally {
@@ -517,6 +584,9 @@ export const useRunnerStore = defineStore('runner', () => {
     }
     autoUnlockMysteries();
     lastSettle.value = null; lastServe.value = null; lastRecruit.value = null; lastBuyCondom.value = null; lastReward.value = null; lastProtection.value = null; lastAvIncome.value = null; lastWalk.value = null; lastOrgy.value = null; lastNight.value = null; error.value = null;
+    // 批B6:跨天触发后台大总结检查(跨整窗边界才真正总结)+补齐欠账小总结
+    void drainSummaries();
+    void runBigSummary();
   }
 
   function loadState(state: RunnerState, ff: boolean) {
@@ -631,7 +701,7 @@ export const useRunnerStore = defineStore('runner', () => {
     lastEmpty, lastWarn, genHint, lastBuyCondom,
     currentSlot: currentSlotRef, canRunCurrent, runnerState,
     aiMode, hasSave: _hadSave, hasTavernVars,
-    combatPowerNow, garrisonPowerNow, lastTurf, attackRegion, setGarrison,
+    combatPowerNow, garrisonPowerNow, garrisonEffectiveNow, fortifyLevelsNow, lastTurf, attackRegion, setGarrison,
     pendingMap, currentMapKind, beginMapSelect, cancelMapSelect, resolveMapSlot,
     lastUpgrade, buyUpgrade, lastAv, queueAvShoot,
     ending, showEnding, dismissEnding,

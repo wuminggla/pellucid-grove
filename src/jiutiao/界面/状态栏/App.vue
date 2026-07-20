@@ -103,7 +103,32 @@
           <h3>AI 生成 · 选项</h3>
           <label class="srow toggle-row">
             <input type="checkbox" v-model="includePreset" @change="onPresetToggle" />
-            <span><b>附加酒馆预设文风块</b>（默认关）：把你酒馆当前启用预设里的 main/nsfw/jailbreak 块一并发给 AI。想借第三方预设的文风时再开——多数社区预设是为对话式 RP 写的，可能把叙事视角带偏成"你"。</span>
+            <span><b>附加酒馆预设文风块</b>（默认开）：把你酒馆当前启用预设里的 main/nsfw/jailbreak 块一并发给 AI，借用其文风与过审基调。若怀疑它干扰生成可关闭。</span>
+          </label>
+        </div>
+        <div class="set-box">
+          <h3>前文记忆 · 注入设置</h3>
+          <p class="lead">每格正文生成后，后台都会<b>无条件</b>为其生成总结（纪律性总结）。下面的设置只决定<b>发给 AI 多少前文</b>——改动立即生效。</p>
+          <div class="srow">
+            <b>前文原文保留</b>：注入多少最近的正文原文（细节保真层）。<b style="color:var(--gold-hi)">间隔越长注入的前文越多，token 消耗与算力负担越大。</b>
+            <div class="mem-opts">
+              <label v-for="(m, k) in PROSE_MODE_LABELS" :key="k" class="mem-opt" :class="{ on: memCfg.proseMode === k }" :title="m.hint">
+                <input type="radio" :value="k" v-model="memCfg.proseMode" @change="onMemChange" />{{ m.label }}
+              </label>
+            </div>
+            <div class="mem-hint">{{ PROSE_MODE_LABELS[memCfg.proseMode].hint }}</div>
+          </div>
+          <div class="srow">
+            <b>近期总结窗口</b>：原文之外，注入最近几天的逐事件总结（窗口每日滑动，永不突然断档）。
+            <div class="mem-opts">
+              <label v-for="w in [10, 20, 30, 60]" :key="w" class="mem-opt" :class="{ on: memCfg.windowDays === w }">
+                <input type="radio" :value="w" v-model.number="memCfg.windowDays" @change="onMemChange" />{{ w }}天
+              </label>
+            </div>
+          </div>
+          <label class="srow toggle-row">
+            <input type="checkbox" v-model="memCfg.bigEnabled" @change="onMemChange" />
+            <span><b>远期概要（大总结）</b>（默认开）：窗口之外的更早内容，跨过整窗时在后台<b>静默</b>压缩成时期概要注入。生成期间不打扰游玩；累积过多时自动滚动合并。</span>
           </label>
         </div>
         <div class="set-box dim-box">
@@ -173,6 +198,7 @@
 import { ref, computed, inject, watch } from 'vue';
 import { useRunnerStore } from './runner-store';
 import { dumpPromptAudit, getIncludeTavernPreset, setIncludeTavernPreset } from './tavern-ai';
+import { getMemoryConfig, setMemoryConfig, PROSE_MODE_LABELS } from './memory-settings';
 import { BUILD_VERSION, DEBUG_BUILD } from './version';
 import Masthead from './components/Masthead.vue';
 import NavRail from './components/NavRail.vue';
@@ -293,9 +319,13 @@ function onNav(a: 'save' | 'exit') { if (a === 'exit') collapse?.(); }
 const saveToast = ref('');
 function closePins() { mast.value?.clearPin(); }
 
-// AI生成选项(批B-3):附加酒馆预设文风块开关(默认关·localStorage 全局偏好)
+// AI生成选项(批B-3):附加酒馆预设文风块开关(默认开·localStorage 全局偏好)
 const includePreset = ref(getIncludeTavernPreset());
 function onPresetToggle() { setIncludeTavernPreset(includePreset.value); }
+
+// 前文记忆注入设置(批B6):档位/窗口/大总结开关。生成层纪律性,设置只管注入→改动立即生效。
+const memCfg = ref(getMemoryConfig());
+function onMemChange() { setMemoryConfig({ ...memCfg.value }); }
 
 // DEBUG·prompt 审计导出(批B-1):复制最近一次实际发给 AI 的完整 prompt(实证"注入是否生效")
 async function copyPromptAudit() {
@@ -384,6 +414,11 @@ function confirmReset() {
 .set-box .srow { font-size: 13px; color: var(--text-dim); line-height: 1.7; padding: 7px 0; border-top: 1px dashed var(--line); }
 .set-box .toggle-row { display: flex; align-items: flex-start; gap: 10px; cursor: pointer; }
 .set-box .toggle-row input { margin-top: 4px; flex: none; accent-color: var(--gold-hi); }
+.mem-opts { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px; }
+.mem-opt { display: inline-flex; align-items: center; gap: 5px; padding: 3px 10px; border: 1px solid var(--line); border-radius: 6px; cursor: pointer; font-size: 12px; color: var(--text-dim); }
+.mem-opt.on { border-color: var(--gold-hi); color: var(--gold-hi); }
+.mem-opt input { accent-color: var(--gold-hi); }
+.mem-hint { margin-top: 6px; font-size: 12px; color: var(--text-dim); font-style: italic; }
 .set-box .srow b { color: var(--gold); font-weight: 400; }
 .set-btns { display: flex; gap: 12px; margin-top: 16px; }
 .danger-btn { font-family: var(--serif); background: rgba(179,33,46,.12); color: var(--red-hi); border: 1px solid var(--red); border-radius: 6px; padding: 12px 22px; font-size: 14px; cursor: pointer; }

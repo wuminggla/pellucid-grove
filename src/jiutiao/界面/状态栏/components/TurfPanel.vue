@@ -29,24 +29,24 @@
           <button @click="r.setGarrison(r.engine.garrison + 1)" :disabled="r.engine.garrison >= r.engine.thugTotal">+1</button>
           <button @click="r.setGarrison(r.engine.garrison + 5)" :disabled="r.engine.garrison >= r.engine.thugTotal">+5</button>
         </div>
-        <span class="g-stab">常驻武力 <b>{{ r.garrisonPowerNow }}</b></span>
+        <span class="g-stab">常驻武力 <b>{{ r.garrisonPowerNow }}</b><template v-if="r.fortifyLevelsNow > 0"> ×加固+{{ r.fortifyLevelsNow * 10 }}% = <b>{{ r.garrisonEffectiveNow }}</b></template></span>
       </div>
-      <div class="g-tip">派打手驻守地盘：敌人反击时，<b>常驻武力 ≥ 敌进攻强度</b>即自动守住，否则随机丢一块已占地盘。驻防占用打手、<b>白天在场人数与攻打武力随之下降</b>（夜晚打手归宅不受影响）。占越多地盘、复仇越深，敌人反击越频繁越强。</div>
+      <div class="g-tip">派打手驻守地盘：敌人反击时，<b>有效常驻武力（常驻×加固加成）≥ 敌进攻强度</b>即自动守住，否则随机丢一块已占地盘。升级页的据点加固每级+10%常驻武力。驻防占用打手、<b>白天在场人数与攻打武力随之下降</b>（夜晚打手归宅不受影响）。占越多地盘、复仇越深，敌人反击越频繁越强。</div>
       <details v-if="defenseHistory.length" class="g-hist">
         <summary>防守历史（最近 {{ defenseHistory.length }} 天）</summary>
         <div v-for="d in defenseHistory" :key="d.day" class="gh-day-block">
           <div class="gh-row">
             <span class="gh-day">第{{ d.day }}天</span>
             <span v-if="d.raids === 0" class="gh-ok">平安无事</span>
-            <span v-else-if="!d.lost.length" class="gh-ok">被进攻{{ d.raids }}次·全守住<template v-if="d.garrisonPower != null">（我方常驻武力 {{ d.garrisonPower }}）</template></span>
-            <span v-else class="gh-bad">被进攻{{ d.raids }}次·丢失 {{ d.lost.join('、') }}<template v-if="d.garrisonPower != null">（我方常驻武力 {{ d.garrisonPower }}）</template></span>
+            <span v-else-if="!d.lost.length" class="gh-ok">被进攻{{ d.raids }}次·全守住{{ myPowerNote(d) }}</span>
+            <span v-else class="gh-bad">被进攻{{ d.raids }}次·丢失 {{ d.lost.join('、') }}{{ myPowerNote(d) }}</span>
           </div>
-          <!-- 逐次战报：敌强度 vs 我方常驻武力，为何丢地盘（旧存档无 records 不显示） -->
+          <!-- 逐次战报：敌强度 vs 我方有效武力(常驻×加固%)，为何丢地盘（旧存档无 records 不显示） -->
           <div v-for="(rec, i) in (d.records ?? [])" :key="i" class="gh-row gh-rec" :class="rec.repelled ? 'gh-ok' : 'gh-bad'">
             <span class="gh-day"></span>
-            <span v-if="rec.repelled">⚔ 第{{ rec.stage }}阶段敌袭 强度{{ rec.strength }} ≤ 我方{{ d.garrisonPower ?? '?' }} → 击退</span>
-            <span v-else-if="rec.lostRegion">⚔ 第{{ rec.stage }}阶段敌袭 强度{{ rec.strength }} &gt; 我方{{ d.garrisonPower ?? '?' }} → 防线被突破，丢失「{{ rec.lostRegion }}」</span>
-            <span v-else>⚔ 第{{ rec.stage }}阶段敌袭 强度{{ rec.strength }} &gt; 我方{{ d.garrisonPower ?? '?' }} → 防线被突破（该图已无地盘可丢）</span>
+            <span v-if="rec.repelled">⚔ 第{{ rec.stage }}阶段敌袭 强度{{ rec.strength }} ≤ 我方{{ myPower(d) }} → 击退</span>
+            <span v-else-if="rec.lostRegion">⚔ 第{{ rec.stage }}阶段敌袭 强度{{ rec.strength }} &gt; 我方{{ myPower(d) }} → 防线被突破，丢失「{{ rec.lostRegion }}」</span>
+            <span v-else>⚔ 第{{ rec.stage }}阶段敌袭 强度{{ rec.strength }} &gt; 我方{{ myPower(d) }} → 防线被突破（该图已无地盘可丢）</span>
           </div>
         </div>
       </details>
@@ -128,6 +128,14 @@ const power = computed(() => r.combatPowerNow);
 const selectMode = computed(() => props.selectMode ?? null);
 const occupiedCount = computed(() => occupiedRegionIds(r.engine.regions).length);
 const defenseHistory = computed(() => [...(r.engine.defenseLog ?? [])].reverse());
+// 战报显示用:当日我方有效武力(优先 effectivePower;旧存档回落 garrisonPower)
+type DefLogEntry = NonNullable<typeof r.engine.defenseLog>[number];
+function myPower(d: DefLogEntry): string { return String(d.effectivePower ?? d.garrisonPower ?? '?'); }
+function myPowerNote(d: DefLogEntry): string {
+  if (d.effectivePower == null && d.garrisonPower == null) return '';
+  const fort = (d.fortifyLevels ?? 0) > 0 ? `=驻防${d.garrisonPower}×加固+${(d.fortifyLevels ?? 0) * 10}%` : '';
+  return `（我方有效武力 ${myPower(d)}${fort}）`;
+}
 
 const selectTitle = computed(() => ({
   attack: '攻打 · 选择目标', harass: '骚扰 · 选择目标', scout: '刺探 · 选择目标', bribe: '贿赂 · 选择目标',

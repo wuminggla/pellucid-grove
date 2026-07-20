@@ -561,5 +561,10 @@ export function createMockAi(): AiPort {
     async extract(req) {
       return { presentCount: req.state.presentCount || 18 };
     },
+    // 后台总结(批B6)·mock 用截断实现,保证无API环境总结链也能跑通
+    async summarize(req) {
+      const head = req.kind === 'event' ? '(mock小总结)' : req.kind === 'period' ? '(mock大总结)' : '(mock合并)';
+      return `${head}${req.text.slice(0, 60).replace(/\n/g, ' ')}……`;
+    },
   };
 }

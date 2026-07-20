@@ -470,11 +470,19 @@ const STAGE_DEFENSE: Record<number, [number, number, number]> = {
  *  - 图S 的进攻绝不波及图≠S 的地盘 → 图1后方永远只被图1难度攻击,不会被新图难度连坐。
  * 不减员、不改钱(简化)。常驻武力由调用方按派驻打手算好传入(守所有图共用)。
  */
+/** 据点加固:每级=驻防武力+10%(乘算·不随后期贬值)。批B6-5 接入真实防守判定。 */
+export const FORTIFY_PCT_PER_LEVEL = 0.10;
+export function fortifiedPower(garrisonPower: number, fortifyLevels: number): number {
+  return Math.round(garrisonPower * (1 + FORTIFY_PCT_PER_LEVEL * Math.max(0, fortifyLevels)));
+}
+
 export function settleTurfThreat(
   regions: Record<string, RegionState> | undefined,
   garrisonPower: number,
   rng: () => number,
+  fortifyLevels = 0,
 ): TurfThreatResult {
+  const effectivePower = fortifiedPower(garrisonPower, fortifyLevels);
   const occupied = occupiedRegionIds(regions);
   if (occupied.length === 0) return { regions: regions ?? {}, raids: 0, lost: [], records: [] };
 
@@ -491,7 +499,7 @@ export function settleTurfThreat(
     const occ = [...stageOcc];
     for (let i = 0; i < raids; i++) {
       const strength = minStrength + Math.round(rng() * (maxStrength - minStrength)); // [下限,上限]
-      const breached = strength > garrisonPower; // 敌强度 > 常驻武力 = 防线被突破
+      const breached = strength > effectivePower; // 敌强度 > 有效常驻武力(驻防×加固%) = 防线被突破
       if (breached && occ.length > 0) {
         const idx = Math.floor(rng() * occ.length) % occ.length;
         const id = occ.splice(idx, 1)[0];
