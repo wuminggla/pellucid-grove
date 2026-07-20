@@ -36,6 +36,7 @@ import { nextPendingSummary, upsertSummary, pendingBigRange, pendingBigMerge, ap
 import { DEVELOPMENT_LABELS } from '../../game/intrusion/machine';
 import type { DevelopmentLevel } from '../../game/intrusion/machine';
 import { routeEndingPerformance, buildEndingExpandRequest } from '../../game/endings/performance';
+import { projectGameState } from '../../game/engine/projection';
 import type { EndingKind } from '../../game/endings/performance';
 import { endingTendency, isSalvationOpen } from '../../game/endings/machine';
 import { getMemoryConfig } from './memory-settings';
@@ -615,7 +616,13 @@ export const useRunnerStore = defineStore('runner', () => {
   }
   function persistNow() {
     if (_loadingSave || !hasTavernVars) return;
-    try { insertOrAssignVariables({ [SAVE_KEY]: snapshot() }, { type: 'chat' }); }
+    try {
+      insertOrAssignVariables({
+        [SAVE_KEY]: snapshot(),
+        // 状态投影(批C4·MVU收尾=单向投影): 九域中文键只读镜像,变量管理器/酒馆助手脚本/用户EJS 可读
+        九条会状态: projectGameState(engine.value, day.value.dayNumber),
+      }, { type: 'chat' });
+    }
     catch (e) { console.warn('[pellucid] 存档失败', e); }
   }
   function schedulePersist() { if (_saveTimer) clearTimeout(_saveTimer); _saveTimer = setTimeout(persistNow, 400); }
