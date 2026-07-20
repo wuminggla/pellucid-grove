@@ -652,11 +652,12 @@ export const useRunnerStore = defineStore('runner', () => {
     _loadingSave = false; persistNow();
   }
 
-  // ─── 存档系统(批C2.5·用户定稿方向) ───
-  // 手动存档=单槽(用户主动存·左栏按钮/设置页) + 每日自动存档=单槽(每次成功推进新一天写·硬失败当次不覆盖,
-  // 保证自动档永远停在"失败那天的早晨")。坏结局(fail/fall)时 overlay 给双回退: 最近自动档 / 手动档。
-  // chat 变量持久化(随聊天);无酒馆变量环境(本地dev)用内存兜底,功能照常可测。
-  const MANUAL_KEY = '九条会手动存档';
+  // ─── 存档系统(批E1·SLG式多槽) ───
+  // 4个手动槽(存档页自由选择存/读) + 1个自动槽(每次成功推进新一天写"当天开始"·硬失败当次不覆盖,
+  // 保证自动档永远停在"失败那天的早晨")。坏结局 overlay: 自动档快捷回退 + 打开存档界面自选。
+  // chat 变量持久化(随聊天);无酒馆变量环境(本地dev)用内存兜底。旧单槽`九条会手动存档`自动迁移为槽1。
+  const MANUAL_KEYS = ['九条会手动存档1', '九条会手动存档2', '九条会手动存档3', '九条会手动存档4'];
+  const LEGACY_MANUAL_KEY = '九条会手动存档';
   const AUTO_KEY = '九条会自动存档';
   const _memSlots: Record<string, any> = {}; // 无 tavern vars 环境的内存兜底
   function writeSlot(key: string, snap: unknown) {
@@ -671,22 +672,39 @@ export const useRunnerStore = defineStore('runner', () => {
     }
     return _memSlots[key] ?? null;
   }
-  // 槽位天数信息(chat 变量非响应式→用 ref 镜像,写入/启动时同步,驱动 UI 按钮文案)
-  const manualSaveDay = ref<number | null>(null);
-  const autoSaveDay = ref<number | null>(null);
-  function refreshSlotInfo() {
-    manualSaveDay.value = readSlot(MANUAL_KEY)?.day?.dayNumber ?? null;
-    autoSaveDay.value = readSlot(AUTO_KEY)?.day?.dayNumber ?? null;
+  /** 槽位元信息(chat变量非响应式→ref镜像,写入/启动时同步) */
+  type SlotMeta = { day: number; savedAt: string; summary: string } | null;
+  const manualSlotInfos = ref<SlotMeta[]>([null, null, null, null]);
+  const autoSlotInfo = ref<SlotMeta>(null);
+  function slotMetaOf(snap: any): SlotMeta {
+    if (!snap?.day) return null;
+    return snap.meta ?? { day: snap.day.dayNumber ?? 0, savedAt: '', summary: '' };
   }
-  /** 手动存档(左栏「存档」/设置页): 当前状态存入手动槽 */
-  function manualSave() {
-    writeSlot(MANUAL_KEY, snapshot());
-    manualSaveDay.value = day.value.dayNumber;
+  function buildMeta(): { day: number; savedAt: string; summary: string } {
+    const e = engine.value;
+    return {
+      day: day.value.dayNumber,
+      savedAt: new Date().toLocaleString('zh-CN', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' }),
+      summary: `堕落${e.corruption}·¥${e.money.toLocaleString()}·打手${e.thugTotal}·${e.cognition}`,
+    };
+  }
+  function refreshSlotInfo() {
+    // 旧单槽迁移: 槽1为空且旧槽有档 → 复制入槽1(旧键弃置不再读写)
+    const legacy = readSlot(LEGACY_MANUAL_KEY);
+    if (legacy && !readSlot(MANUAL_KEYS[0])) writeSlot(MANUAL_KEYS[0], legacy);
+    manualSlotInfos.value = MANUAL_KEYS.map(k => slotMetaOf(readSlot(k)));
+    autoSlotInfo.value = slotMetaOf(readSlot(AUTO_KEY));
+  }
+  /** 存入手动槽 i(0-3) */
+  function saveToSlot(i: number) {
+    if (i < 0 || i > 3) return;
+    writeSlot(MANUAL_KEYS[i], { ...snapshot(), meta: buildMeta() });
+    manualSlotInfos.value = MANUAL_KEYS.map(k => slotMetaOf(readSlot(k)));
   }
   /** 每日自动存档: nextDay 成功(非硬失败)后调用,写"当天开始"快照 */
   function autoDailySave() {
-    writeSlot(AUTO_KEY, snapshot());
-    autoSaveDay.value = day.value.dayNumber;
+    writeSlot(AUTO_KEY, { ...snapshot(), meta: buildMeta() });
+    autoSlotInfo.value = slotMetaOf(readSlot(AUTO_KEY));
   }
   /** 从快照恢复(通用): 状态回填+瞬态清理+结局清除+覆写主存档 */
   function restoreFrom(snap: any): boolean {
@@ -702,13 +720,14 @@ export const useRunnerStore = defineStore('runner', () => {
     _loadingSave = false; persistNow();
     return true;
   }
-  /** 坏结局回退: target=最近自动档/手动档 */
-  function rollbackFromEnding(target: 'auto' | 'manual'): boolean {
-    return restoreFrom(readSlot(target === 'auto' ? AUTO_KEY : MANUAL_KEY));
-  }
-  /** 设置页读取手动存档(任意时刻·调用方先 confirm) */
-  function loadManualSave(): boolean { return restoreFrom(readSlot(MANUAL_KEY)); }
-  const canRollback = computed(() => autoSaveDay.value != null || manualSaveDay.value != null);
+  /** 读取手动槽 i(0-3) */
+  function loadFromSlot(i: number): boolean { return restoreFrom(readSlot(MANUAL_KEYS[i] ?? '')); }
+  /** 读取自动档 */
+  function loadAutoSave(): boolean { return restoreFrom(readSlot(AUTO_KEY)); }
+  /** 坏结局快捷回退=自动档(失败日早晨) */
+  function rollbackFromEnding(): boolean { return loadAutoSave(); }
+  const autoSaveDay = computed(() => autoSlotInfo.value?.day ?? null);
+  const canRollback = computed(() => autoSlotInfo.value != null);
 
   // ─── 通知:当前格提示(只此一格) + 历史日志(最近两天) ───
   function buildSlotNotices(): Notice[] {
@@ -819,7 +838,7 @@ export const useRunnerStore = defineStore('runner', () => {
     lastUpgrade, buyUpgrade, lastAv, queueAvShoot,
     ending, showEnding, dismissEnding,
     endingProse, endingProseBusy, endingProseLabel, canRollback, rollbackFromEnding,
-    manualSave, loadManualSave, manualSaveDay, autoSaveDay,
+    manualSlotInfos, autoSlotInfo, autoSaveDay, saveToSlot, loadFromSlot, loadAutoSave,
     tendencyNow, salvationOpenNow,
     setFastForward, allocate, setChoice, clearChoice, fillEmpty,
     beginDay, beginNight, runCurrent, rerunLast, nextDay, loadState,

@@ -29,6 +29,7 @@ const items = [
   { key: '影业', icn: '◉', label: '影业' },
   { key: '大小姐', icn: '❀', label: '大小姐' },
   { key: '留档', icn: '❏', label: '留档' },
+  { key: '存档', icn: '❖', label: '存档' },
   { key: '设置', icn: '⚙', label: '设置' },
 ];
 </script>

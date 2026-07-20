@@ -18,6 +18,7 @@ import { buildGameInject, buildExtractInject } from './prompt-inject';
 import { extractGameText, extractContinuity, extractVarsJson, stripThinking } from './extract';
 import { renderTieredMemory } from '../../game/memory/machine';
 import { getMemoryConfig } from './memory-settings';
+import { getExtractApiForCall } from './api-settings';
 import type { AiPort, ExpandRequest, ExtractRequest, ExpandResult, SummarizeRequest } from '../../game/engine/types';
 import type { Lorebook } from '../../sillytavern/types';
 
@@ -204,7 +205,7 @@ export function createTavernAi(opts: TavernAiOpts): AiPort {
         ordered_prompts: sumPrompts,
         should_stream: false,
         should_silence: true,                            // 后台静默,不产生楼层消息
-        custom_api: { ...(opts.extractApi ?? {}), max_tokens: 'unset' },
+        custom_api: { ...(getExtractApiForCall() ?? opts.extractApi ?? {}), max_tokens: 'unset' }, // 副端点(批E1·调用时读取即时生效)
       }), SUMMARIZE_TIMEOUT_MS);
       auditPush({
         when: new Date().toISOString(), kind: 'summary',
@@ -221,7 +222,7 @@ export function createTavernAi(opts: TavernAiOpts): AiPort {
         ordered_prompts: exPrompts,
         should_stream: false,
         should_silence: true,                            // 后台静默
-        custom_api: { ...(opts.extractApi ?? {}), max_tokens: 'unset' },
+        custom_api: { ...(getExtractApiForCall() ?? opts.extractApi ?? {}), max_tokens: 'unset' }, // 副端点(批E1·调用时读取即时生效)
       });
       auditPush({ when: new Date().toISOString(), kind: 'extract', label: '数值抽取', prompts: exPrompts, rawResponse: raw });
       return extractVarsJson(raw);

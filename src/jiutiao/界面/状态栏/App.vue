@@ -85,6 +85,8 @@
       <!-- ===== 影业 / AV ===== -->
       <AvPanel v-else-if="view === '影业'" />
 
+      <SavePanel v-else-if="view === '存档'" />
+
       <!-- ===== 设置 · 存档管理 ===== -->
       <div v-else-if="view === '设置'" class="settings">
         <div class="set-box">
@@ -94,14 +96,9 @@
           <div class="srow"><b>开新游戏</b>：给本角色【新建聊天】= 全新一局（空存档，从头开始）。或点下方「重开本局」清空当前这个聊天的进度。</div>
           <div class="srow"><b>删除存档</b>：删掉某个聊天 = 删掉它的存档；删除角色卡会连同它的聊天一起清掉。存档是「聊天作用域」，不留全局残留。</div>
           <div class="srow"><b>性能</b>：存档存在聊天的元数据里，<b>不进入发给 AI 的上下文</b>，不烧 token、不会让酒馆变卡。体积只含当前一天 + 精简记忆日志，增长很慢。</div>
-          <div class="srow" style="color:var(--green)">✓ 进度自动保存；另有<b>每日自动存档</b>（每天开始时自动留一份，坏结局时可退回）。</div>
-          <div class="srow"><b>手动存档</b>（单槽·左栏「存档」按钮同此）：自己选个安稳的节点留档——坏结局时除了退回当天早晨，还可以退回这里。
-            <span v-if="r.manualSaveDay != null" style="color:var(--gold-hi)">当前手动存档：第{{ r.manualSaveDay }}天。</span>
-            <span v-else style="color:var(--text-dim)">尚未手动存档。</span>
-          </div>
+          <div class="srow" style="color:var(--green)">✓ 进度自动保存；<b>存档栏位</b>（4手动+1每日自动）在左栏「存档」页管理，坏结局时可从任意栏位读回。</div>
           <div class="set-btns">
-            <button class="primary-btn" @click="doManualSave">立即手动存档</button>
-            <button v-if="r.manualSaveDay != null" class="ghost-btn" @click="doLoadManual">读取手动存档（第{{ r.manualSaveDay }}天）</button>
+            <button class="primary-btn" @click="view = '存档'">打开存档界面</button>
             <button class="danger-btn" @click="confirmReset">重开本局（清空当前进度）</button>
           </div>
         </div>
@@ -137,9 +134,22 @@
             <span><b>远期概要（大总结）</b>（默认开）：窗口之外的更早内容，跨过整窗时在后台<b>静默</b>压缩成时期概要注入。生成期间不打扰游玩；累积过多时自动滚动合并。</span>
           </label>
         </div>
-        <div class="set-box dim-box">
-          <h3>API（待接）</h3>
-          <p class="lead">之后这里配置副 AI 独立端点、切换我们提供的其它 UI 风格。</p>
+        <div class="set-box">
+          <h3>副 AI · 独立端点（可选）</h3>
+          <p class="lead">副 AI 负责后台任务：<b>前情小总结 / 大总结 / 数值抽取</b>——轻量结构化工作，适合换便宜快的模型省主 API 额度。不配置则与主 API 同端点。<b>正文生成始终走主 API，不受影响。</b></p>
+          <label class="srow toggle-row">
+            <input type="checkbox" v-model="exApi.enabled" @change="onExApiChange" />
+            <span><b>启用副 AI 独立端点</b></span>
+          </label>
+          <div v-if="exApi.enabled" class="api-form">
+            <label>端点 URL（OpenAI 兼容，如 https://api.xxx.com/v1）
+              <input type="text" v-model.trim="exApi.apiurl" @change="onExApiChange" placeholder="https://…/v1" /></label>
+            <label>API Key（⚠ 明文存于本机浏览器，勿在共用设备使用）
+              <input type="password" v-model.trim="exApi.key" @change="onExApiChange" placeholder="sk-…" /></label>
+            <label>模型名（如 gpt-4o-mini / deepseek-chat）
+              <input type="text" v-model.trim="exApi.model" @change="onExApiChange" placeholder="模型名" /></label>
+            <div class="mem-hint">改动即时生效（下一次后台总结/抽取起走新端点）。</div>
+          </div>
         </div>
         <!-- DEBUG 工具条(仅测试构建·跳中后期测试点) -->
         <div v-if="DEBUG_BUILD" class="set-box debug-box">
@@ -189,9 +199,9 @@
           <div v-else class="ed-text">{{ r.ending.text }}</div>
           <div v-if="r.endingProseBusy" class="ed-gen">✦ {{ r.endingProseLabel }} · 终幕演出生成中……（完成后自动展开，也可先行操作）</div>
           <div class="ed-btns">
-            <!-- 坏结局双回退(批C2.5·存档系统): 最近自动档=失败日早晨 / 手动档=玩家自己的存档点 -->
-            <button v-if="r.ending.kind !== 'revenge' && r.autoSaveDay != null" class="primary-btn" @click="onRollback('auto')">回到第{{ r.autoSaveDay }}天开始（自动存档）</button>
-            <button v-if="r.ending.kind !== 'revenge' && r.manualSaveDay != null" class="primary-btn" @click="onRollback('manual')">回到手动存档（第{{ r.manualSaveDay }}天）</button>
+            <!-- 坏结局回退(批E1): 自动档快捷回退(失败日早晨) + 打开存档界面自选栏位 -->
+            <button v-if="r.ending.kind !== 'revenge' && r.autoSaveDay != null" class="primary-btn" @click="onRollback">回到第{{ r.autoSaveDay }}天开始（自动存档）</button>
+            <button v-if="r.ending.kind !== 'revenge'" class="ghost-btn" @click="openSavesFromEnding">打开存档界面…</button>
             <button :class="r.ending.kind === 'revenge' ? 'primary-btn' : 'ghost-btn'" @click="confirmReset">重开本局</button>
             <button class="ghost-btn" @click="r.dismissEnding()">{{ r.ending.kind === 'fail' ? '关闭' : '继续游玩' }}</button>
           </div>
@@ -211,6 +221,7 @@ import { ref, computed, inject, watch } from 'vue';
 import { useRunnerStore } from './runner-store';
 import { dumpPromptAudit, getIncludeTavernPreset, setIncludeTavernPreset } from './tavern-ai';
 import { getMemoryConfig, setMemoryConfig, PROSE_MODE_LABELS } from './memory-settings';
+import { getExtractApiConfig, setExtractApiConfig } from './api-settings';
 import { BUILD_VERSION, DEBUG_BUILD } from './version';
 import Masthead from './components/Masthead.vue';
 import NavRail from './components/NavRail.vue';
@@ -221,6 +232,7 @@ import SlotDetail from './components/SlotDetail.vue';
 import TurfPanel from './components/TurfPanel.vue';
 import UpgradePanel from './components/UpgradePanel.vue';
 import AvPanel from './components/AvPanel.vue';
+import SavePanel from './components/SavePanel.vue';
 import { buildMenu } from '../../game/events/machine';
 import { deriveEventUnlocked } from '../../game/engine/unlocked';
 import { demoEventOptions } from '../../game/engine/mock-ai';
@@ -329,7 +341,7 @@ const collapse = inject<(() => void) | null>('pellucidCollapse', null);
 // 退出=收起回酒馆（进度本就自动存到聊天变量，无需手动存档按钮）
 function onNav(a: 'save' | 'exit') {
   if (a === 'exit') collapse?.();
-  else if (a === 'save') doManualSave(); // 批C2.5:左栏「存档」=写手动槽(进度本就自动存,这是玩家自己的回退锚点)
+  else if (a === 'save') view.value = '存档'; // 批E1:左栏「存档」=打开存档界面(4手动+1自动栏位)
 }
 const saveToast = ref('');
 function closePins() { mast.value?.clearPin(); }
@@ -341,6 +353,10 @@ function onPresetToggle() { setIncludeTavernPreset(includePreset.value); }
 // 前文记忆注入设置(批B6):档位/窗口/大总结开关。生成层纪律性,设置只管注入→改动立即生效。
 const memCfg = ref(getMemoryConfig());
 function onMemChange() { setMemoryConfig({ ...memCfg.value }); }
+
+// 副AI独立端点(批E1):小总结/大总结/数值抽取走副端点,调用时读取即时生效
+const exApi = ref(getExtractApiConfig());
+function onExApiChange() { setExtractApiConfig({ ...exApi.value }); }
 
 // DEBUG·prompt 审计导出(批B-1):复制最近一次实际发给 AI 的完整 prompt(实证"注入是否生效")
 async function copyPromptAudit() {
@@ -359,27 +375,14 @@ async function copyPromptAudit() {
   setTimeout(() => { saveToast.value = ''; }, 2600);
 }
 
-// 结局回退(批C2.5·存档系统): 最近自动档(失败日早晨) / 手动档
-function onRollback(target: 'auto' | 'manual') {
-  const ok = r.rollbackFromEnding(target);
-  saveToast.value = ok ? '✓ 已回退' : '✗ 回退失败(存档缺失)';
+// 结局回退(批E1): 自动档快捷回退(失败日早晨)
+function onRollback() {
+  const ok = r.rollbackFromEnding();
+  saveToast.value = ok ? '✓ 已回退到失败当天早晨' : '✗ 回退失败(存档缺失)';
   setTimeout(() => { saveToast.value = ''; }, 2600);
 }
-
-// 手动存档(左栏按钮/设置页)
-function doManualSave() {
-  r.manualSave();
-  saveToast.value = `✓ 已手动存档（第${r.manualSaveDay}天）`;
-  setTimeout(() => { saveToast.value = ''; }, 2600);
-}
-function doLoadManual() {
-  if (r.manualSaveDay == null) return;
-  if (window.confirm(`读取手动存档（第${r.manualSaveDay}天）？当前进度将被覆盖。`)) {
-    const ok = r.loadManualSave();
-    saveToast.value = ok ? '✓ 已读取手动存档' : '✗ 读取失败';
-    setTimeout(() => { saveToast.value = ''; }, 2600);
-  }
-}
+// 从结局画面进存档界面自选栏位(先收起overlay)
+function openSavesFromEnding() { r.dismissEnding(); view.value = '存档'; }
 
 // 设置·存档管理
 function confirmReset() {
@@ -456,6 +459,10 @@ function confirmReset() {
 .mem-opt.on { border-color: var(--gold-hi); color: var(--gold-hi); }
 .mem-opt input { accent-color: var(--gold-hi); }
 .mem-hint { margin-top: 6px; font-size: 12px; color: var(--text-dim); font-style: italic; }
+.api-form { display: flex; flex-direction: column; gap: 10px; margin-top: 10px; }
+.api-form label { font-size: 12px; color: var(--text-dim); display: flex; flex-direction: column; gap: 4px; }
+.api-form input { background: rgba(0,0,0,.3); border: 1px solid var(--line); border-radius: 6px; padding: 8px 10px; color: var(--text); font-size: 13px; font-family: inherit; }
+.api-form input:focus { outline: none; border-color: var(--gold-dim); }
 .set-box .srow b { color: var(--gold); font-weight: 400; }
 .set-btns { display: flex; gap: 12px; margin-top: 16px; }
 .danger-btn { font-family: var(--serif); background: rgba(179,33,46,.12); color: var(--red-hi); border: 1px solid var(--red); border-radius: 6px; padding: 12px 22px; font-size: 14px; cursor: pointer; }
