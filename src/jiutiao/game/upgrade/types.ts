@@ -78,6 +78,8 @@ export interface UpgradeDef {
   requiresAvShots?: number;
   /** mystery 解锁额外条件：忠诚度低于 N。深夜的脚步声用。 */
   requiresLoyaltyBelow?: number;
+  /** 前置：第 N 阶段地盘 Boss 已击败(批F1·扩张升级挂攻打进度)。金边/粉金/mystery 通用。 */
+  requiresBossStage?: number;
   /** mystery 解锁额外条件：某派生解锁键为真(如 masochism 受虐癖)。陪练·固技用。 */
   requiresUnlockedKey?: string;
 }

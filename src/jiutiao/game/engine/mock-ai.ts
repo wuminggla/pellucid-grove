@@ -39,6 +39,9 @@ export const demoEventOptions: Record<string, EventOption> = {
   defend_turf: {
     id: 'defend_turf', label: '地盘防卫·驱逐', period: 'day', shape: 'born_sfw',
     sfw: { worldbookKey: 'wb_defend_turf' },
+    // 批F1(用户确认): 死事件——无数值结算,真实防守=日终自动(驻防武力vs敌强度)。
+    // 移出菜单防浪费行动格;保留定义防旧存档中已安排的格崩溃。
+    hiddenInMenu: true,
   },
 
   // 刺探(地图选择型):执行→主区展开地盘地图→选目标关→1/4概率获情报+扣钱
@@ -274,7 +277,7 @@ export const demoEventOptions: Record<string, EventOption> = {
   // ─── AV 系统 ────────────────────────────────────
   // 首次AV: 摄影室升级解锁后强制触发(里程碑·一次性·标 first 走 ai_full 重点扩写)
   av_first: {
-    id: 'av_first', label: '拍摄第一部AV(里程碑)', period: 'day', shape: 'born_nsfw',
+    id: 'av_first', label: '拍摄第一部AV', period: 'day', shape: 'born_nsfw',
     unlockRequires: ['studio_unlocked'],
     nsfw: { worldbookKey: 'wb_av_first' },
     first: {
@@ -497,7 +500,7 @@ export const demoForcedPool: ForcedEvent[] = [
   // ─── 首次AV强制演出(建成摄影室解锁av后·一次性·里程碑引入淫名) ───
   {
     id: 'av_first_forced', ledgerKey: 'av_first_inserted', priority: 0, once: true,
-    intensity: 'insert_slot', optionId: 'av_first', label: '拍摄第一部AV(里程碑)',
+    intensity: 'insert_slot', optionId: 'av_first', label: '拍摄第一部AV',
     condition: c => c.unlocked?.av === true && c.triggeredLedger?.av_first !== true,
   },
   // ─── 生育线三连(避孕套归零·once+ledgerKey 依次触发) ──────────

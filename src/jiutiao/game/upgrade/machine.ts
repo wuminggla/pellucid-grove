@@ -3,6 +3,7 @@
 // C1：升级引擎 + 打手升级(战力)。设施/扩张项在 C2 append。
 
 import type { UpgradeDef, UpgradeRequire } from './types';
+import { isStageBossDefeated } from '../turf/machine';
 
 // ───────────────────────────────────────
 // catalog · 打手升级（群体·作用全体打手）
@@ -27,8 +28,8 @@ export const THUG_UPGRADES: UpgradeDef[] = [
 // ───────────────────────────────────────
 export const FACILITY_UPGRADES: UpgradeDef[] = [
   // ══ 性技修炼链(粉金混合·堕落+花钱双门槛·用肉穴以外部位同时侍奉→每格吞吐↑) ══
-  { id: 'skill_hand', category: 'facility', name: '快速榨精（手技）', desc: '双手并用的手技修炼——一手一根，学会"读"射精的时机，一晚送走更多人(吞吐+6)', cost: 3000, maxLevel: 1, corruptionRequired: 0, effect: { kind: 'throughput', perLevel: 6 }, corruptionOnBuy: 2 },
-  { id: 'skill_breast', category: 'facility', name: '乳交侍奉', desc: '娇小的胸口被迫学会夹持——胸前加双手，三路并行(吞吐+6)', cost: 3500, maxLevel: 1, corruptionRequired: 15, requires: [{ upgradeId: 'skill_hand', minLevel: 1 }], effect: { kind: 'throughput', perLevel: 6 }, corruptionOnBuy: 2 },
+  { id: 'skill_hand', category: 'facility', name: '快速榨精（手技）', desc: '双手并用的手技修炼——一手一根，学会"读"射精的时机，一晚送走更多人(吞吐+6)', cost: 3000, maxLevel: 1, corruptionRequired: 0, effect: { kind: 'throughput', perLevel: 6 }, corruptionOnBuy: 3 },
+  { id: 'skill_breast', category: 'facility', name: '乳交侍奉', desc: '娇小的胸口被迫学会夹持——胸前加双手，三路并行(吞吐+6)', cost: 3500, maxLevel: 1, corruptionRequired: 15, requires: [{ upgradeId: 'skill_hand', minLevel: 1 }], effect: { kind: 'throughput', perLevel: 6 }, corruptionOnBuy: 3 },
   { id: 'skill_foot', category: 'facility', name: '足交侍奉', desc: '坐姿双足各伺候一人、双手再各一人——"坐着不动"也是四路(吞吐+6)', cost: 4500, maxLevel: 1, corruptionRequired: 35, requires: [{ upgradeId: 'skill_breast', minLevel: 1 }], effect: { kind: 'throughput', perLevel: 6 }, corruptionOnBuy: 3 },
   { id: 'skill_double', category: 'facility', name: '双重口交', desc: '一张嘴一次含住两根，喉咙与舌头分不出先后——口腔的吞吐翻倍(吞吐+6)', cost: 6000, maxLevel: 1, corruptionRequired: 60, requires: [{ upgradeId: 'skill_foot', minLevel: 1 }], effect: { kind: 'throughput', perLevel: 6 }, corruptionOnBuy: 3 },
   { id: 'skill_orgy', category: 'facility', name: '极限群交', desc: '每一场性交都在挑战同时侍奉人数的极限，每一寸肌肤都成为被精液涂抹的目标(吞吐+6)', cost: 8000, maxLevel: 1, corruptionRequired: 80, requires: [{ upgradeId: 'skill_double', minLevel: 1 }], effect: { kind: 'throughput', perLevel: 6 }, corruptionOnBuy: 4 },
@@ -36,7 +37,7 @@ export const FACILITY_UPGRADES: UpgradeDef[] = [
   // ══ 欲望承载上限链(金:给打手别的发泄口→更耐积压;???:凛的贴身物成了发泄口·恋物/雄臭) ══
   { id: 'desire_train', category: 'facility', name: '操练加倍', desc: '道场加练，多余精力泄在训练场(欲望上限+20)', cost: 3000, maxLevel: 1, effect: { kind: 'desireCap', perLevel: 20 } },
   { id: 'desire_liquor', category: 'facility', name: '酒水管够', desc: '夜里备足烈酒，灌醉一半人(欲望上限+20)', cost: 3500, maxLevel: 1, requires: [{ upgradeId: 'desire_train', minLevel: 1 }], effect: { kind: 'desireCap', perLevel: 20 } },
-  { id: 'm_cloth_outer', category: 'facility', name: '大小姐的外衣', desc: '换下的外衣不再送洗，被打手们分走"珍藏"——有了发泄口，欲望更能忍一忍(上限+30)', cost: 0, maxLevel: 1, mystery: true, corruptionRequired: 25, effect: { kind: 'desireCap', perLevel: 30 }, corruptionOnBuy: 2, infamyOnBuy: 2 },
+  { id: 'm_cloth_outer', category: 'facility', name: '大小姐的外衣', desc: '换下的外衣不再送洗，被打手们分走"珍藏"——有了发泄口，欲望更能忍一忍(上限+30)', cost: 0, maxLevel: 1, mystery: true, corruptionRequired: 25, effect: { kind: 'desireCap', perLevel: 30 }, corruptionOnBuy: 3, infamyOnBuy: 2 },
   { id: 'm_cloth_shoes', category: 'facility', name: '大小姐的鞋袜', desc: '脱下的鞋与穿过的袜成了抢手货，捂在脸上贪婪地嗅、裹着肉棒自渎(上限+30)', cost: 0, maxLevel: 1, mystery: true, corruptionRequired: 35, requires: [{ upgradeId: 'm_cloth_outer', minLevel: 1 }], effect: { kind: 'desireCap', perLevel: 30 }, corruptionOnBuy: 2, infamyOnBuy: 2 },
   { id: 'm_cloth_inner', category: 'facility', name: '大小姐的内衣', desc: '贴身穿过的内衣内裤被公开传看争抢，沾着体味的最值钱——她的隐私成了打手的战利品(上限+40)', cost: 0, maxLevel: 1, mystery: true, corruptionRequired: 45, requires: [{ upgradeId: 'm_cloth_shoes', minLevel: 1 }], effect: { kind: 'desireCap', perLevel: 40 }, corruptionOnBuy: 3, infamyOnBuy: 3 },
   { id: 'm_scent', category: 'facility', name: '气味标记', desc: '凛的枕头坐垫"轮借"给表现好的打手，还回来时全沤透了浓烈的雄臭汗味——她只能睡在、坐在别的男人的味道里，怎么洗都散不掉(上限+50)', cost: 0, maxLevel: 1, mystery: true, corruptionRequired: 60, requires: [{ upgradeId: 'm_cloth_inner', minLevel: 1 }], effect: { kind: 'desireCap', perLevel: 50 }, corruptionOnBuy: 3, infamyOnBuy: 2 },
@@ -44,7 +45,7 @@ export const FACILITY_UPGRADES: UpgradeDef[] = [
   // ══ 采购扩容(金链止于批发;其后三个???渐进覆盖买套范式:戴玩具→被带着买→轿车代购) ══
   { id: 'buy_drugstore', category: 'facility', name: '熟识的药妆店', desc: '固定的采购点，凛亲自抱箱去买(采购上限+)', cost: 3000, maxLevel: 1, effect: { kind: 'purchaseMult', perLevel: 0.5 } },
   { id: 'buy_wholesale', category: 'facility', name: '批发的门路', desc: '量大跨多店扫荡(采购上限+)', cost: 3500, maxLevel: 1, requires: [{ upgradeId: 'buy_drugstore', minLevel: 1 }], effect: { kind: 'purchaseMult', perLevel: 1.0 } },
-  { id: 'm_buy_toy', category: 'facility', name: '戴着玩具去采购', desc: '出门采购前，打手会往凛体内塞一枚遥控跳蛋——排队结账时遥控器在他们手里(范式顶替:采购从此戴玩具进行)', cost: 0, maxLevel: 1, mystery: true, corruptionRequired: 20, requires: [{ upgradeId: 'buy_wholesale', minLevel: 1 }], effect: { kind: 'unlock', unlockKey: 'buy_toy' }, corruptionOnBuy: 3 },
+  { id: 'm_buy_toy', category: 'facility', name: '戴着玩具去采购', desc: '出门采购前，打手会往凛体内塞一枚遥控跳蛋——排队结账时遥控器在他们手里(范式顶替:采购从此戴玩具进行)', cost: 0, maxLevel: 1, mystery: true, corruptionRequired: 20, requires: [{ upgradeId: 'buy_wholesale', minLevel: 1 }], effect: { kind: 'unlock', unlockKey: 'buy_toy' }, corruptionOnBuy: 4 },
   { id: 'm_buy_escort', category: 'facility', name: '被打手带着去采购', desc: '跨店扫荡由打手开车"护送"——两店之间的车程里凛被按在后座使用，到店还要强撑着和店员交流(范式顶替)', cost: 0, maxLevel: 1, mystery: true, corruptionRequired: 35, requires: [{ upgradeId: 'm_buy_toy', minLevel: 1 }], effect: { kind: 'unlock', unlockKey: 'buy_escort' }, corruptionOnBuy: 3, infamyOnBuy: 2 },
   { id: 'm_buy_convoy', category: 'facility', name: '加长轿车代购', desc: '量大到凛亲自买不现实——她躺在加长轿车后座被双插着押运，打手代劳下车搬箱(范式顶替·终态)', cost: 0, maxLevel: 1, mystery: true, corruptionRequired: 50, requires: [{ upgradeId: 'm_buy_escort', minLevel: 1 }], effect: { kind: 'unlock', unlockKey: 'buy_convoy_x' }, corruptionOnBuy: 4, infamyOnBuy: 2 },
 
@@ -181,12 +182,12 @@ export const ANNEX_UPGRADES: UpgradeDef[] = [
   { id: 'annex_estate', category: 'expansion', name: '重新启用庭院', desc: '把荒废的庭院假山修整出来——散步与放风有了去处', cost: 1500, maxLevel: 1, effect: { kind: 'unlock', unlockKey: 'courtyard' } },
   { id: 'annex_shrine', category: 'expansion', name: '修缮祖堂纪念室', desc: '先代牌位重见天日→解锁「参拜先祖」', cost: 2500, maxLevel: 1, requires: [{ upgradeId: 'annex_estate', minLevel: 1 }], effect: { kind: 'unlock', unlockKey: 'shrine' } },
   // —— 对外扩张(收购地皮→SFW日常·显示在「地盘扩张」页) ——
-  { id: 'annex_street', category: 'expansion', name: '收购邻近街区', desc: '吞并周边商铺→解锁「出门吃饭」「去商场」', cost: 3000, maxLevel: 1, effect: { kind: 'unlock', unlockKey: 'occupy_street' } },
-  { id: 'annex_hill', category: 'expansion', name: '盘踞一山（私山）', desc: '买下整座山头作九条会私产(子树里逐处开发)', cost: 5000, maxLevel: 1, requires: [{ upgradeId: 'annex_street', minLevel: 1 }], effect: { kind: 'unlock', unlockKey: 'private_hill' } },
+  { id: 'annex_street', category: 'expansion', name: '收购邻近街区', desc: '吞并周边商铺→解锁「出门吃饭」「去商场」(需击败第1阶段Boss)', cost: 3000, maxLevel: 1, requiresBossStage: 1, effect: { kind: 'unlock', unlockKey: 'occupy_street' } },
+  { id: 'annex_hill', category: 'expansion', name: '盘踞一山（私山）', desc: '买下整座山头作九条会私产(子树里逐处开发·需击败第1阶段Boss)', cost: 5000, maxLevel: 1, requiresBossStage: 1, requires: [{ upgradeId: 'annex_street', minLevel: 1 }], effect: { kind: 'unlock', unlockKey: 'private_hill' } },
   { id: 'annex_hill_trail', category: 'expansion', name: '私山·后山小径', desc: '小山包踏出一条能走的土路(无游客的自家野山)→解锁「爬山」', cost: 2000, maxLevel: 1, requires: [{ upgradeId: 'annex_hill', minLevel: 1 }], effect: { kind: 'unlock', unlockKey: 'occupy_hill' } },
   { id: 'annex_hill_camp', category: 'expansion', name: '私山·营地开发', desc: '林间空地平整出营区→解锁「森林野营」', cost: 2500, maxLevel: 1, requires: [{ upgradeId: 'annex_hill', minLevel: 1 }], effect: { kind: 'unlock', unlockKey: 'hill_camp' } },
-  { id: 'annex_district', category: 'expansion', name: '吞并整片城区', desc: '游乐园/海滩/祭典场纳入势力→解锁对应日常', cost: 6000, maxLevel: 1, requires: [{ upgradeId: 'annex_street', minLevel: 1 }], effect: { kind: 'unlock', unlockKey: 'occupy_district' } },
-  { id: 'annex_halfcity', category: 'expansion', name: '坐拥小半座城', desc: '地下霸主级·包下公开场馆→解锁「看演唱会」', cost: 12000, maxLevel: 1, requires: [{ upgradeId: 'annex_district', minLevel: 1 }], effect: { kind: 'unlock', unlockKey: 'occupy_halfcity' } },
+  { id: 'annex_district', category: 'expansion', name: '吞并整片城区', desc: '游乐园/海滩/祭典场纳入势力→解锁对应日常(需击败第2阶段Boss)', cost: 6000, maxLevel: 1, requiresBossStage: 2, requires: [{ upgradeId: 'annex_street', minLevel: 1 }], effect: { kind: 'unlock', unlockKey: 'occupy_district' } },
+  { id: 'annex_halfcity', category: 'expansion', name: '坐拥小半座城', desc: '地下霸主级·包下公开场馆→解锁「看演唱会」(需击败第3阶段Boss)', cost: 12000, maxLevel: 1, requiresBossStage: 3, requires: [{ upgradeId: 'annex_district', minLevel: 1 }], effect: { kind: 'unlock', unlockKey: 'occupy_halfcity' } },
   // 经营便利·后期贵:避孕套送货上门(便利=堕落加速·省采购格)
   { id: 'condom_delivery', category: 'expansion', name: '避孕套·黑市送货渠道', desc: '打手代买送货上门，每日自动进货一批(省去主动采购)', cost: 20000, maxLevel: 3, requires: [{ upgradeId: 'annex_halfcity', minLevel: 1 }], effect: { kind: 'condomDaily', perLevel: 250 }, corruptionOnBuy: 4 },
 ];
@@ -198,9 +199,9 @@ export const ANNEX_UPGRADES: UpgradeDef[] = [
 // 附带少量堕落(目睹自己的日常被改造)。
 // ───────────────────────────────────────
 export const MYSTERY_TURF_UPGRADES: UpgradeDef[] = [
-  { id: 'm_dine', category: 'expansion', name: '包场的余兴', desc: '餐厅"包场"的真正用途——「出门吃饭」翻面为白日宣淫', cost: 0, maxLevel: 1, mystery: true, corruptionRequired: 30, requires: [{ upgradeId: 'annex_street', minLevel: 1 }], effect: { kind: 'unlock', unlockKey: 'nsfw_dine' }, corruptionOnBuy: 2 },
+  { id: 'm_dine', category: 'expansion', name: '包场的余兴', desc: '餐厅"包场"的真正用途——「出门吃饭」翻面为白日宣淫', cost: 0, maxLevel: 1, mystery: true, corruptionRequired: 30, requires: [{ upgradeId: 'annex_street', minLevel: 1 }], effect: { kind: 'unlock', unlockKey: 'nsfw_dine' }, corruptionOnBuy: 3 },
   { id: 'm_mall', category: 'expansion', name: '试衣间的常客', desc: '商场巡视变成试衣间轮用——「去商场」翻面', cost: 0, maxLevel: 1, mystery: true, corruptionRequired: 35, requires: [{ upgradeId: 'annex_street', minLevel: 1 }], effect: { kind: 'unlock', unlockKey: 'nsfw_mall' }, corruptionOnBuy: 2 },
-  { id: 'm_hiking', category: 'expansion', name: '后山的规矩', desc: '"陪大小姐爬山"不再是爬山——走两步就被按在岩石上,「爬山」翻面', cost: 0, maxLevel: 1, mystery: true, corruptionRequired: 30, requires: [{ upgradeId: 'annex_hill_trail', minLevel: 1 }], effect: { kind: 'unlock', unlockKey: 'nsfw_hiking' }, corruptionOnBuy: 2 },
+  { id: 'm_hiking', category: 'expansion', name: '后山的规矩', desc: '"陪大小姐爬山"不再是爬山——走两步就被按在岩石上,「爬山」翻面', cost: 0, maxLevel: 1, mystery: true, corruptionRequired: 30, requires: [{ upgradeId: 'annex_hill_trail', minLevel: 1 }], effect: { kind: 'unlock', unlockKey: 'nsfw_hiking' }, corruptionOnBuy: 3 },
   { id: 'm_camping', category: 'expansion', name: '营地的篝火', desc: '夜里的营地不熄火——「森林野营」翻面', cost: 0, maxLevel: 1, mystery: true, corruptionRequired: 35, requires: [{ upgradeId: 'annex_hill_camp', minLevel: 1 }], effect: { kind: 'unlock', unlockKey: 'nsfw_camping' }, corruptionOnBuy: 2 },
   { id: 'm_amusement', category: 'expansion', name: '厢门关上之后', desc: '摩天轮与鬼屋的封闭厢体都是移动密室——「去游乐园」翻面', cost: 0, maxLevel: 1, mystery: true, corruptionRequired: 40, requires: [{ upgradeId: 'annex_district', minLevel: 1 }], effect: { kind: 'unlock', unlockKey: 'nsfw_amusement' }, corruptionOnBuy: 2 },
   { id: 'm_beach', category: 'expansion', name: '圈起来的沙滩', desc: '打手仗势在沙滩围出禁区,游客被逼得绕道——「去海滩」翻面', cost: 0, maxLevel: 1, mystery: true, corruptionRequired: 40, requires: [{ upgradeId: 'annex_district', minLevel: 1 }], effect: { kind: 'unlock', unlockKey: 'nsfw_beach' }, corruptionOnBuy: 2 },
@@ -231,9 +232,9 @@ export const RIN_UPGRADES: UpgradeDef[] = [
   // 假阳具饮食:定制饮食的后置。纯叙事+堕落。
   { id: 'm_diet', category: 'facility', name: '假阳具饮食', desc: '餐具悄悄换成了那种形状——大小姐进食时只能含着它吞咽，一日三餐都成了口腔调教', cost: 0, maxLevel: 1, mystery: true, corruptionRequired: 40, requires: [{ upgradeId: 'life_diet', minLevel: 1 }], effect: { kind: 'unlock', unlockKey: 'toy_diet' }, corruptionOnBuy: 4 },
   // 抱枕睡奸:深度睡眠+购买大床共同后置 → 解锁夜间「休息(♥)」NSFW面。
-  { id: 'm_sleep', category: 'facility', name: '抱枕睡奸', desc: '大床的另一个用途——熟睡的大小姐成了打手们轮流环抱的抱枕，睡眠中被缓慢使用', cost: 0, maxLevel: 1, mystery: true, corruptionRequired: 20, requires: [{ upgradeId: 'life_sleep', minLevel: 1 }, { upgradeId: 'life_bed', minLevel: 1 }], effect: { kind: 'unlock', unlockKey: 'sleep_rape' }, corruptionOnBuy: 3 },
+  { id: 'm_sleep', category: 'facility', name: '抱枕睡奸', desc: '大床的另一个用途——熟睡的大小姐成了打手们轮流环抱的抱枕，睡眠中被缓慢使用', cost: 0, maxLevel: 1, mystery: true, corruptionRequired: 20, requires: [{ upgradeId: 'life_sleep', minLevel: 1 }, { upgradeId: 'life_bed', minLevel: 1 }], effect: { kind: 'unlock', unlockKey: 'sleep_rape' }, corruptionOnBuy: 4 },
   // 鸳鸯浴:???(与扩建浴场并排),两者共同作为"浴场侍奉"前置。
-  { id: 'm_bath', category: 'facility', name: '鸳鸯浴', desc: '洗澡时总有复数打手"陪同"——粗糙的手接管清洗，摸到有感觉了就用浴室常备的套侵犯，射满意了再继续洗瘫软的她', cost: 0, maxLevel: 1, mystery: true, corruptionRequired: 30, effect: { kind: 'unlock', unlockKey: 'couple_bath' }, corruptionOnBuy: 3 },
+  { id: 'm_bath', category: 'facility', name: '鸳鸯浴', desc: '洗澡时总有复数打手"陪同"——粗糙的手接管清洗，摸到有感觉了就用浴室常备的套侵犯，射满意了再继续洗瘫软的她', cost: 0, maxLevel: 1, mystery: true, corruptionRequired: 30, effect: { kind: 'unlock', unlockKey: 'couple_bath' }, corruptionOnBuy: 4 },
   { id: 'm_bath_serve', category: 'facility', name: '浴场侍奉', desc: '大浴场与鸳鸯浴凑齐了——大小姐的沐浴彻底变成浴场里的公共侍奉', cost: 0, maxLevel: 1, mystery: true, corruptionRequired: 45, requires: [{ upgradeId: 'life_bath', minLevel: 1 }, { upgradeId: 'm_bath', minLevel: 1 }], effect: { kind: 'unlock', unlockKey: 'bath_serve' }, corruptionOnBuy: 4 },
   // 如厕淫乱化(新编·纯叙事+堕落)
   { id: 'm_toilet', category: 'facility', name: '如厕淫乱化', desc: '上厕所必有两名打手"服侍"：小便时被从背后抱起打开双腿插入，射精前不许下来；大便时塞着尿道塞与打手面对面相拥而坐边被插边如厕', cost: 0, maxLevel: 1, mystery: true, corruptionRequired: 50, effect: { kind: 'unlock', unlockKey: 'toilet_lewd' }, corruptionOnBuy: 5 },
@@ -241,7 +242,7 @@ export const RIN_UPGRADES: UpgradeDef[] = [
   { id: 'm_chair', category: 'facility', name: '椅子淫乱化', desc: '宅内所有座位都竖着假阳具，禁止内裤——看书学习吃饭会客都必须坐上去，会客时只能用衣物遮掩', cost: 0, maxLevel: 1, mystery: true, corruptionRequired: 45, effect: { kind: 'unlock', unlockKey: 'chair_lewd' }, corruptionOnBuy: 4, infamyOnBuy: 3 },
 
   // —— ???散步链(范式顶替=惩罚·遛母狗→群交) ——
-  { id: 'm_walk_toy', category: 'facility', name: '庭院玩具散步', desc: '散步被要求戴着性玩具进行——普通散步已不复存在(范式顶替)', cost: 0, maxLevel: 1, mystery: true, corruptionRequired: 30, requires: [{ upgradeId: 'life_walk', minLevel: 1 }], effect: { kind: 'unlock', unlockKey: 'walk_toy' }, corruptionOnBuy: 3 },
+  { id: 'm_walk_toy', category: 'facility', name: '庭院玩具散步', desc: '散步被要求戴着性玩具进行——普通散步已不复存在(范式顶替)', cost: 0, maxLevel: 1, mystery: true, corruptionRequired: 30, requires: [{ upgradeId: 'life_walk', minLevel: 1 }], effect: { kind: 'unlock', unlockKey: 'walk_toy' }, corruptionOnBuy: 4 },
   { id: 'm_walk_dog', category: 'facility', name: '庭院遛母狗', desc: '散步的最终形态——项圈与四肢着地，玩具散步也成了过去式(范式顶替)', cost: 0, maxLevel: 1, mystery: true, corruptionRequired: 45, requires: [{ upgradeId: 'm_walk_toy', minLevel: 1 }], effect: { kind: 'unlock', unlockKey: 'walk_dog' }, corruptionOnBuy: 4 },
   { id: 'm_walk_orgy', category: 'facility', name: '庭院群交', desc: '体质练成之日，庭院成了刑场——每次庭院群交打手们都会挥霍光库存避孕套(与遛母狗并行)', cost: 0, maxLevel: 1, mystery: true, corruptionRequired: 55, requiresSlotsMax: true, requires: [{ upgradeId: 'm_walk_dog', minLevel: 1 }], effect: { kind: 'unlock', unlockKey: 'walk_orgy' }, corruptionOnBuy: 5 },
 ];
@@ -318,6 +319,7 @@ export function mysteryReady(def: UpgradeDef, state: UpgradeState & { totalSlots
   if (!def.mystery) return false;
   if (getLevel(state.upgrades, def.id) >= def.maxLevel) return false;
   if (!requiresMet(def.requires, state)) return false;
+  if (!bossStageMet(def, state)) return false;
   if (def.corruptionRequired != null && state.corruption < def.corruptionRequired) return false;
   if (def.requiresSlotsMax && (state.totalSlots ?? BASE_ACTION_SLOTS) < MAX_ACTION_SLOTS) return false;
   if (def.requiresAvShots != null && (state.av?.shotCount ?? 0) < def.requiresAvShots) return false;
@@ -332,7 +334,15 @@ export function pendingMysteries(state: UpgradeState & { totalSlots?: number }):
 }
 
 /** 能否升级该项：???=揭晓后玩家免费手动解禁(不自动·防雪崩)→前置→满级→堕落门槛(粉金/分级)→资金，依次判定 */
+/** Boss 前置判定(批F1): requiresBossStage 且该阶段 Boss 未击败 → 不可购/不可解禁 */
+function bossStageMet(def: UpgradeDef, state: UpgradeState): boolean {
+  if (def.requiresBossStage == null) return true;
+  const regions = (state as UpgradeState & { regions?: Record<string, import('../turf/types').RegionState> }).regions;
+  return isStageBossDefeated(regions, def.requiresBossStage);
+}
+
 export function canUpgrade(def: UpgradeDef, state: UpgradeState): UpgradeCheck {
+  if (!bossStageMet(def, state)) return { ok: false, reason: `需先击败第${def.requiresBossStage}阶段的地盘Boss` };
   if (def.mystery) {
     if (getLevel(state.upgrades, def.id) >= def.maxLevel) return { ok: false, reason: '已解禁' };
     return mysteryReady(def, state)

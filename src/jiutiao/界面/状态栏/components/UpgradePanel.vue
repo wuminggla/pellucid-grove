@@ -36,7 +36,7 @@
           <line v-for="(l, i) in links" :key="i" :x1="l.x1" :y1="l.y1" :x2="l.x2" :y2="l.y2"
             :class="{ done: l.done }" />
         </svg>
-        <div v-for="n in nodes" :key="n.def.id" class="node" :class="[n.state, { mystery: n.def.mystery, hybrid: isHybrid(n.def) }]" :style="{ left: n.x + 'px', top: n.y + 'px' }"
+        <div v-for="n in nodes" :key="n.def.id" class="node" :class="[n.state, { mystery: n.def.mystery, hybrid: isHybrid(n.def), 'myst-ready': n.def.mystery && n.lvl === 0 && isRevealed(n.def) }]" :style="{ left: n.x + 'px', top: n.y + 'px' }"
           @click="onNode(n)" @mouseenter="hover = n" @mouseleave="hover = null">
           <div class="n-name">{{ n.def.mystery && n.lvl === 0 && !isRevealed(n.def) ? '？？？' : n.def.name }}<span v-if="n.def.mystery || isHybrid(n.def)" class="n-heart">♥</span></div>
           <div class="n-lvl">{{ n.def.mystery ? (n.lvl > 0 ? '已解禁' : (isRevealed(n.def) ? '可解禁！' : '待揭晓')) : (n.def.maxLevel > 1 ? `Lv.${n.lvl}/${n.def.maxLevel}` : (n.lvl > 0 ? '已建' : `¥${n.def.cost}`)) }}</div>
@@ -228,6 +228,13 @@ function unlockNodeName(p: SkillPage): string {
 .node.locked { opacity: .45; }
 /* ???节点:绯红边框+♥(与金边区分) */
 .node.mystery { border-color: var(--rose) !important; box-shadow: 0 0 8px rgba(210,74,106,.25) !important; }
+/* 批F1#6: ???达到可解禁条件→脉冲高亮,一眼可见 */
+.node.mystery.myst-ready { border: 2px solid var(--rose-hi) !important; animation: mystPulse 1.5s ease-in-out infinite; }
+.node.mystery.myst-ready .n-lvl { font-weight: 700; }
+@keyframes mystPulse {
+  0%, 100% { box-shadow: 0 0 8px rgba(210,74,106,.3); }
+  50% { box-shadow: 0 0 20px rgba(210,74,106,.8), inset 0 0 10px rgba(210,74,106,.2); }
+}
 .node.mystery.maxed { border-color: var(--rose-hi) !important; background: linear-gradient(180deg, rgba(210,74,106,.16), rgba(0,0,0,.25)); }
 .node.mystery .n-lvl { color: var(--rose-hi); }
 .n-heart { color: var(--rose-hi); margin-left: 4px; font-size: 12px; }

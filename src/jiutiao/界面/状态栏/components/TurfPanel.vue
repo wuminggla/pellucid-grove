@@ -263,6 +263,13 @@ function onCell(c: Cell) {
 /* 占据=点亮(金) / attackable=红可打 / weak=暗红 / locked=锁 */
 .region.occupied { border-color: var(--gold); background: linear-gradient(180deg, rgba(201,162,74,.2), rgba(0,0,0,.25)); box-shadow: 0 0 12px rgba(201,162,74,.18); }
 .region.attackable { border-color: var(--red); box-shadow: 0 0 8px rgba(179,33,46,.3); }
+/* Boss战可打(批F1·用户反馈#2): 中枢关达到可攻打状态时脉冲高亮,一眼可见 */
+.region.center.attackable { border: 2px solid var(--red-hi); animation: bossPulse 1.6s ease-in-out infinite; }
+.region.center.attackable .c-state { color: var(--red-hi); font-weight: 700; letter-spacing: 2px; }
+@keyframes bossPulse {
+  0%, 100% { box-shadow: 0 0 10px rgba(179,33,46,.35); }
+  50% { box-shadow: 0 0 24px rgba(179,33,46,.75), inset 0 0 14px rgba(179,33,46,.2); }
+}
 .region.weak { border-color: rgba(179,33,46,.4); }
 .region.locked { opacity: .4; cursor: default; }
 .region.center.occupied .c-state { color: var(--gold-hi); }
