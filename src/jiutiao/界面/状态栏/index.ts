@@ -35,6 +35,13 @@ $(() => {
     const local = document.getElementById('app');
     if (!local) { console.warn('[pellucid] 无 #app'); return; }
 
+    // 批H7: 清理上一个 iframe 生命周期残留的顶层宿主(变量写入等可触发楼层重渲染→
+    // iframe 重载,旧宿主 DOM 会僵死在顶层文档里)。重载后回到按钮态,由玩家重新展开。
+    try {
+      const stale = getTopDoc()?.getElementById('pellucid-fs');
+      if (stale) { stale.remove(); console.log('[pellucid] 已清理陈旧顶层宿主'); }
+    } catch { /* ignore */ }
+
     // —— 楼层里只放 木纹底板+金色展开按钮(批G4·用户定稿:开卡只见这一块) ——
     local.innerHTML = '';
     const wrap = document.createElement('div');
@@ -79,10 +86,13 @@ $(() => {
       const topDoc = getTopDoc();
 
       // 退化路径: 拿不到顶层 → 楼层内直接挂载
+      // 批H7: ①硬性像素高度保底(iframe 高度自适应内容时,纯 fixed/vh 布局会塌成 0 高="前端消失")
+      //       ②顶部路径徽标(诊断用:截图一眼看出走的是内联模式)
       if (!topDoc || !topDoc.body) {
-        console.warn('[pellucid] 顶层不可达,楼层内退化挂载');
+        console.warn('[pellucid] path=inline 顶层不可达,楼层内退化挂载');
         if (!inlineMounted) {
-          local!.innerHTML = '<div id="pellucid-inline" style="min-height:70vh"></div>';
+          local!.innerHTML = '<div style="font:11px monospace;color:#c9a24a;padding:2px 6px;">[pellucid·内联模式]</div>'
+            + '<div id="pellucid-inline" style="min-height:560px;height:70vh;"></div>';
           const app = createApp(App);
           app.provide('pellucidCollapse', () => { try { location.reload(); } catch { /* ignore */ } });
           app.use(createPinia()).mount('#pellucid-inline');
@@ -129,7 +139,7 @@ $(() => {
         const app = createApp(App);
         app.provide('pellucidCollapse', () => { if (host) host.style.display = 'none'; });
         app.use(createPinia()).mount(mountEl);
-        console.log('[pellucid] 全屏前端已挂载');
+        console.log('[pellucid] path=fullscreen 全屏前端已挂载');
       } catch (mountErr: any) {
         // 挂载失败绝不留黑屏:把错误直接显示在全屏宿主里(可截图报修),并给退出按钮
         const stack = mountErr?.stack || String(mountErr);
@@ -143,6 +153,8 @@ $(() => {
 
     btn.addEventListener('click', open);
     wrap.addEventListener('click', (e) => { if (e.target === wrap) open(); }); // 批H5:木纹底板整块可点(手机小屏容错)
+    // 批H7: 本 iframe 卸载(楼层重渲染/切聊天)时移除顶层宿主——JS 上下文已死,留着只会僵屏
+    window.addEventListener('pagehide', () => { try { host?.remove(); } catch { /* ignore */ } });
     console.log('[pellucid] 启动按钮已就绪');
   } catch (err: any) {
     console.error('[pellucid] 入口异常', err);

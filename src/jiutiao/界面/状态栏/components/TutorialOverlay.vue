@@ -69,7 +69,9 @@ const storyRest = story.slice(1);
 </script>
 
 <style scoped>
-.tut-overlay { position: fixed; inset: 0; z-index: 90; background: rgba(8, 5, 4, .96); display: flex; align-items: center; justify-content: center; }
+/* 批H7: overflow:auto + 内容 margin:auto = 溢出小视口时不裁切两侧(经典 flex-center 裁切修复) */
+.tut-overlay { position: fixed; inset: 0; z-index: 90; background: rgba(8, 5, 4, .96); display: flex; overflow: auto; }
+.tut-page { margin: auto; }
 .tut-skip { position: absolute; top: 20px; right: 26px; font-family: var(--serif); background: transparent; border: 1px solid var(--line); color: var(--text-dim); border-radius: 6px; padding: 7px 16px; font-size: 13px; cursor: pointer; z-index: 2; }
 .tut-skip:hover { color: var(--text); }
 .tut-page { width: min(760px, 92vw); max-height: 88vh; display: flex; flex-direction: column; }

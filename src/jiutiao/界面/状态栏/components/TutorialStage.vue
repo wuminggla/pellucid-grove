@@ -173,21 +173,52 @@ const mainBtn = computed<{ label: string; disabled?: boolean; onClick: () => voi
   return null;
 });
 
-async function startDay0Run() {
-  if (!r.beginDay()) return;
-  // 格1收保护费: 开快进快速结算(顺便让玩家亲眼见到快进的效果)
-  r.setFastForward(true);
-  selKey.value = 'day-0';
-  await r.runCurrent();
-  // 格2买避孕套: 关快进,真实生成首次范式正文
+// 批H7(用户反馈:第6步卡死): 此前生成失败也照样进第6步,白天时段未结算完,
+// 「去晚上」的 beginNight 阶段校验失败后静默 return=点哪都没反应。
+// 现在: 逐格补跑白天剩余格,失败弹重试弹窗(错误可见),goNight 遇阶段异常先补跑再进夜。
+async function runDay0Remaining(): Promise<boolean> {
+  while (r.day.phase === 'day_running') {
+    const idx = r.day.cursor?.index ?? 0;
+    selKey.value = `day-${idx}`;
+    // 格1(idx0)=收保护费快进结算;格2(idx1)=买避孕套真实生成
+    r.setFastForward(idx === 0);
+    await r.runCurrent();
+    if (r.error) {
+      r.setFastForward(false);
+      popup.value = {
+        text: '<b>正文生成失败</b>：' + r.error + '<br>（常见原因：API 网络波动 / 外部审核拦截 / 超时。不影响进度，点重试再来一次。）',
+        btns: [{ label: '重试 ▸', gold: true, onClick: () => { popup.value = null; void startDay0Run(); } }],
+      };
+      return false;
+    }
+  }
   r.setFastForward(false);
-  selKey.value = 'day-1';
-  await r.runCurrent();
-  step.value = 'buttons';
+  return true;
 }
 
-function goNight() {
-  if (!r.beginNight()) return;
+async function startDay0Run() {
+  if (r.day.phase === 'allocating' && !r.beginDay()) {
+    popup.value = {
+      text: '<b>无法开始</b>：' + (r.error ?? '阶段异常') + '<br>请重开聊天重进教学；若反复出现请截图反馈。',
+      btns: [{ label: '知道了', onClick: () => { popup.value = null; } }],
+    };
+    return;
+  }
+  if (await runDay0Remaining()) step.value = 'buttons';
+}
+
+async function goNight() {
+  // 白天有格没结算完(此前生成失败) → 先补跑,不再静默死掉
+  if (r.day.phase === 'day_running') {
+    if (!(await runDay0Remaining())) return; // 失败已弹重试弹窗
+  }
+  if (!r.beginNight()) {
+    popup.value = {
+      text: '<b>进入夜晚失败</b>：' + (r.error ?? '阶段异常') + '<br>请截图反馈给开发。',
+      btns: [{ label: '知道了', onClick: () => { popup.value = null; } }],
+    };
+    return;
+  }
   step.value = 'night';
   selKey.value = 'night-0';
 }
@@ -197,6 +228,13 @@ async function finishNight() {
   r.setFastForward(true);
   await r.runCurrent();
   r.setFastForward(false);
+  if (r.error) { // 批H7: 夜格结算失败也给重试出口,不静默
+    popup.value = {
+      text: '<b>结算失败</b>：' + r.error + '<br>点重试再来一次。',
+      btns: [{ label: '重试 ▸', gold: true, onClick: () => { popup.value = null; void finishNight(); } }],
+    };
+    return;
+  }
   r.nextDay(); // Day0 结算 → 第1天
   step.value = 'end';
   popup.value = {

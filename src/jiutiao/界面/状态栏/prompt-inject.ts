@@ -65,6 +65,23 @@ export function buildGameInject(req: ExpandRequest, lorebook: Lorebook, memoryTe
     ? `【前情·必须严格遵守(代替前文,分层:远期概要→近期总结→最近原文,越靠后越具体)】\n${memoryText.trim()}`
     : '';
 
+  // 时间锚点(批H7·用户反馈:快进多日后AI无缝续写旧正文,时间一秒没过)。
+  // 显式告诉AI"现在是第几天/距最近一段完整正文过了几天",跨天时强制体现时间流逝。
+  const nowDay = req.dayNumber;
+  let timeAnchor = '';
+  if (nowDay != null) {
+    const proseDays = (req.state.proseArchive ?? []).filter(p => p.needsSummary !== false || p.text.length >= 100).map(p => p.day);
+    const lastProseDay = proseDays.length ? Math.max(...proseDays) : null;
+    const gap = lastProseDay != null ? nowDay - lastProseDay : 0;
+    timeAnchor = `【时间锚点】今天是游戏第 ${nowDay} 天。`
+      + (gap >= 1
+        ? `距离【前文原文】里最近的一段完整正文(第 ${lastProseDay} 天)已经过去了 ${gap} 天,期间发生的事以[近期事件总结]里的条目为准(多为快进带过的日常经营)。`
+          + '本格正文【必须体现这段时间已经流逝】:通过日常的积累感/环境或身体的细微变化/对前些天事件的回望等自然手法带出,'
+          + '严禁写得像紧接着上一段正文的下一秒。'
+        : '')
+      + '注意:天数只用于你把握时间感,正文中不要直接报数字("第X天"之类的系统口吻禁止出现)。';
+  }
+
   // 本格时段(具体化"绝不跨时段"规则·让 AI 明确知道现在是白天还是夜晚)
   const period = req.resolution.option.period;
   const periodNote = period === 'night'
@@ -73,7 +90,7 @@ export function buildGameInject(req: ExpandRequest, lorebook: Lorebook, memoryTe
     ? '【本格时段·硬约束】现在是【白天】。正文绝对不许写到天黑/入夜/夜晚,结尾必须停在本格事件刚结束的白天。'
     : '';
 
-  return [frame, directive, periodNote, briefBlock, sys, user].filter(Boolean).join('\n\n');
+  return [frame, directive, periodNote, timeAnchor, briefBlock, sys, user].filter(Boolean).join('\n\n');
 }
 
 // (批B6) 生成前串行的"连贯性导演简报"已退役:前情改为三层记忆纯函数渲染(零延迟注入),

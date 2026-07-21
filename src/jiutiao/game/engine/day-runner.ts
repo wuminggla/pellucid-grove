@@ -154,7 +154,10 @@ export async function runCurrentSlot(
   if (serveOpt?.isServe) {
     const mult = serveMult;
     // 口交等非插入供奉(noCondom)不耗避孕套 → 最终降欲×0.5(零套成本收益减半)
-    const sr = settleServe(engine, mult, !serveOpt.noCondom, serveOpt.noCondom ? CONST.无套供奉降欲倍率 : 1);
+    // 批H7: 白日供奉日全部强制格降欲×1.1(用户定·乘在1.5吞吐之上,清偿>晨间累积,打破软卡死循环)
+    const reliefMult = (serveOpt.noCondom ? CONST.无套供奉降欲倍率 : 1)
+      * (state.day.forcedLeave ? CONST.白日供奉降欲倍率 : 1);
+    const sr = settleServe(engine, mult, !serveOpt.noCondom, reliefMult);
     engine = sr.state;
     serve = { condomUsed: sr.condomUsed, condomShort: sr.condomShort, served: sr.served, desireRelieved: sr.desireRelieved };
     // 供奉 → 淫乱忠诚 +（打手被肉体收买）。性欲野兽升级:肉体收买加倍见效(×2)
@@ -242,9 +245,9 @@ export async function runCurrentSlot(
   // 分层记忆(批B6):正文尾部入原文档案。AI正文→待后台小总结;快进总结词自身即总结→直落小总结。
   {
     const text = (settle.resultText ?? '').trim();
+    const isFast = settle.events.renderMode === 'fast_summary';
+    const pid = proseEntryId(dayNo, slot.period, slot.index);
     if (text.length >= PROSE_MIN_LEN) {
-      const isFast = settle.events.renderMode === 'fast_summary';
-      const pid = proseEntryId(dayNo, slot.period, slot.index);
       engine = {
         ...engine,
         proseArchive: appendProse(engine.proseArchive, {
@@ -254,6 +257,14 @@ export async function runCurrentSlot(
         ...(isFast ? {
           eventSummaries: upsertSummary(engine.eventSummaries, { id: pid, day: dayNo, label: slot.choice.label, text }, dayNo),
         } : {}),
+      };
+    } else if (isFast && text) {
+      // 批H7(用户反馈:快进事件无记录→时间线割裂): 快进一句话结算(<20字)此前完全不进记忆,
+      // 快进两周=记忆两周空白,下段AI正文当场无缝续写旧正文。现无条件按"第N天·事件:结果"
+      // 进小总结层作时间线刻度(不入 proseArchive,避免一句话占用[最近原文]的位置)。
+      engine = {
+        ...engine,
+        eventSummaries: upsertSummary(engine.eventSummaries, { id: pid, day: dayNo, label: slot.choice.label, text }, dayNo),
       };
     }
   }
@@ -266,6 +277,17 @@ export async function runCurrentSlot(
     tags: settle.events.isFirstSpecial ? ['首次'] : undefined,
   };
   engine = { ...engine, narrativeLog: appendLog(engine.narrativeLog, logEntry) };
+  // 临盆产后钩子(批H7·用户反馈:选临盆后依然怀孕): 妊娠系统此前只有"进"(E3真播种 pregnant=true)
+  // 没有"出"。临盆事件执行完 → 怀孕解除+产次+1+里程碑笔记(孕期供奉/临盆选项随 pregnant_line 自然锁回)。
+  if (slot.choice.optionId === 'birth_rape' && engine.pregnant) {
+    engine = {
+      ...engine, pregnant: false, birthCount: (engine.birthCount ?? 0) + 1,
+      continuityNotes: appendContinuity(engine.continuityNotes, {
+        day: dayNo, kind: 'turning', text: `临盆分娩完成(第${(engine.birthCount ?? 0) + 1}胎)·怀孕状态解除`,
+      }),
+    };
+  }
+
   // 认知防线跨档:代码 turning 笔记(总记,影响后续基调)
   if (settle.events.cognitionAdvancedTo) {
     engine = { ...engine, continuityNotes: appendContinuity(engine.continuityNotes, {
