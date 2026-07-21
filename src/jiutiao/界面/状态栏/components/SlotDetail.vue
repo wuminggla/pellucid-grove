@@ -15,12 +15,37 @@
       <span class="d-tag" :class="tagClass">{{ tagText }}</span>
     </div>
 
-    <!-- 已结算正文 -->
-    <div v-if="showProse" class="prose"><span class="first">{{ first }}</span>{{ rest }}</div>
-    <!-- 收藏本段(批E2·留档): 满意的正文存进留档页随时回看 -->
-    <div v-if="showProse" class="fav-row">
-      <button class="fav-btn" @click="onFav">{{ favDone ? '✓ 已收藏到留档' : '❤ 收藏本段正文' }}</button>
-    </div>
+    <!-- 已结算正文(批I4-6: 按段渲染独立卡片·每段首字水墨·续写段自带分隔,不再淹在长文里) -->
+    <template v-if="showProse">
+      <!-- 编辑模式(批I4-7: 玩家直接改正文) -->
+      <div v-if="editing" class="edit-box">
+        <textarea v-model="editText" class="edit-ta" rows="14"></textarea>
+        <div class="ops-row">
+          <button class="op-btn gold" @click="saveEdit">✓ 保存修改</button>
+          <button class="op-btn" @click="editing = false">取消</button>
+        </div>
+      </div>
+      <template v-else>
+        <div v-for="(sg, si) in segs" :key="si" class="prose-seg">
+          <div v-if="si > 0" class="seg-divider">— 续 · {{ si }} —</div>
+          <div class="prose"><span class="first">{{ sg.slice(0, 1) }}</span>{{ sg.slice(1) }}</div>
+        </div>
+        <div class="fav-row">
+          <button class="fav-btn" @click="onFav">{{ favDone ? '✓ 已收藏到留档' : '❤ 收藏本段正文' }}</button>
+          <button class="fav-btn" @click="startEdit">✎ 编辑正文</button>
+        </div>
+        <!-- 批I4-6: 续写/重roll操作集中区(仅最近执行格·底部栏分散按钮已并入此处) -->
+        <div v-if="isLastExec" class="cont-box">
+          <textarea v-model="contNote" class="note-ta" rows="2"
+            placeholder="续写要求（选填·例：接下来转到浴室 / 多写对话）"></textarea>
+          <div class="ops-row">
+            <button class="op-btn gold" :disabled="r.busy" @click="doCont">▸ 续写本格</button>
+            <button v-if="segs.length > 1" class="op-btn" :disabled="r.busy" @click="doRerollSeg">↻ 重roll最后一段</button>
+            <button class="op-btn" :disabled="r.busy" @click="doRerollAll">↻ 重roll整格</button>
+          </div>
+        </div>
+      </template>
+    </template>
 
     <!-- 进行中 -->
     <div v-else-if="slot.status === 'running'" class="hint-pane">⏳ 本格正在生成…</div>
@@ -117,8 +142,36 @@ function cnNumber(n: number): string {
 const cn = computed(() => props.slot ? cnNumber(props.slot.index + 1) : '');
 const showProse = computed(() => props.slot?.status === 'done' && !!props.slot.resultText);
 const text = computed(() => (props.slot?.resultText ?? '').trim());
-const first = computed(() => text.value.slice(0, 1));
-const rest = computed(() => text.value.slice(1));
+
+// ─── 批I4-6: 按段拆分(segStarts 偏移·缺省单段兼容旧档) ───
+const segs = computed(() => {
+  const full = props.slot?.resultText ?? '';
+  const starts = props.slot?.segStarts?.length ? props.slot.segStarts : [0];
+  return starts
+    .map((s, i) => full.slice(s, i + 1 < starts.length ? starts[i + 1] : full.length).trim())
+    .filter(Boolean);
+});
+const isLastExec = computed(() => {
+  const le = r.lastExec;
+  return !!le && !!props.slot && le.period === props.period && le.index === props.slot.index
+    && props.slot.status === 'done';
+});
+
+// ─── 批I4-5/6: 续写要求 + 操作 ───
+const contNote = ref('');
+async function doCont() { await r.continueLast(contNote.value); contNote.value = ''; }
+async function doRerollSeg() { await r.rerollLastSegment(contNote.value); contNote.value = ''; }
+async function doRerollAll() { await r.rerunLast(); }
+
+// ─── 批I4-7: 编辑正文 ───
+const editing = ref(false);
+const editText = ref('');
+function startEdit() { editText.value = text.value; editing.value = true; }
+function saveEdit() {
+  if (!props.slot) return;
+  if (r.editSlotText(props.period, props.slot.index, editText.value)) editing.value = false;
+}
+watch(() => props.slot, () => { editing.value = false; contNote.value = ''; });
 const tagText = computed(() => {
   const s = props.slot; if (!s) return '';
   if (s.locked) return '强占';
@@ -146,9 +199,22 @@ const tagClass = computed(() => ({
 .d-tag.nsfw { background: rgba(179,33,46,.18); color: var(--red-hi); }
 
 .prose { font-size: 15px; line-height: 2; color: var(--text); white-space: pre-wrap; }
-.fav-row { margin-top: 10px; }
+/* 批I4-6: 段卡片+分隔 */
+.prose-seg { margin-bottom: 4px; }
+.seg-divider { text-align: center; font-family: var(--brush); font-size: 15px; color: var(--gold-dim); letter-spacing: 6px; margin: 16px 0 12px; border-top: 1px dashed var(--line); padding-top: 12px; }
+.fav-row { margin-top: 10px; display: flex; gap: 8px; }
 .fav-btn { font-family: var(--serif); background: transparent; border: 1px solid var(--line); color: var(--rose-hi); border-radius: 6px; padding: 6px 14px; font-size: 12px; cursor: pointer; }
 .fav-btn:hover { border-color: var(--rose); }
+/* 批I4-5/6/7: 续写操作区/编辑 */
+.cont-box { margin-top: 14px; border-top: 1px dashed var(--line); padding-top: 12px; }
+.ops-row { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px; }
+.op-btn { font-family: var(--serif); background: transparent; border: 1px solid var(--line); color: var(--text-dim); border-radius: 6px; padding: 8px 16px; font-size: 13px; cursor: pointer; }
+.op-btn:hover { border-color: var(--gold-dim); color: var(--text); }
+.op-btn.gold { background: linear-gradient(180deg, var(--gold-hi), var(--gold)); color: #1a120a; border: none; font-weight: 700; }
+.op-btn:disabled { opacity: .5; cursor: wait; }
+.edit-box { margin-top: 4px; }
+.edit-ta { width: 100%; box-sizing: border-box; font-family: var(--serif); font-size: 14px; line-height: 1.9; color: var(--text); background: rgba(0,0,0,.3); border: 1px solid var(--gold-dim); border-radius: 7px; padding: 12px 14px; resize: vertical; }
+.edit-ta:focus { outline: none; border-color: var(--gold); }
 .prose .first { font-family: var(--brush); font-size: 32px; color: var(--gold-hi); float: left; line-height: 1; margin: 6px 12px 0 0; }
 
 .hint-pane { color: var(--text-dim); font-size: 14px; padding: 20px 0; text-align: center; }

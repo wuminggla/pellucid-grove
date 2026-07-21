@@ -41,6 +41,8 @@ export interface ActionSlot {
   choice: SlotChoice | null;
   /** 执行后生成的反馈正文（AI1 扩写结果；mock 阶段为占位） */
   resultText?: string;
+  /** 批I4-6: 各段(首段+续写段)在 resultText 中的起始偏移。缺省=[0](单段·旧档兼容)。UI按段渲染独立卡片 */
+  segStarts?: number[];
   /** 是否被事件系统强占（强占/霸全事件锁定，玩家不可改派） */
   locked?: boolean;
   /** 强占来源事件名（locked 时有值），供 UI 显示"⚠本格被XX事件占用" */

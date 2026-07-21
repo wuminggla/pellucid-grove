@@ -65,10 +65,7 @@
           </div>
           <button class="hist-btn" @click="showHistory = !showHistory" :title="'查看最近两天的全部通知/警告'">历史 {{ showHistory ? '▴' : '▾' }}<span v-if="r.notifyLog.length" class="hb-n">{{ r.notifyLog.length }}</span></button>
           <div class="actions">
-            <button v-if="canRerun" class="ghost-btn" @click="rerun">↻ 重生成上一格</button>
-            <!-- 批I2: 同格续写(不收尾可无限续) + 按段重roll(截掉最后一段重写;无续写段时=整格重roll) -->
-            <button v-if="canContinue" class="ghost-btn" @click="cont">▸ 续写本格</button>
-            <button v-if="canContinue && r.lastSegStart > 0" class="ghost-btn" @click="rerollSeg">↻ 重roll续写段</button>
+            <!-- 批I4-6: 重生成/续写/重roll 已集中并入 SlotDetail 正文区(点选刚执行的格即见),底部栏不再分散放置 -->
             <button v-if="phase === 'allocating' && hasSlots" class="primary-btn" @click="startDay">确定分配 · 开始 ▶</button>
             <template v-if="phase === 'day_running' || phase === 'night_running'">
               <button class="primary-btn" :disabled="r.busy || !r.canRunCurrent" @click="exec">{{ r.busy ? '生成中…' : '执行当前格 ▶' }}</button>
@@ -328,24 +325,12 @@ async function exec() {
 }
 // 地图选择落子完成(pendingMap 由非空→null)后,复位 selected 跟随新 cursor
 watch(() => r.pendingMap, (cur, prev) => { if (prev && !cur) selected.value = null; });
-async function rerun() { await r.rerunLast(); selected.value = null; }
 function startDay() { r.beginDay(); selected.value = null; }
 function toNight() { r.beginNight(); selected.value = null; }
 function toNextDay() { r.nextDay(); selected.value = null; }
 function onAllocate(day: number, night: number) { r.allocate(day, night); selected.value = null; }
 
-const canRerun = computed(() => !!r.lastSettle && !r.busy
-  && ['day_running', 'night_running', 'day_settled', 'night_settled'].includes(phase.value));
-
-// 批I2: 续写可用=最近执行格存在且已结算有正文
-const canContinue = computed(() => {
-  const le = r.lastExec; if (!le || r.busy) return false;
-  const list = le.period === 'day' ? r.day.daySlots : r.day.nightSlots;
-  const s = list[le.index];
-  return s?.status === 'done' && !!(s.resultText ?? '').trim();
-});
-async function cont() { await r.continueLast(); if (r.lastExec) selected.value = { ...r.lastExec }; }
-async function rerollSeg() { await r.rerollLastSegment(); if (r.lastExec) selected.value = { ...r.lastExec }; }
+// (批I4-6: canRerun/续写按钮组已并入 SlotDetail 正文区,底部栏不再持有)
 const gateLabel = computed(() => (r.lastSettle?.events.firedGateIds ?? []).map(g => '堕落度（' + g.replace(/\D/g, '') + '）').join('、'));
 
 // —— 底部状态提示栏：汇总变量变化 / 警告 / 空回 ——

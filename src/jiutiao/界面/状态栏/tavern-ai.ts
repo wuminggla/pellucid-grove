@@ -211,19 +211,21 @@ export function createTavernAi(opts: TavernAiOpts): AiPort {
       const nowDay = req.dayNumber
         ?? Math.max(0, ...(req.state.proseArchive ?? []).map(p => p.day)); // 兜底:档案里最新一天
       const memoryText = renderTieredMemory(req.state, nowDay, getMemoryConfig());
-      let inject = buildGameInject(req, opts.lorebook, memoryText);
-      // 批I2: 自定义格开启"读取我的世界书"时,扫描玩家全局世界书附进注入
+      // 批I4-2: 双消息制——system=全部卡侧说明;user=玩家真实输入(无输入自动占位,恒非空=Gemini系
+      // "contents is required"兼容,取代 H6 的"整包发user"权宜(卡侧说明曾稀释真实用户输入)。
+      const inj = buildGameInject(req, opts.lorebook, memoryText);
+      let sysContent = inj.system;
+      // 批I2: 自定义格开启"读取我的世界书"时,扫描玩家全局世界书附进 system(设定类内容)
       if (req.choice.params?.useUserLorebook === true) {
         const queryText = [req.choice.params?.customPrompt, req.choice.params?.userNote]
           .filter((s): s is string => typeof s === 'string').join(' ');
         const wb = await scanUserLorebooks(queryText);
-        if (wb) inject += '\n\n' + wb;
+        if (wb) sysContent += '\n\n' + wb;
       }
       const ordered: (PlaceholderPrompt | RolePrompt)[] = [
         ...(includeTavernPreset ? presetSystemBlocks() : []), // 酒馆预设块(默认开·设置页可关)
-        // 批H6: 注入块用 user 角色。此前全 system → Gemini 系端点把 system 全转 systemInstruction,
-        // contents 数组为空被拒("contents is required"/INVALID_REQUEST)。OpenAI 系两种角色皆可。
-        { role: 'user', content: inject },               // 任务框架+强指令+简报+main/JB+世界书+范式+态度+状态+输出格式
+        { role: 'system', content: sysContent },         // 卡侧全部: 框架+指令+时段+时间锚+前情+main/JB+世界书+范式+态度+状态+输出格式
+        { role: 'user', content: inj.user },             // 玩家真实输入(补充要求/自定义/续写)或占位
         // 不放 'chat_history' → 不发楼层历史
       ];
       const raw = await generateRaw({

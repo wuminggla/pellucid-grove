@@ -582,10 +582,11 @@ export const useRunnerStore = defineStore('runner', () => {
     const list = refp.period === 'day' ? day.value.daySlots : day.value.nightSlots;
     return list[refp.index] ?? null;
   }
-  /** 写回某格正文(不可变更新) + 同步原文档案(重标 needsSummary → 后台用最终版全文重做小总结) */
-  function writeSlotText(refp: { period: SlotPeriod; index: number }, text: string) {
+  /** 写回某格正文(不可变更新·可带段偏移) + 同步原文档案(重标 needsSummary → 后台用最终版全文重做小总结) */
+  function writeSlotText(refp: { period: SlotPeriod; index: number }, text: string, segStarts?: number[]) {
     const key = refp.period === 'day' ? 'daySlots' : 'nightSlots';
-    const list = (day.value as any)[key].map((s: any, i: number) => i === refp.index ? { ...s, resultText: text } : s);
+    const list = (day.value as any)[key].map((s: any, i: number) =>
+      i === refp.index ? { ...s, resultText: text, ...(segStarts ? { segStarts } : {}) } : s);
     day.value = { ...day.value, [key]: list };
     const slot = slotOf(refp);
     const pid = proseEntryId(day.value.dayNumber, refp.period, refp.index);
@@ -605,8 +606,8 @@ export const useRunnerStore = defineStore('runner', () => {
     }
   }
 
-  /** 续写当前(最近执行)格: 已有正文作上文,AI只输出新增段,不收尾,可无限续。 */
-  async function continueLast() {
+  /** 续写当前(最近执行)格: 已有正文作上文,AI只输出新增段,不收尾,可无限续。note=玩家续写要求(批I4-5) */
+  async function continueLast(note?: string) {
     if (busy.value || !lastExec.value) return;
     const refp = lastExec.value;
     const slot = slotOf(refp);
@@ -628,7 +629,7 @@ export const useRunnerStore = defineStore('runner', () => {
       const ex = await withTimeout(ai.expand({
         resolution, attitude: attitudeForStage(engine.value.cognition),
         choice: slot.choice, state: engine.value, dayNumber: day.value.dayNumber,
-        continuation: { prevTail: prevText.slice(-2200) },
+        continuation: { prevTail: prevText.slice(-2200), note: note?.trim() || undefined },
       }), GEN_TIMEOUT_MS);
       const seg = (ex.text ?? '').trim();
       if (seg.length < MIN_TEXT_LEN) {
@@ -636,7 +637,9 @@ export const useRunnerStore = defineStore('runner', () => {
         lastWarn.value = '续写内容为空或过短(可能被外部审核拦截/截断)。可再点一次续写重试。';
       } else {
         lastSegStart.value = prevText.length;
-        writeSlotText(refp, prevText + '\n\n' + seg);
+        // 批I4-6: 段偏移追加(新段起点=旧文长+分隔'\n\n'),UI按段渲染独立卡片
+        const starts = [...((slot.segStarts?.length ? slot.segStarts : [0])), prevText.length + 2];
+        writeSlotText(refp, prevText + '\n\n' + seg, starts);
         void drainSummaries(); // 批I2: 总结兼容——writeSlotText 已重标 needsSummary,后台用最终版全文重做
       }
     } catch (e) {
@@ -646,17 +649,30 @@ export const useRunnerStore = defineStore('runner', () => {
     }
   }
 
-  /** 重roll最后一段续写(截掉最后一段→重新续写);尚无续写段时=整格重roll。 */
-  async function rerollLastSegment() {
+  /** 重roll最后一段续写(截掉最后一段→重新续写·可带续写要求);尚无续写段时=整格重roll。 */
+  async function rerollLastSegment(note?: string) {
     if (busy.value || !lastExec.value) return;
     if (lastSegStart.value <= 0) { await rerunLast(); return; }
     const refp = lastExec.value;
     const slot = slotOf(refp);
     if (!slot?.choice || slot.status !== 'done') return;
     const base = (slot.resultText ?? '').slice(0, lastSegStart.value).trimEnd();
-    writeSlotText(refp, base);
+    const starts = (slot.segStarts?.length ? slot.segStarts : [0]).slice(0, -1);
+    writeSlotText(refp, base, starts.length ? starts : [0]);
     lastSegStart.value = 0;
-    await continueLast();
+    await continueLast(note);
+  }
+
+  /** 批I4-7: 玩家直接编辑正文(当天已结算格)。保存后重标needsSummary,段结构重置为单段。 */
+  function editSlotText(period: SlotPeriod, index: number, text: string): boolean {
+    const slot = slotOf({ period, index });
+    if (!slot || slot.status !== 'done') return false;
+    const t = text.trim();
+    if (!t) return false;
+    writeSlotText({ period, index }, t, [0]);
+    if (lastExec.value?.period === period && lastExec.value?.index === index) lastSegStart.value = 0;
+    void drainSummaries();
+    return true;
   }
 
   /** 下一格是否会被快进略写(不调AI)。预判用纯函数,与 settleSlot 同一 resolveEvent。 */
@@ -1046,7 +1062,7 @@ export const useRunnerStore = defineStore('runner', () => {
     tendencyNow, salvationOpenNow,
     setFastForward, allocate, setChoice, clearChoice, fillEmpty,
     beginDay, beginNight, runCurrent, runCurrentChain, rerunLast, nextDay, loadState,
-    continueLast, rerollLastSegment, lastExec, lastSegStart,
+    continueLast, rerollLastSegment, editSlotText, lastExec, lastSegStart,
     useMock, useTavern, saveNow: persistNow, resetGame,
   };
 });

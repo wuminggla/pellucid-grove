@@ -47,7 +47,7 @@ const ATTITUDE_LAYER: Record<string, string> = {
 /** 扩写规格(按 renderMode) */
 const SPEC_BY_MODE: Record<string, string> = {
   ai_full: '这是【首次里程碑·堕落节点】，重点扩写，着墨细节，按范式骨架演足这"第一次"的落差冲击。',
-  ai_normal: '这是NSFW场景的常规体验，正常生成完整色情内容（非略写），贴合范式，保持鲜活。',
+  ai_normal: '这是本事件的常规体验，正常完整生成（非略写），写法与尺度贴合本格范式，保持鲜活。', // 批I4-8: 去通用NSFW措辞
   ai_brief: '这是日常SFW行动，略写，简短交代结果+少量氛围，推进数值即可。',
 };
 
@@ -95,9 +95,13 @@ export function buildGamePrompt(req: ExpandRequest, ctx: GamePromptCtx): Array<{
   const system = sysParts.join('\n\n');
 
   // —— user：本格范式 + 态度 + 场景 + 规格 + 输出格式 ——
-  // 批I1: 定制范式(AV任务书)加注意力锚——用户反馈"注入了但AI没读取",硬要求置前防淹没
+  // 批I4-1: inlinePrompt 注意力锚按事件分流——AV=拍摄任务书;自定义事件=玩家自己安排的事件
+  // (此前统一用AV措辞,自定义事件被当成"拍摄任务",用户实测点名纠正)。
+  const inlineAnchor = req.choice.optionId === 'custom_event'
+    ? '[自定义事件·硬要求] 本格内容是玩家自己安排的,下方【玩家要求】是本格的最高内容依据——在不违反视角/时段/红线约束的前提下,以玩家意见为主完整演出,禁止无视玩家要求套用任何通用事件写法。\n'
+    : '[定制范式·硬要求] 本格是玩家定制的拍摄任务,下方任务书里的题材/场景/全部玩法部位/衣装/规模/玩家自定意见【每一项都必须实际拍进正文】,禁止无视任务书套用通用供奉写法。\n';
   const paradigmText = paradigm.inlinePrompt
-    ? `[定制范式·硬要求] 本格是玩家定制的拍摄任务,下方任务书里的题材/场景/全部玩法部位/衣装/规模/玩家自定意见【每一项都必须实际拍进正文】,禁止无视任务书套用通用供奉写法。\n${paradigm.inlinePrompt}`
+    ? inlineAnchor + paradigm.inlinePrompt
     : (getParadigmByKey(lorebook, paradigm.worldbookKey)
        ?? `[范式条目] ${paradigm.worldbookKey}（世界书未写,按事件名扩写）`);
 
@@ -120,10 +124,7 @@ export function buildGamePrompt(req: ExpandRequest, ctx: GamePromptCtx): Array<{
     ? `[文案方向] 本格按此方向展开(用自己的话写,不要照抄): ${req.choice.params.flavorHint}\n`
     : '';
 
-  // 批I2: 玩家补充要求(选事件时旁边的自由输入·user层注入补完)
-  const userNote = typeof req.choice.params?.userNote === 'string' && req.choice.params.userNote.trim()
-    ? `[玩家补充要求·尽量满足] ${req.choice.params.userNote.trim()}\n(在不违反上方视角/时段/红线约束的前提下,把这些要求实际写进本格正文,不要无视。)\n`
-    : '';
+  // (批I4-2: 玩家补充要求已移出本层——真实玩家输入统一放注入层的独立 user 消息,见 prompt-inject.buildGameInject)
 
   const user =
     `[本格行动] ${option.label}${isNsfw ? '（NSFW·♥）' : ''}\n`
@@ -132,7 +133,6 @@ export function buildGamePrompt(req: ExpandRequest, ctx: GamePromptCtx): Array<{
     + `${sceneLine}\n`
     + crowdRule
     + flavorHint
-    + userNote
     + `[扩写规格] ${SPEC_BY_MODE[renderMode] ?? '正常扩写。'}\n`
     + (LENGTH_OVERRIDE[option.id] ? `${LENGTH_OVERRIDE[option.id]}\n` : '')
     + `[输出格式] ${outputSpec}\n`

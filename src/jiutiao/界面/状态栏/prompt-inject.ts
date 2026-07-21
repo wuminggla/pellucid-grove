@@ -20,10 +20,12 @@ import type { Lorebook, ChatPreset } from '../../sillytavern/types';
 const GAME_PRESET: ChatPreset = demoPreset;
 
 /**
- * 生成主 AI(正文)的注入文本:任务框架 + 强指令 + 三层前情 + 世界书常驻 + 范式 + 态度 + 状态 + 输出格式。
+ * 生成主 AI(正文)的注入(批I4: 拆双消息)。
+ * system=全部卡侧内容(任务框架+强指令+时段+时间锚+三层前情+main/JB+世界书+范式+态度+状态+输出格式);
+ * user=只放玩家真实输入(补充要求/自定义内容/续写指令),无输入时简短占位(恒非空·Gemini系兼容)。
  * @param memoryText 三层记忆渲染文本(远期概要+窗口小总结+最近原文·renderTieredMemory 产出)。空=开局无前情。
  */
-export function buildGameInject(req: ExpandRequest, lorebook: Lorebook, memoryText = ''): string {
+export function buildGameInject(req: ExpandRequest, lorebook: Lorebook, memoryText = ''): { system: string; user: string } {
   // memory 传空对象关掉 buildGamePrompt 的旧记忆轨(storyThread/recentLog)——
   // 里程碑线已并入三层前情(renderTieredMemory 的[故事里程碑]),日志流水(桶2变量信息)退出注入(系统变量已记录,不占prompt)。
   const msgs = buildGamePrompt(req, { lorebook, preset: GAME_PRESET, memory: {} });
@@ -55,6 +57,8 @@ export function buildGameInject(req: ExpandRequest, lorebook: Lorebook, memoryTe
     + '   · 严禁把范式中的例句/词表原样或近原样搬进正文,严禁成段罗列范式词汇;\n'
     + '   · 每格用词要换血:同一个动作/部位/反应,换不同的写法,照抄只会让玩家审美疲劳;\n'
     + '   · 【前情】里已写过的开场/桥段/句式/意象,本格不要再重复,换新的写法。\n'
+    + '   · 【前情不是语料·铁条】【前情】里的原文/总结只是让你知道"已经发生了什么"的背景事实,'
+    + '【严禁】把前情中的任何句子/描写/桥段照抄或轻改后搬进本格正文——本格必须是全新写作,复读前文=最严重的失败。\n'
     + '6. 【绝不跨时间段·硬约束】本格只演当前这一小段时间内发生的事,严禁擅自推进到别的时段、严禁给一整天收尾:\n'
     + '   · 若本格是【夜晚】事件: 绝对不许写到天亮/早晨/第二天/起床/晨光——后面可能还有别的夜晚行动格,写到天亮逻辑就崩。结尾停在本格事件刚结束的深夜。\n'
     + '   · 若本格是【白天】事件: 绝对不许写到天黑/入夜/夜晚/华灯初上。结尾停在本格事件刚结束的白天。\n'
@@ -92,17 +96,40 @@ export function buildGameInject(req: ExpandRequest, lorebook: Lorebook, memoryTe
     ? '【本格时段·硬约束】现在是【白天】。正文绝对不许写到天黑/入夜/夜晚,结尾必须停在本格事件刚结束的白天。'
     : '';
 
-  // 续写模式(批I2·同格续写): 已有正文的结尾片段 → 接续/不重复/不收尾/只输出新增段
-  const contBlock = req.continuation?.prevTail
-    ? '【续写模式·最高优先】本格正文已经写了前半(结尾片段见下),你的任务是从其结尾处自然接续往下写:\n'
-      + '· 不重复/不改写已有内容,不重启场景,直接续着写;\n'
-      + '· 保持同一视角/时段/人物状态与情绪走向;\n'
-      + '· 【绝对不要收尾】——结尾仍停在事件进行中的过程点,玩家可能还要继续;\n'
-      + '· 只输出【新增的续写段】,不要重抄任何已有正文。\n'
-      + `【已写正文·结尾片段】\n${req.continuation.prevTail}`
-    : '';
+  // ═══ 批I4-2/3(用户确诊·全 inject 曾合并成一条 user 消息=卡侧说明稀释真实用户输入) ═══
+  // 拆两条: system=全部卡侧内容(框架/指令/时段/时间锚/前情/main/JB/世界书/范式/态度/场景/规格/输出格式);
+  //         user=只放玩家真实输入(补充要求/自定义内容/续写指令),无输入时自动填简短占位(恒非空,兼容Gemini系)。
+  const systemText = [frame, directive, periodNote, timeAnchor, briefBlock, sys, user].filter(Boolean).join('\n\n');
 
-  return [frame, directive, periodNote, timeAnchor, contBlock, briefBlock, sys, user].filter(Boolean).join('\n\n');
+  const userParts: string[] = [];
+  // 续写指令(玩家主动点的续写=玩家意图·批I2机制/批I4移入user层)
+  if (req.continuation?.prevTail) {
+    userParts.push(
+      '【续写指令】我(玩家)选择继续扩写本格正文。已写正文的结尾片段如下,从其结尾处自然接续往下写:\n'
+      + '· 不重复/不改写已有内容,不重启场景,直接续着写;保持同一视角/时段/人物状态与情绪走向;\n'
+      + '· 【绝对不要收尾】——结尾仍停在事件进行中的过程点,我可能还要继续;\n'
+      + '· 只输出【新增的续写段】,不要重抄任何已有正文。\n'
+      + `【已写正文·结尾片段】\n${req.continuation.prevTail}`);
+    if (req.continuation.note?.trim()) {
+      userParts.push(`【我的续写要求】${req.continuation.note.trim()}`);
+    }
+  }
+  // 自定义事件的玩家原文(范式壳在system·原始要求在user层强调=真实用户输入)
+  if (req.choice.optionId === 'custom_event' && typeof req.choice.params?.customPrompt === 'string' && req.choice.params.customPrompt.trim()) {
+    userParts.push(`【我的自定义事件要求】${req.choice.params.customPrompt.trim()}`);
+  }
+  // 玩家补充要求(批I2·选格旁自由输入)
+  if (typeof req.choice.params?.userNote === 'string' && req.choice.params.userNote.trim()) {
+    userParts.push(`【我的补充要求】${req.choice.params.userNote.trim()}\n(在不违反系统层视角/时段/红线约束的前提下,把这些要求实际写进本格正文。)`);
+  }
+  // 占位(批I4-3): 无任何玩家输入时的简短任务行
+  if (!userParts.length) {
+    const dayStr = req.dayNumber != null ? `第${req.dayNumber}天·` : '';
+    const periodStr = period === 'night' ? '夜晚' : period === 'day' ? '白天' : '';
+    userParts.push(`本格执行事件『${req.resolution.option.label}』(${dayStr}${periodStr})。无玩家附加要求,请按系统层说明生成本格正文。`);
+  }
+
+  return { system: systemText, user: userParts.join('\n\n') };
 }
 
 // (批B6) 生成前串行的"连贯性导演简报"已退役:前情改为三层记忆纯函数渲染(零延迟注入),
