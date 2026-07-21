@@ -106,7 +106,7 @@ async function scanUserLorebooks(queryText: string): Promise<string> {
       }
     }
     if (!hits.length) return '';
-    return '【玩家全局世界书·命中条目(自定义事件的辅助设定;与本卡设定冲突时以本卡为准,红线约束不变)】\n' + hits.join('\n');
+    return '【玩家全局世界书·命中条目(自定义事件的辅助设定;与本卡设定冲突时以本卡为准)】\n' + hits.join('\n');
   } catch { return ''; }
 }
 

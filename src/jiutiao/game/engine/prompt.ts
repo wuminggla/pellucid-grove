@@ -98,7 +98,7 @@ export function buildGamePrompt(req: ExpandRequest, ctx: GamePromptCtx): Array<{
   // 批I4-1: inlinePrompt 注意力锚按事件分流——AV=拍摄任务书;自定义事件=玩家自己安排的事件
   // (此前统一用AV措辞,自定义事件被当成"拍摄任务",用户实测点名纠正)。
   const inlineAnchor = req.choice.optionId === 'custom_event'
-    ? '[自定义事件·硬要求] 本格内容是玩家自己安排的,下方【玩家要求】是本格的最高内容依据——在不违反视角/时段/红线约束的前提下,以玩家意见为主完整演出,禁止无视玩家要求套用任何通用事件写法。\n'
+    ? '[自定义事件·硬要求] 本格内容是玩家自己安排的,下方【玩家要求】是本格的最高内容依据——在不违反视角/时段约束的前提下,以玩家意见为主完整演出,禁止无视玩家要求套用任何通用事件写法。\n'
     : '[定制范式·硬要求] 本格是玩家定制的拍摄任务,下方任务书里的题材/场景/全部玩法部位/衣装/规模/玩家自定意见【每一项都必须实际拍进正文】,禁止无视任务书套用通用供奉写法。\n';
   const paradigmText = paradigm.inlinePrompt
     ? inlineAnchor + paradigm.inlinePrompt

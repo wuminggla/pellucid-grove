@@ -120,7 +120,7 @@ export function buildGameInject(req: ExpandRequest, lorebook: Lorebook, memoryTe
   }
   // 玩家补充要求(批I2·选格旁自由输入)
   if (typeof req.choice.params?.userNote === 'string' && req.choice.params.userNote.trim()) {
-    userParts.push(`【我的补充要求】${req.choice.params.userNote.trim()}\n(在不违反系统层视角/时段/红线约束的前提下,把这些要求实际写进本格正文。)`);
+    userParts.push(`【我的补充要求】${req.choice.params.userNote.trim()}\n(在不违反系统层视角/时段约束的前提下,把这些要求实际写进本格正文。)`);
   }
   // 占位(批I4-3): 无任何玩家输入时的简短任务行
   if (!userParts.length) {
