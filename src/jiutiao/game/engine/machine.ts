@@ -48,7 +48,7 @@ export function sanitizeExtract(
 }
 
 /** 从 EngineState 构造 events 上下文 */
-function eventCtxOf(state: EngineState): EventContext {
+export function eventCtxOf(state: EngineState): EventContext { // 批I1: 导出供快进链预判渲染模式
   return {
     corruption: state.corruption,
     cognition: state.cognition,

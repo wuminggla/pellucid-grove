@@ -67,6 +67,8 @@ export interface EventOption {
   label: string;                 // 显示名（不含♥，♥由UI按是否NSFW态加）
   period: 'day' | 'night' | 'any';
   shape: EventShape;
+  /** 批I1: 永不被快进略写(如AV定制格——玩家花额度定制的演出,快进吞正文=白定制) */
+  neverFast?: boolean;
   /** 扩张解锁：满足才出现在菜单（占据规模/宅邸升级/设施）。空=初始可用 */
   unlockRequires?: string[];
   /** SFW范式（dual/born_sfw 有） */

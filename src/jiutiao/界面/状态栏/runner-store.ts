@@ -11,6 +11,8 @@ import {
   markRunning, completeCurrent,
 } from '../../game/action-grid/machine';
 import { runCurrentSlot, settleNight, advanceToNextDay, applyForcedSeizes, applyForcedInserts } from '../../game/engine/day-runner';
+import { eventCtxOf } from '../../game/engine/machine';
+import { resolveEvent } from '../../game/events/machine';
 import type { RunnerState } from '../../game/engine/day-runner';
 import { dailyDesireDemand, availableThugs, weeklyRecruitQuota, combatPower, presentCountFrom, appendMoneyLog } from '../../game/economy/machine';
 import { weaponMult, baseMartialPerThug, prestigeMultiplier, UPGRADES_BY_ID, canUpgrade, applyUpgrade, pendingMysteries, scoutRateBonus, avIncomeMultiplier } from '../../game/upgrade/machine';
@@ -568,6 +570,30 @@ export const useRunnerStore = defineStore('runner', () => {
     await execCurrentFrom(preRunSnapshot);
   }
 
+  /** 下一格是否会被快进略写(不调AI)。预判用纯函数,与 settleSlot 同一 resolveEvent。 */
+  function nextSlotIsFast(): boolean {
+    const cur = currentSlot(day.value);
+    if (!cur?.choice) return false;
+    const opt = demoEventOptions[cur.choice.optionId];
+    if (!opt) return false;
+    try {
+      return resolveEvent(opt, eventCtxOf(engine.value), fastForward.value).renderMode === 'fast_summary';
+    } catch { return false; }
+  }
+
+  /** 批I1-6(用户需求): 快进开着时一键连算——连续结算所有不需要AI正文的格,
+   *  直到撞上第一个必出正文的格(首次里程碑/AV定制等 neverFast)为止,该格停下待玩家执行。 */
+  async function runCurrentChain() {
+    if (busy.value) return;
+    if (!fastForward.value || !nextSlotIsFast()) { await runCurrent(); return; }
+    let guard = 0;
+    while (guard++ < 24 && fastForward.value && nextSlotIsFast()) {
+      await runCurrent();
+      if (error.value) return; // 失败即停,错误已上屏
+    }
+    // 循环停在: 时段结算完(无当前格) 或 下一格需要AI正文(留给玩家点执行)
+  }
+
   /** 重新生成当前(刚执行完的)格: 恢复执行前快照,重跑一次。 */
   async function rerunLast() {
     if (busy.value || !preRunSnapshot) return;
@@ -928,7 +954,7 @@ export const useRunnerStore = defineStore('runner', () => {
     tutorialSeen, markTutorialSeen, startTutorialDay0,
     tendencyNow, salvationOpenNow,
     setFastForward, allocate, setChoice, clearChoice, fillEmpty,
-    beginDay, beginNight, runCurrent, rerunLast, nextDay, loadState,
+    beginDay, beginNight, runCurrent, runCurrentChain, rerunLast, nextDay, loadState,
     useMock, useTavern, saveNow: persistNow, resetGame,
   };
 });

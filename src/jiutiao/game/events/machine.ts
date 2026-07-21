@@ -80,6 +80,10 @@ function pickRenderMode(isFirst: boolean, isNsfw: boolean, fastForward: boolean)
 export function resolveEvent(
   opt: EventOption, ctx: EventContext, fastForward: boolean,
 ): EventResolution {
+  // 批I1: neverFast 事件(AV定制等)无视快进,永远完整生成
+  const ff = fastForward && !opt.neverFast;
+  fastForward = ff;
+
   // —— 多阶段事件(防跳阶段):存在 stages 时覆盖单一 first/erosionGate ——
   if (opt.stages && opt.stages.length) {
     const { stage, isFirst } = resolveStages(opt.stages, ctx);

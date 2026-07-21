@@ -318,7 +318,8 @@ async function exec() {
   const mapKind = r.currentMapKind();
   if (mapKind) { r.beginMapSelect(mapKind); return; }
   const prev = r.day.cursor ? { period: r.day.cursor.period, index: r.day.cursor.index } : null;
-  await r.runCurrent();
+  // 批I1-6: 快进开着→链式连算所有不需要AI的格,撞到第一个必出正文的格停下;快进关→单格
+  await r.runCurrentChain();
   // 自动跳转开 → selected 复位跟随新 cursor；关 → 停留在刚执行(现已结算)的格看正文
   selected.value = autoAdvance.value ? null : prev;
 }

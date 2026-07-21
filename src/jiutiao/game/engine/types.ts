@@ -55,6 +55,7 @@ export interface EngineState {
   cycleDay?: number;           // 经期周期日(0..length-1·每日推进)
   pregnant?: boolean;          // 是否已怀孕(生育线判定后置;结局判定用)
   birthCount?: number;         // 已分娩次数(批H7: 临盆事件执行后 pregnant 清除+此计数+1)
+  bodyCounts?: Record<string, number>; // 部位计数(批I1·`${部位}.${标签}`键·代码驱动确定性累加·RinPanel显示)
   // —— 身体开发度(A4 日常侵蚀·五级 0-4 抗拒/被迫接受/无意识迎合/轻度上瘾/重度依赖) ——
   // 注: schema.ts 用中文枚举,引擎层用 number 0-4 便于数值比较(阈值/推进)
   // 完整字段由 hook 层(将来 MVU 收尾)映射,引擎只读写白天 A4 关心的四主穴

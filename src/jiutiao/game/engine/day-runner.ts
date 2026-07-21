@@ -7,6 +7,7 @@ import {
 } from '../action-grid/machine';
 import { settleSlot, PROSE_MIN_LEN } from './machine';
 import { settleServe, settleBuyCondoms, settleDaily } from './settlement';
+import { applyBodyCounts } from './body-counts';
 import {
   CONST, slidingWindowRelief, settleRecruit, dailyDesireDemand, desireOverflow, availableThugs,
   gainLoyalty, settleRewardThugs, settleProtectionFee, presentCountFrom, appendMoneyLog,
@@ -276,6 +277,22 @@ export async function runCurrentSlot(
     tags: settle.events.isFirstSpecial ? ['首次'] : undefined,
   };
   engine = { ...engine, narrativeLog: appendLog(engine.narrativeLog, logEntry) };
+  // 部位计数(批I1·代码驱动): 供奉类用结算served+套数;其它NSFW映射事件用在场数。
+  {
+    const servedN = serve?.served ?? (settle.events.isNsfw ? engine.presentCount : 0);
+    engine = {
+      ...engine,
+      bodyCounts: applyBodyCounts(engine.bodyCounts, {
+        optionId: slot.choice.optionId,
+        served: servedN,
+        condomUsed: serve?.condomUsed ?? 0,
+        condomShort: serve?.condomShort ?? false,
+        noCondom: serveOpt?.noCondom === true,
+        cognition: engine.cognition,
+      }),
+    };
+  }
+
   // 临盆产后钩子(批H7·用户反馈:选临盆后依然怀孕): 妊娠系统此前只有"进"(E3真播种 pregnant=true)
   // 没有"出"。临盆事件执行完 → 怀孕解除+产次+1+里程碑笔记(孕期供奉/临盆选项随 pregnant_line 自然锁回)。
   if (slot.choice.optionId === 'birth_rape' && engine.pregnant) {

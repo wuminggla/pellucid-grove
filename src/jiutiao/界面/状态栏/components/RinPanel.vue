@@ -40,7 +40,7 @@
               <span class="lv">{{ p.lv }}/4</span><span class="arr">▸</span>
             </summary>
             <!-- TODO(数据): 分部位次数未追踪，先占位 — -->
-            <div class="part-body"><div class="cnt3"><div v-for="c in p.cnt" :key="c"><div class="k">{{ c }}</div><div class="v">—</div></div></div></div>
+            <div class="part-body"><div class="cnt3"><div v-for="c in p.cnt" :key="c.k"><div class="k">{{ c.k }}</div><div class="v">{{ c.v }}</div></div></div></div>
           </details>
 
           <!-- TODO(数据): 特殊性癖觉醒度未建变量，占位 -->
@@ -104,12 +104,17 @@ const voice = computed(() => VOICE[props.engine.cognition] ?? VOICE['动摇']);
 
 const parts = computed(() => {
   const b = props.engine.bodyDevelopment ?? {};
+  const c = props.engine.bodyCounts ?? {}; // 批I1: 部位计数接真(此前为占位符"—")
+  const row = (key: string, name: string, lv: number, labels: string[]) => ({
+    key, name, lv,
+    cnt: labels.map(lb => ({ k: lb, v: c[`${key}.${lb}`] ?? 0 })),
+  });
   // 缺省=1(被迫接受)与引擎 getDevelopment 一致(批C1 对齐,此前 UI 缺省0与引擎不同源)
   return [
-    { key: '口腔', name: '口腔', lv: b.口腔 ?? 1, cnt: ['口交', '口内射', '颜射'] },
-    { key: '小穴', name: '小穴', lv: b.小穴 ?? 1, cnt: ['插入', '内射', '高潮'] },
-    { key: '肛门', name: '肛门', lv: b.肛门 ?? 1, cnt: ['插入', '内射', '高潮'] },
-    { key: '子宫', name: '子宫', lv: b.子宫生育 ?? 1, cnt: ['宫颈侵入', '中出', '子宫高潮'] },
+    row('口腔', '口腔', b.口腔 ?? 1, ['口交', '口内射', '颜射']),
+    row('小穴', '小穴', b.小穴 ?? 1, ['插入', '内射', '高潮']),
+    row('肛门', '肛门', b.肛门 ?? 1, ['插入', '内射', '高潮']),
+    row('子宫', '子宫', b.子宫生育 ?? 1, ['宫颈侵入', '中出', '子宫高潮']),
   ];
 });
 </script>

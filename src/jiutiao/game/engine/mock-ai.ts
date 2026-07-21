@@ -296,6 +296,7 @@ export const demoEventOptions: Record<string, EventOption> = {
   // hiddenInMenu=不进玩家菜单(防绕过周限/范式直接选)。收益:高金钱(AV销售)+淫名。
   av_custom: {
     id: 'av_custom', label: '拍 AV', period: 'day', shape: 'born_nsfw',
+    neverFast: true, // 批I1: 玩家花额度定制的演出,快进吞正文=白定制(用户反馈"AV注入不上"主因)
     unlockRequires: ['av'],
     nsfw: { worldbookKey: 'wb_av_custom' },
     infamyReward: 3,

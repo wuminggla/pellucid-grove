@@ -95,8 +95,9 @@ export function buildGamePrompt(req: ExpandRequest, ctx: GamePromptCtx): Array<{
   const system = sysParts.join('\n\n');
 
   // —— user：本格范式 + 态度 + 场景 + 规格 + 输出格式 ——
+  // 批I1: 定制范式(AV任务书)加注意力锚——用户反馈"注入了但AI没读取",硬要求置前防淹没
   const paradigmText = paradigm.inlinePrompt
-    ? `[定制范式]\n${paradigm.inlinePrompt}`
+    ? `[定制范式·硬要求] 本格是玩家定制的拍摄任务,下方任务书里的题材/场景/全部玩法部位/衣装/规模/玩家自定意见【每一项都必须实际拍进正文】,禁止无视任务书套用通用供奉写法。\n${paradigm.inlinePrompt}`
     : (getParadigmByKey(lorebook, paradigm.worldbookKey)
        ?? `[范式条目] ${paradigm.worldbookKey}（世界书未写,按事件名扩写）`);
 
