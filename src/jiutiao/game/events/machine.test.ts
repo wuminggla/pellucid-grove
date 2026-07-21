@@ -156,7 +156,7 @@ describe('强制事件候选池(避孕套三连:同条件优先级+标签)', () 
 describe('多阶段事件(防跳阶段)', () => {
   // 学校:25/50/75三档
   const school: EventOption = {
-    id: 'school', label: '去大学上课', period: 'day', shape: 'dual',
+    id: 'school', label: '去学校上课', period: 'day', shape: 'dual',
     sfw: { worldbookKey: 'wb_school_sfw' },
     needsContinuity: true,
     stages: [

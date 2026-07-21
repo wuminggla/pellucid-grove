@@ -92,9 +92,9 @@ export const demoEventOptions: Record<string, EventOption> = {
     a4: { martialBase: 2, transferRatio: 0.5, developsPart: '小穴' },
   },
 
-  // 双面型:去大学上课(SFW日常↔NSFW三阶段·防跳阶段)
+  // 双面型:去学校上课(SFW日常↔NSFW三阶段·防跳阶段)
   school: {
-    id: 'school', label: '去大学上课', period: 'day', shape: 'dual',
+    id: 'school', label: '去学校上课', period: 'day', shape: 'dual',
     sfw: { worldbookKey: 'wb_school_sfw' },
     needsContinuity: true,
     stages: [
