@@ -65,6 +65,17 @@ $(() => {
     let host: HTMLElement | null = null;   // 顶层全屏宿主
     let inlineMounted = false;             // 退化路径已挂载标记
 
+    // 楼层内联挂载(退化路径/几何自检回退共用): 560px 硬保底高度+路径徽标
+    function mountInline() {
+      if (inlineMounted) return;
+      local!.innerHTML = '<div style="font:11px monospace;color:#c9a24a;padding:2px 6px;">[pellucid·内联模式]</div>'
+        + '<div id="pellucid-inline" style="min-height:560px;height:70vh;"></div>';
+      const app = createApp(App);
+      app.provide('pellucidCollapse', () => { try { location.reload(); } catch { /* ignore */ } });
+      app.use(createPinia()).mount('#pellucid-inline');
+      inlineMounted = true;
+    }
+
     function open() {
       // 批H5: open() 全程保护——此前只有 mount 段有 try,克隆样式/建宿主任何一步抛错
       // 都表现为"点击无反应"(v1.2.0 手机模拟实测卡第一步)。现在任何异常都直接上屏可截图。
@@ -85,23 +96,14 @@ $(() => {
     function openInner() {
       const topDoc = getTopDoc();
 
-      // 退化路径: 拿不到顶层 → 楼层内直接挂载
-      // 批H7: ①硬性像素高度保底(iframe 高度自适应内容时,纯 fixed/vh 布局会塌成 0 高="前端消失")
-      //       ②顶部路径徽标(诊断用:截图一眼看出走的是内联模式)
+      // 退化路径: 拿不到顶层 → 楼层内直接挂载(560px保底+徽标·批H7)
       if (!topDoc || !topDoc.body) {
         console.warn('[pellucid] path=inline 顶层不可达,楼层内退化挂载');
-        if (!inlineMounted) {
-          local!.innerHTML = '<div style="font:11px monospace;color:#c9a24a;padding:2px 6px;">[pellucid·内联模式]</div>'
-            + '<div id="pellucid-inline" style="min-height:560px;height:70vh;"></div>';
-          const app = createApp(App);
-          app.provide('pellucidCollapse', () => { try { location.reload(); } catch { /* ignore */ } });
-          app.use(createPinia()).mount('#pellucid-inline');
-          inlineMounted = true;
-        }
+        mountInline();
         return;
       }
 
-      if (host) { host.style.display = 'block'; return; }
+      if (host) { host.style.setProperty('display', 'block', 'important'); return; } // display 带 important,重开同强度覆盖
 
       // 1) 克隆本文档(楼层)的所有 <style> 到顶层 <head>（已 scope 到 .pellucid-root，安全）
       // 单条失败不阻塞(某条样式异常≠全部失败)
@@ -113,11 +115,23 @@ $(() => {
         } catch (e) { console.warn('[pellucid] 样式克隆失败(跳过一条)', e); }
       });
 
-      // 2) 全屏宿主
+      // 2) 全屏宿主(批H8·用户实测:path=fullscreen 挂载成功但设备模拟窄视口下不渲染,退出模拟即恢复
+      //    → 判定为酒馆页移动布局 CSS 分支干扰 body 下的 fixed 定位。三层加固,不猜具体规则全躲开):
+      //    ①挂 documentElement 而非 body(躲开 body 上的 transform/contain/选择器规则);
+      //    ②显式 vw/dvh 几何 + 全部内联 !important(内联+!important 压过宿主页任何样式表);
+      //    ③挂载后几何自检,塌陷则回退内联(见 mount 段之后)。
       host = topDoc.createElement('div');
       host.id = 'pellucid-fs';
-      host.style.cssText = 'position:fixed;inset:0;z-index:2147483600;background:#0a0706;overflow:auto;-webkit-overflow-scrolling:touch;';
-      topDoc.body.appendChild(host);
+      const hostCss: [string, string][] = [
+        ['display', 'block'], ['position', 'fixed'], ['top', '0'], ['left', '0'],
+        ['width', '100vw'], ['height', '100vh'], ['height', '100dvh'], // vh 先设,dvh 支持则覆盖
+        ['margin', '0'], ['padding', '0'],
+        ['border', 'none'], ['transform', 'none'], ['opacity', '1'], ['visibility', 'visible'],
+        ['z-index', '2147483600'], ['background', '#0a0706'], ['overflow', 'auto'],
+        ['-webkit-overflow-scrolling', 'touch'],
+      ];
+      for (const [k, v] of hostCss) { try { host.style.setProperty(k, v, 'important'); } catch { /* ignore */ } }
+      (topDoc.documentElement ?? topDoc.body).appendChild(host);
 
       // 批H4·手机: 确保顶层文档允许用户缩放(部分酒馆页 viewport 锁 user-scalable=no →
       // 玩家开"PC页面模式"后无法双指放大)。存在则放开,不存在则补一个标准 viewport。
@@ -137,15 +151,32 @@ $(() => {
       host.appendChild(mountEl);
       try {
         const app = createApp(App);
-        app.provide('pellucidCollapse', () => { if (host) host.style.display = 'none'; });
+        app.provide('pellucidCollapse', () => { if (host) host.style.setProperty('display', 'none', 'important'); });
         app.use(createPinia()).mount(mountEl);
         console.log('[pellucid] path=fullscreen 全屏前端已挂载');
+        // ③几何自检(批H8): 350ms 后量宿主实际渲染盒。被宿主页 CSS 压塌/推出屏 → 拆宿主回退内联。
+        setTimeout(() => {
+          try {
+            if (!host || !host.isConnected) return; // 已被收起/移除则不管
+            const rc = host.getBoundingClientRect();
+            const w = topDoc.defaultView?.innerWidth ?? 0;
+            const h = topDoc.defaultView?.innerHeight ?? 0;
+            const visible = rc.width >= Math.min(280, w * 0.7) && rc.height >= Math.min(280, h * 0.5)
+              && rc.bottom > 0 && rc.right > 0 && rc.top < h && rc.left < w;
+            console.log('[pellucid] 宿主几何自检', JSON.stringify({ x: rc.x, y: rc.y, w: rc.width, h: rc.height, vw: w, vh: h, visible }));
+            if (!visible) {
+              console.warn('[pellucid] 顶层宿主被宿主页样式压制不可见,自动回退楼层内联挂载');
+              host.remove(); host = null;
+              mountInline();
+            }
+          } catch (e) { console.warn('[pellucid] 几何自检异常(忽略)', e); }
+        }, 350);
       } catch (mountErr: any) {
         // 挂载失败绝不留黑屏:把错误直接显示在全屏宿主里(可截图报修),并给退出按钮
         const stack = mountErr?.stack || String(mountErr);
         mountEl.innerHTML = '<div style="padding:24px;color:#e06666;font-family:monospace;font-size:13px;'
           + 'white-space:pre-wrap;line-height:1.7;">[pellucid 挂载失败 · ' + '请把本屏截图发给开发]\n\n' + stack
-          + '\n\n<button onclick="document.getElementById(\'pellucid-fs\').style.display=\'none\'" '
+          + '\n\n<button onclick="document.getElementById(\'pellucid-fs\').style.setProperty(\'display\',\'none\',\'important\')" '
           + 'style="margin-top:12px;padding:8px 18px;cursor:pointer;">关闭返回酒馆</button></div>';
         console.error('[pellucid] mount 失败', mountErr);
       }

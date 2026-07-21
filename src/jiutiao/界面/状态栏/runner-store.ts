@@ -579,7 +579,9 @@ export const useRunnerStore = defineStore('runner', () => {
     const r = advanceToNextDay(
       engine.value, day.value.dayNumber, engine.value.totalSlots ?? TOTAL_SLOTS,
       DEFAULT_FORCED_LEAVE_CHOICE,
-      day.value.dayCount === 0,
+      // 批H8·保底接线修复: "请假日"=白天0格 或 白日供奉霸全日(此前后者不计入,
+      // 连续白日供奉永远攒不满滑动窗口保底→软卡死无出口,保底形同虚设)
+      day.value.dayCount === 0 || !!day.value.forcedLeave,
     );
     engine.value = r.engine;
     day.value = r.day;

@@ -154,10 +154,9 @@ export async function runCurrentSlot(
   if (serveOpt?.isServe) {
     const mult = serveMult;
     // 口交等非插入供奉(noCondom)不耗避孕套 → 最终降欲×0.5(零套成本收益减半)
-    // 批H7: 白日供奉日全部强制格降欲×1.1(用户定·乘在1.5吞吐之上,清偿>晨间累积,打破软卡死循环)
-    const reliefMult = (serveOpt.noCondom ? CONST.无套供奉降欲倍率 : 1)
-      * (state.day.forcedLeave ? CONST.白日供奉降欲倍率 : 1);
-    const sr = settleServe(engine, mult, !serveOpt.noCondom, reliefMult);
+    // 批H8: 白日供奉降欲从设计初期即已落实(本格 isServe→settleServe 当场降欲+1.5吞吐),
+    // H7 临时加的 1.1 倍率按用户指示删除。软卡死出口=滑动窗口保底(见 runner-store 请假窗口接线修复)。
+    const sr = settleServe(engine, mult, !serveOpt.noCondom, serveOpt.noCondom ? CONST.无套供奉降欲倍率 : 1);
     engine = sr.state;
     serve = { condomUsed: sr.condomUsed, condomShort: sr.condomShort, served: sr.served, desireRelieved: sr.desireRelieved };
     // 供奉 → 淫乱忠诚 +（打手被肉体收买）。性欲野兽升级:肉体收买加倍见效(×2)
