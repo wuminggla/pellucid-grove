@@ -14,7 +14,7 @@ import type { ExpandRequest, ExtractRequest } from '../../game/engine/types';
 import type { Lorebook, ChatPreset } from '../../sillytavern/types';
 
 // 批B-2: 注入我们自己的 main+JB(demoPreset·3-5b 为九条会专门写的行为规范:
-//   直白露骨基调/感官四维/按范式补血肉不复读模板/成年基线)。
+//   直白露骨基调/感官四维/按范式补血肉不复读模板)。
 //   此前这里传 EMPTY_PRESET 导致 main/JB 被整体旁路,只剩一句话兜底——
 //   行为规范根本没进 prompt,是"凹人设/复读语料"症状的主根因之一。
 const GAME_PRESET: ChatPreset = demoPreset;
