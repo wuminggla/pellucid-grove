@@ -248,7 +248,7 @@ export function buildAvPrompt(def: AvDefinition): string {
 - 时长烘托: ${def.durationHours}小时 → ${durTier}
 ${outfit ? outfit + '\n' : ''}${cast ? cast + '\n' : ''}${note ? note + '\n' : ''}${custom ? custom + '\n' : ''}
 按 wb_av_first 三阶段写: ①屈辱情景剧前戏(服装+念台词) ②无尽轮奸+限知视角(局部画面+画外音脑补) ③超长时长侧面烘托(快感痕迹+环境光+背景音+地板垃圾).
-铁律: 罗刹瞳禁损伤词;全角色成年(18+)/不沉痛;笔墨重心永远是凛的身体反应,不是男性数量/动作展示.`;
+铁律: 罗刹瞳禁损伤词;不沉痛;笔墨重心永远是凛的身体反应,不是男性数量/动作展示.`;
 }
 
 /** 完整组装成 ParadigmRef(用于注入 EventResolution.paradigm 替代世界书查找) */
