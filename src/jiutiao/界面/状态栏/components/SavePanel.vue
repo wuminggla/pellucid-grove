@@ -63,6 +63,7 @@ function onLoad(target: number | 'auto') {
 
 <style scoped>
 .save-panel { padding: 22px 30px; max-width: 720px; overflow-y: auto; height: 100%; }
+@media (max-width: 820px) { .save-panel { padding: 14px 12px; height: auto; } } /* 批H4 */
 .sp-title { font-family: var(--brush); font-size: 30px; color: var(--gold-hi); letter-spacing: 8px; margin-bottom: 6px; }
 .sp-lead { font-size: 13px; color: var(--text-dim); line-height: 1.7; margin-bottom: 18px; }
 .slot { border: 1px solid var(--line); border-radius: 10px; background: linear-gradient(180deg, var(--panel), var(--panel-2)); padding: 14px 18px; margin-bottom: 12px; }

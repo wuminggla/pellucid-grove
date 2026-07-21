@@ -210,6 +210,13 @@ function onCell(c: Cell) {
 
 <style scoped>
 .turf { padding: 18px 24px; overflow-y: auto; height: 100%; }
+/* 批H4·手机重排: 地图 5列→3列(每格更大可点);阶段tab横滑;收边距 */
+@media (max-width: 820px) {
+  .turf { padding: 12px 10px; height: auto; }
+  .grid { grid-template-columns: repeat(3, 1fr); gap: 7px; }
+  .stage-tabs { overflow-x: auto; flex-wrap: nowrap; -webkit-overflow-scrolling: touch; padding-bottom: 4px; }
+  .stage-tabs .tab { flex: none; }
+}
 .turf.selecting { background: radial-gradient(circle at 50% 0, rgba(201,162,74,.06), transparent 60%); }
 .turf-head { display: flex; align-items: baseline; gap: 16px; margin-bottom: 6px; }
 .t-title { font-family: var(--brush); font-size: 28px; color: var(--gold-hi); }

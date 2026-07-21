@@ -85,8 +85,20 @@ $(() => {
       // 2) 全屏宿主
       host = topDoc.createElement('div');
       host.id = 'pellucid-fs';
-      host.style.cssText = 'position:fixed;inset:0;z-index:2147483600;background:#0a0706;';
+      host.style.cssText = 'position:fixed;inset:0;z-index:2147483600;background:#0a0706;overflow:auto;-webkit-overflow-scrolling:touch;';
       topDoc.body.appendChild(host);
+
+      // 批H4·手机: 确保顶层文档允许用户缩放(部分酒馆页 viewport 锁 user-scalable=no →
+      // 玩家开"PC页面模式"后无法双指放大)。存在则放开,不存在则补一个标准 viewport。
+      try {
+        let vp = topDoc.querySelector('meta[name="viewport"]') as HTMLMetaElement | null;
+        if (!vp) {
+          vp = topDoc.createElement('meta');
+          vp.name = 'viewport';
+          topDoc.head?.appendChild(vp);
+        }
+        vp.content = 'width=device-width, initial-scale=1, maximum-scale=5, user-scalable=yes';
+      } catch { /* viewport 调整失败不阻塞挂载 */ }
 
       // 3) 挂载 App（JS 仍在楼层 iframe 上下文 → 酒馆全局可用）。
       //    收起功能不再单独做按钮，而是 provide 给 App，由左栏「退出」按钮调用（隐藏宿主回酒馆，状态保留）。

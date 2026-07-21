@@ -70,6 +70,7 @@ function onSaveArch(p: ProseEntry) {
 
 <style scoped>
 .archive { padding: 22px 30px; max-width: 820px; overflow-y: auto; height: 100%; }
+@media (max-width: 820px) { .archive { padding: 14px 12px; height: auto; } } /* 批H4 */
 .ar-title { font-family: var(--brush); font-size: 30px; color: var(--gold-hi); letter-spacing: 8px; margin-bottom: 6px; }
 .ar-lead { font-size: 13px; color: var(--text-dim); line-height: 1.7; margin-bottom: 16px; }
 .ar-sec { font-size: 12px; color: var(--gold-dim); letter-spacing: 3px; border-bottom: 1px dashed var(--line); padding-bottom: 5px; margin: 18px 0 10px; }

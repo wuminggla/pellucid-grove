@@ -41,13 +41,23 @@ const items = [
   display: flex; flex-direction: column; gap: 9px;
   box-shadow: inset -4px 0 10px rgba(0,0,0,.4);
 }
-/* 批H3·手机适配: 窄屏导航变横向滚动条 */
+/* 批H4·手机重排: 导航=底部固定tab栏(游戏式·不占主流布局·不再被挤压) */
 @media (max-width: 820px) {
-  .nav { flex-direction: row; overflow-x: auto; padding: 8px 6px; gap: 6px; border-right: none; border-bottom: 2px solid #000; }
-  .nav .item { flex: none; margin: 0; padding: 8px 12px; font-size: 14px; letter-spacing: 2px; gap: 6px; }
-  .nav .item .icn { width: auto; font-size: 14px; }
+  .nav {
+    position: fixed; left: 0; right: 0; bottom: 0; z-index: 40;
+    flex-direction: row; overflow-x: auto; -webkit-overflow-scrolling: touch;
+    padding: 6px 4px calc(6px + env(safe-area-inset-bottom)); gap: 4px;
+    border-right: none; border-top: 2px solid #000;
+    box-shadow: inset 0 4px 10px rgba(0,0,0,.4), 0 -4px 16px rgba(0,0,0,.6);
+  }
+  .nav .item {
+    flex: 1 0 auto; margin: 0; padding: 9px 10px; min-width: 58px;
+    font-size: 13px; letter-spacing: 1px; gap: 4px;
+    flex-direction: column; text-align: center; justify-content: center;
+  }
+  .nav .item .icn { width: auto; font-size: 16px; }
   .nav .spacer { display: none; }
-  .nav .save, .nav .exit { flex: none; margin: 0; padding: 8px 12px; font-size: 12px; }
+  .nav .save, .nav .exit { flex: 1 0 auto; margin: 0; padding: 9px 10px; min-width: 52px; font-size: 12px; }
 }
 /* 镶嵌进木栏的按钮（凹槽内阴影·不悬浮） */
 .item {

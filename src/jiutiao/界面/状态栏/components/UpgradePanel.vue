@@ -211,6 +211,13 @@ function unlockNodeName(p: SkillPage): string {
 .locked-page b { color: var(--gold); }
 
 .canvas-wrap { flex: 1; min-height: 120px; overflow: auto; cursor: grab; border: 1px dashed rgba(201,162,74,.14); border-radius: 8px; }
+/* 批H4·手机重排: 树画布保证可视高度(拖拽平移本就支持触屏);详情卡放宽 */
+@media (max-width: 820px) {
+  .canvas-wrap { min-height: 42dvh; }
+  .detail { max-height: 38vh; }
+  .pg-tabs { overflow-x: auto; flex-wrap: nowrap; -webkit-overflow-scrolling: touch; padding-bottom: 4px; }
+  .pg-tabs > * { flex: none; }
+}
 .canvas-wrap:active { cursor: grabbing; }
 .canvas { position: relative; flex: none; }
 .links { position: absolute; left: 0; top: 0; pointer-events: none; }

@@ -73,6 +73,7 @@ const storyRest = story.slice(1);
 .tut-skip { position: absolute; top: 20px; right: 26px; font-family: var(--serif); background: transparent; border: 1px solid var(--line); color: var(--text-dim); border-radius: 6px; padding: 7px 16px; font-size: 13px; cursor: pointer; z-index: 2; }
 .tut-skip:hover { color: var(--text); }
 .tut-page { width: min(760px, 92vw); max-height: 88vh; display: flex; flex-direction: column; }
+@media (max-width: 820px) { .tut-page { max-height: 92dvh; } .tut-h { font-size: 26px; letter-spacing: 6px; } .plaque-text { font-size: 38px; letter-spacing: 8px; } .plaque-frame { padding: 30px 34px; } } /* 批H4 */
 .tut-h { font-family: var(--brush); font-size: 34px; color: var(--gold-hi); letter-spacing: 10px; text-align: center; margin-bottom: 22px; flex: none; }
 .tut-body { overflow-y: auto; min-height: 0; padding: 0 8px; }
 /* 开场白滚动条(批G3·内容超页可滚): 明确高度上限,超出滚动 */

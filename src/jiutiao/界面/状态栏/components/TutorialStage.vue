@@ -218,6 +218,7 @@ async function finishNight() {
 .stage-overlay.reveal { background: rgba(8, 5, 4, .38); align-items: center; transition: background .5s; }
 .end-card { width: min(560px, 82vw); max-height: 82vh; overflow-y: auto; border: 1px solid var(--gold-dim); border-radius: 14px; background: linear-gradient(180deg, rgba(20,14,10,.97), rgba(12,8,6,.97)); padding: 22px 26px; box-shadow: 0 18px 60px rgba(0,0,0,.8); }
 .stage-inner { width: min(860px, 94vw); padding: 26px 0 40px; display: flex; flex-direction: column; gap: 16px; }
+@media (max-width: 820px) { .stage-inner { padding: 12px 0 30px; gap: 10px; } .guide-banner { padding: 12px 14px; } } /* 批H4 */
 .guide-banner { border: 1px solid var(--gold-dim); border-radius: 12px; background: linear-gradient(180deg, rgba(201,162,74,.08), var(--panel)); padding: 16px 22px; }
 .guide-banner.pulse { animation: bannerGlow 2.2s ease-in-out infinite; }
 @keyframes bannerGlow { 0%, 100% { box-shadow: 0 0 0 rgba(201,162,74,0); } 50% { box-shadow: 0 0 18px rgba(201,162,74,.25); } }

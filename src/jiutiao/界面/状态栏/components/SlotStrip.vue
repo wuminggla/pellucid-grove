@@ -48,6 +48,11 @@ const cells = computed(() => [
 
 <style scoped>
 .strip { display: flex; gap: 4px; }
+/* 批H4·手机重排: 格子不再均分挤压——固定宽度+横向滑动(12格也能看清每格) */
+@media (max-width: 820px) {
+  .strip { overflow-x: auto; -webkit-overflow-scrolling: touch; padding-bottom: 4px; }
+  .strip .cell { flex: 0 0 92px; min-height: 64px; }
+}
 .cell {
   position: relative; flex: 1 1 0; min-width: 0; cursor: pointer; text-align: center;
   border: 1px solid var(--line); border-radius: 6px; padding: 8px 6px; min-height: 58px;

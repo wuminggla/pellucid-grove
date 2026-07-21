@@ -28,9 +28,9 @@ let uid = 200, idx = 0;
 for (const e of demoLorebook.entries) {
   const title = titleOf(e);
   const safe = title.replace(/[\/:*?"<>|]/g, '_').slice(0, 50);
-  const file = `世界书展示\${String(idx).padStart(3, '0')}-${safe}.txt`;
-  fs.writeFileSync(path.join(OUT_DIR, `${String(idx).padStart(3, '0')}-${safe}.txt`), e.content ?? '');
-  manifest[`${String(idx).padStart(3, '0')}-${safe}`] = {
+  const base = String(idx).padStart(3, '0') + '-' + safe;
+  fs.writeFileSync(path.join(OUT_DIR, base + '.txt'), e.content ?? '');
+  manifest[base] = {
     abstract: '',
     uid: uid++,
     // 展示条目: 全部禁用(enabled=false)——玩家可翻阅内容,酒馆永不注入(游戏走generateRaw白名单本就不读,双保险)
@@ -39,7 +39,7 @@ for (const e of demoLorebook.entries) {
     position: { type: 'before_character_definition', order: 100 + idx },
     display_index: idx,
     keywords: e.keys,
-    path: file,
+    path: '世界书展示\\' + base + '.txt',
   };
   idx++;
 }

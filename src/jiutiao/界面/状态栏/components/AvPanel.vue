@@ -148,6 +148,7 @@ function onShoot() {
 
 <style scoped>
 .av { padding: 18px 26px; overflow-y: auto; height: 100%; }
+@media (max-width: 820px) { .av { padding: 12px 10px; height: auto; } } /* 批H4 */
 .av-head { display: flex; align-items: baseline; gap: 16px; margin-bottom: 12px; }
 .a-title { font-family: var(--brush); font-size: 28px; color: var(--gold-hi); }
 .a-stats { margin-left: auto; display: flex; gap: 14px; font-size: 13px; color: var(--text-dim); }

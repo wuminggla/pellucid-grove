@@ -194,10 +194,10 @@
         </div>
       </div>
 
-      <!-- 大小姐页: 定位=立绘系统完全体宿主(换装画廊+场景背景+NSFW插图回看·发布后迭代) -->
-      <div v-else-if="view === '大小姐'" class="placeholder">
-        <div class="ph-t">大小姐</div>
-        <div class="ph-s">此页预留给「立绘画廊」——换装立绘 / 场景背景 / 插图回看（发布后迭代）。<br>当前立绘随时段与行动自动换装（见右栏），详细状态见右栏「秘密状态」。</div>
+      <!-- 大小姐页: 定位=立绘系统完全体宿主(发布后迭代)。批H4: 手机上=RinPanel 的全屏家(桌面右栏常驻,此页为占位) -->
+      <div v-else-if="view === '大小姐'" class="placeholder rin-page">
+        <RinPanel class="rin-inline" :engine="r.engine" />
+        <div class="ph-s desk-only">桌面端右栏已常驻显示大小姐状态；此页预留给「立绘画廊」（发布后迭代）。</div>
       </div>
 
       <!-- ===== 其它页签：占位 ===== -->
@@ -207,7 +207,7 @@
       </div>
     </main>
 
-    <RinPanel :engine="r.engine" />
+    <RinPanel class="rin-side" :engine="r.engine" />
 
     <Transition name="fade">
       <div v-if="saveToast" class="save-toast">{{ saveToast }}</div>
@@ -474,13 +474,23 @@ function confirmReset() {
 
 <style scoped>
 .app { position: relative; z-index: 1; display: grid; grid-template-columns: 212px 1fr 340px; grid-template-rows: auto 1fr; height: 100vh; }
-/* 批H3·手机适配: ≤820px 单列纵排(刊头→导航横条→主区→大小姐栏),整页可滚 */
+/* ═══ 批H4·手机重排(≤820px·按手机屏幕重新布局,非挤压) ═══
+   结构: 刊头(固定顶) → 主区(占满·可滚) → NavRail(固定底部tab栏)。
+   RinPanel 不再挤在主流里——切到「大小姐」页全屏显示(App模板层控制)。 */
 @media (max-width: 820px) {
-  .app { display: flex; flex-direction: column; height: 100dvh; overflow-y: auto; }
+  .app { display: flex; flex-direction: column; height: 100dvh; overflow: hidden; }
   .app > :deep(header) { flex: none; }
-  .stage { flex: none; min-height: 62dvh; overflow: visible; }
-  .action-view { padding: 12px 12px 0; }
-  .settings, .placeholder { padding: 14px; }
+  /* 主区占满剩余高度,自身滚动;给底部tab栏留出空间 */
+  .stage { flex: 1; min-height: 0; overflow-y: auto; padding-bottom: 64px; }
+  .action-view { padding: 10px 10px 0; height: auto; min-height: 100%; }
+  .av-detail { max-height: none; overflow: visible; }
+  /* 底部操作条: 纵排(工具开关一行+状态提示+主按钮全宽) */
+  .av-bottom { flex-direction: column; gap: 8px; padding: 10px 0 12px; }
+  .status-strip { max-height: 64px; }
+  .settings, .placeholder { padding: 12px; }
+  .set-box { max-width: none; }
+  /* 结局/遮罩层适配 */
+  .ending-box { width: 92vw; padding: 24px 18px; }
 }
 .app > :deep(header) { grid-column: 1 / 4; }
 .stage { overflow: hidden; display: flex; flex-direction: column; min-height: 0; }
@@ -520,6 +530,8 @@ function confirmReset() {
 .hist-btn:hover { color: var(--gold-hi); border-color: var(--gold-dim); }
 .hist-btn .hb-n { margin-left: 6px; font-size: 10px; color: var(--gold-dim); }
 .notify-history { border: 1px solid var(--line); border-radius: 9px; background: rgba(10,7,6,.7); padding: 10px 14px; margin-bottom: 8px; max-height: 240px; overflow-y: auto; }
+/* 批H4: 手机上历史面板不再受底栏挤压——限高换算视口 */
+@media (max-width: 820px) { .notify-history { max-height: 34dvh; } }
 .nh-head { display: flex; align-items: center; justify-content: space-between; font-size: 12px; color: var(--gold); letter-spacing: 1px; margin-bottom: 8px; border-bottom: 1px dashed var(--line); padding-bottom: 6px; }
 .nh-close { font-family: var(--serif); font-size: 11px; color: var(--text-dim); background: transparent; border: none; cursor: pointer; }
 .nh-empty { font-size: 12px; color: var(--text-dim); padding: 8px 0; }
@@ -566,6 +578,15 @@ function confirmReset() {
 .dbg-btns button { font-family: var(--serif); background: rgba(210,74,106,.10); color: var(--rose-hi); border: 1px solid var(--rose); border-radius: 6px; padding: 9px 14px; font-size: 13px; cursor: pointer; }
 .dbg-btns button:hover { background: rgba(210,74,106,.22); }
 .placeholder { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px; }
+/* 大小姐页(批H4): 手机=RinPanel全屏家;桌面=占位说明(右栏已常驻) */
+.placeholder.rin-page { padding: 0; display: block; }
+.rin-inline { display: none; }
+.desk-only { padding: 20px; text-align: center; }
+@media (max-width: 820px) {
+  .rin-side { display: none; }                      /* 右栏在手机隐藏(不再挤压主流) */
+  .rin-inline { display: flex; min-height: 100%; }  /* 大小姐页内嵌全屏版 */
+  .desk-only { display: none; }
+}
 .ph-t { font-family: var(--brush); font-size: 48px; color: var(--gold-dim); }
 .ph-s { font-size: 13px; color: var(--text-dim); letter-spacing: 2px; }
 
