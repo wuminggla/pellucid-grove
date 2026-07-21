@@ -177,7 +177,9 @@ export function createTavernAi(opts: TavernAiOpts): AiPort {
       const inject = buildGameInject(req, opts.lorebook, memoryText);
       const ordered: (PlaceholderPrompt | RolePrompt)[] = [
         ...(includeTavernPreset ? presetSystemBlocks() : []), // 酒馆预设块(默认开·设置页可关)
-        { role: 'system', content: inject },             // 任务框架+强指令+简报+main/JB+世界书+范式+态度+状态+输出格式
+        // 批H6: 注入块用 user 角色。此前全 system → Gemini 系端点把 system 全转 systemInstruction,
+        // contents 数组为空被拒("contents is required"/INVALID_REQUEST)。OpenAI 系两种角色皆可。
+        { role: 'user', content: inject },               // 任务框架+强指令+简报+main/JB+世界书+范式+态度+状态+输出格式
         // 不放 'chat_history' → 不发楼层历史
       ];
       const raw = await generateRaw({
@@ -200,7 +202,7 @@ export function createTavernAi(opts: TavernAiOpts): AiPort {
       const prompt = req.kind === 'event' ? eventSummaryPrompt(req.text, req.meta)
         : req.kind === 'period' ? periodSummaryPrompt(req.text, req.meta)
         : mergeSummaryPrompt(req.text);
-      const sumPrompts = [{ role: 'system' as const, content: prompt }];
+      const sumPrompts = [{ role: 'user' as const, content: prompt }]; // 批H6: user角色·Gemini系兼容
       const raw = await withTimeout(generateRaw({
         ordered_prompts: sumPrompts,
         should_stream: false,
@@ -217,7 +219,7 @@ export function createTavernAi(opts: TavernAiOpts): AiPort {
 
     async extract(req: ExtractRequest): Promise<Record<string, unknown>> {
       const inject = buildExtractInject(req);
-      const exPrompts = [{ role: 'system' as const, content: inject }];
+      const exPrompts = [{ role: 'user' as const, content: inject }]; // 批H6: user角色·Gemini系兼容
       const raw = await generateRaw({
         ordered_prompts: exPrompts,
         should_stream: false,
