@@ -477,21 +477,6 @@ function confirmReset() {
 /* ═══ 批H4·手机重排(≤820px·按手机屏幕重新布局,非挤压) ═══
    结构: 刊头(固定顶) → 主区(占满·可滚) → NavRail(固定底部tab栏)。
    RinPanel 不再挤在主流里——切到「大小姐」页全屏显示(App模板层控制)。 */
-@media (max-width: 820px) {
-  .app { display: flex; flex-direction: column; height: 100dvh; overflow: hidden; }
-  .app > :deep(header) { flex: none; }
-  /* 主区占满剩余高度,自身滚动(批H8: 导航改布局钉底,不再需要64px fixed留白) */
-  .stage { flex: 1; min-height: 0; overflow-y: auto; padding-bottom: 12px; }
-  .action-view { padding: 10px 10px 0; height: auto; min-height: 100%; }
-  .av-detail { max-height: none; overflow: visible; }
-  /* 底部操作条: 纵排(工具开关一行+状态提示+主按钮全宽) */
-  .av-bottom { flex-direction: column; gap: 8px; padding: 10px 0 12px; }
-  .status-strip { max-height: 64px; }
-  .settings, .placeholder { padding: 12px; }
-  .set-box { max-width: none; }
-  /* 结局/遮罩层适配 */
-  .ending-box { width: 92vw; padding: 24px 18px; }
-}
 .app > :deep(header) { grid-column: 1 / 4; }
 .stage { overflow: hidden; display: flex; flex-direction: column; min-height: 0; }
 
@@ -590,12 +575,12 @@ function confirmReset() {
 .ph-t { font-family: var(--brush); font-size: 48px; color: var(--gold-dim); }
 .ph-s { font-size: 13px; color: var(--text-dim); letter-spacing: 2px; }
 
-.save-toast { position: fixed; bottom: 26px; left: 50%; transform: translateX(-50%); z-index: 210;
+.save-toast { position: absolute; bottom: 26px; left: 50%; transform: translateX(-50%); z-index: 210; /* 批H8.2: fixed→absolute */
   background: rgba(20,16,14,.95); border: 1px solid var(--gold-dim); color: var(--gold-hi);
   padding: 10px 20px; border-radius: 8px; font-size: 14px; box-shadow: 0 8px 26px rgba(0,0,0,.6); }
 .fade-enter-active, .fade-leave-active { transition: opacity .3s ease, transform .3s ease; }
 .fade-enter-from, .fade-leave-to { opacity: 0; transform: translateX(-50%) translateY(8px); }
-.ending-overlay { position: fixed; inset: 0; z-index: 240; display: flex; align-items: center; justify-content: center;
+.ending-overlay { position: absolute; inset: 0; z-index: 240; display: flex; align-items: center; justify-content: center; /* 批H8.2: fixed→absolute */
   background: radial-gradient(circle at 50% 40%, rgba(40,20,12,.92), rgba(6,4,4,.97)); }
 .ending-overlay.fall { background: radial-gradient(circle at 50% 40%, rgba(48,16,28,.93), rgba(6,4,4,.97)); }
 .ending-overlay.fail { background: radial-gradient(circle at 50% 40%, rgba(40,8,10,.94), rgba(4,3,3,.98)); }
@@ -608,10 +593,31 @@ function confirmReset() {
 .ed-gen { font-size: 12px; color: var(--gold-dim); margin: -18px 0 22px; animation: pulse 1.6s ease-in-out infinite; }
 @keyframes pulse { 0%, 100% { opacity: .5; } 50% { opacity: 1; } }
 .ed-btns { display: flex; gap: 14px; justify-content: center; }
-.gen-overlay { position: fixed; inset: 0; background: rgba(10,6,8,.72); display: flex; align-items: center; justify-content: center; z-index: 200; }
+.gen-overlay { position: absolute; inset: 0; background: rgba(10,6,8,.72); display: flex; align-items: center; justify-content: center; z-index: 200; } /* 批H8.2: fixed→absolute */
 .gen-box { text-align: center; }
 .gen-spinner { width: 36px; height: 36px; margin: 0 auto 14px; border: 3px solid #3d2828; border-top-color: var(--gold-hi); border-radius: 50%; animation: spin .8s linear infinite; }
 @keyframes spin { to { transform: rotate(360deg); } }
 .gen-text { font-family: var(--brush); font-size: 22px; color: var(--gold-hi); letter-spacing: 2px; }
 .gen-sub { font-size: 12px; color: var(--text-dim); margin-top: 6px; }
+
+/* ═══ 手机重排(≤820px)·批H8.2: 此块必须在【所有基础规则之后】——
+   同特异性选择器后者胜,原先写在文件中部导致 .stage/.action-view 等移动覆盖全成死规则
+   (基础 .stage{overflow:hidden} 反杀 overflow-y:auto → 大小姐页无法滚动的根因)。 ═══ */
+@media (max-width: 820px) {
+  .app { display: flex; flex-direction: column; height: 100dvh; overflow: hidden; }
+  .app > :deep(header) { flex: none; }
+  /* 主区占满剩余高度,自身滚动(导航已布局钉底,不需 fixed 留白) */
+  .stage { flex: 1; min-height: 0; overflow-y: auto; padding-bottom: 12px; }
+  .action-view { padding: 10px 10px 0; height: auto; min-height: 100%; }
+  .av-detail { max-height: none; overflow: visible; flex: none; }
+  /* 底部操作条: 纵排(工具开关一行+状态提示+主按钮全宽) */
+  .av-bottom { flex-direction: column; gap: 8px; padding: 10px 0 12px; }
+  .status-strip { max-height: 64px; }
+  .settings, .placeholder { padding: 12px; }
+  .settings { overflow-y: visible; }
+  .set-box { max-width: none; }
+  /* 结局/遮罩层适配 */
+  .ending-box { width: 92vw; padding: 24px 18px; }
+  .placeholder.rin-page { padding: 0; }
+}
 </style>

@@ -70,7 +70,8 @@ const storyRest = story.slice(1);
 
 <style scoped>
 /* 批H7: overflow:auto + 内容 margin:auto = 溢出小视口时不裁切两侧(经典 flex-center 裁切修复) */
-.tut-overlay { position: fixed; inset: 0; z-index: 90; background: rgba(8, 5, 4, .96); display: flex; overflow: auto; }
+/* 批H8.2: fixed→absolute(锚.app全屏盒)。窄屏宿主环境下深层fixed不渲染(导航同病已实证),absolute零视口依赖 */
+.tut-overlay { position: absolute; inset: 0; z-index: 90; background: rgba(8, 5, 4, .96); display: flex; overflow: auto; }
 .tut-page { margin: auto; }
 .tut-skip { position: absolute; top: 20px; right: 26px; font-family: var(--serif); background: transparent; border: 1px solid var(--line); color: var(--text-dim); border-radius: 6px; padding: 7px 16px; font-size: 13px; cursor: pointer; z-index: 2; }
 .tut-skip:hover { color: var(--text); }

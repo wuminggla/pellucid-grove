@@ -294,7 +294,7 @@ function onCell(c: Cell) {
 @keyframes pickpulse { 0%,100% { transform: translateY(0); } 50% { transform: translateY(-2px); } }
 .turf.selecting .region:not(.pick) { opacity: .4; }
 
-.pop-mask { position: fixed; inset: 0; background: rgba(8,5,6,.6); display: flex; align-items: center; justify-content: center; z-index: 50; }
+.pop-mask { position: absolute; inset: 0; background: rgba(8,5,6,.6); display: flex; align-items: center; justify-content: center; z-index: 50; } /* 批H8.2: fixed→absolute(锚最近定位祖先,窄屏fixed不渲染对策) */
 .popup { width: 340px; background: linear-gradient(180deg, var(--panel), var(--panel-2)); border: 1px solid var(--gold-dim); border-radius: 12px; padding: 18px 20px; box-shadow: 0 20px 60px rgba(0,0,0,.7); }
 .p-head { display: flex; align-items: center; gap: 10px; }
 .p-name { font-family: var(--brush); font-size: 22px; color: var(--gold-hi); }

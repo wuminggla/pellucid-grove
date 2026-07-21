@@ -251,7 +251,8 @@ async function finishNight() {
 </script>
 
 <style scoped>
-.stage-overlay { position: fixed; inset: 0; z-index: 88; background: rgba(8, 5, 4, .97); display: flex; align-items: flex-start; justify-content: center; overflow-y: auto; }
+/* 批H8.2: fixed→absolute(锚.app全屏盒·窄屏fixed不渲染对策) */
+.stage-overlay { position: absolute; inset: 0; z-index: 88; background: rgba(8, 5, 4, .97); display: flex; align-items: flex-start; justify-content: center; overflow-y: auto; }
 /* 收尾透视(批G4#3): 遮罩变淡·底下第1天真实界面可见·说明卡收窄居中不挡左右 */
 .stage-overlay.reveal { background: rgba(8, 5, 4, .38); align-items: center; transition: background .5s; }
 .end-card { width: min(560px, 82vw); max-height: 82vh; overflow-y: auto; border: 1px solid var(--gold-dim); border-radius: 14px; background: linear-gradient(180deg, rgba(20,14,10,.97), rgba(12,8,6,.97)); padding: 22px 26px; box-shadow: 0 18px 60px rgba(0,0,0,.8); }
@@ -289,6 +290,6 @@ async function finishNight() {
 .tg.on { color: var(--gold-hi); border-color: var(--gold-dim); }
 .main-btn { font-family: var(--serif); background: linear-gradient(180deg, var(--gold-hi), var(--gold)); color: #1a120a; border: none; border-radius: 8px; padding: 13px 38px; font-size: 15px; font-weight: 700; letter-spacing: 3px; cursor: pointer; box-shadow: 0 6px 18px rgba(201,162,74,.3); }
 .main-btn:disabled { opacity: .5; cursor: wait; }
-.gen-mask { position: fixed; inset: 0; z-index: 92; background: rgba(0,0,0,.6); display: flex; align-items: center; justify-content: center; }
+.gen-mask { position: absolute; inset: 0; z-index: 92; background: rgba(0,0,0,.6); display: flex; align-items: center; justify-content: center; }
 .gen-txt { font-family: var(--brush); font-size: 26px; color: var(--gold-hi); letter-spacing: 6px; animation: hintPulse 1.6s ease-in-out infinite; }
 </style>

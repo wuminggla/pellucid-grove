@@ -80,7 +80,7 @@ function onLoad(target: number | 'auto') {
 .sl-btns { display: flex; gap: 10px; margin-top: 10px; }
 .primary-sm { font-family: var(--serif); background: linear-gradient(180deg, var(--gold-hi), var(--gold)); color: #1a120a; border: none; border-radius: 6px; padding: 7px 18px; font-size: 13px; font-weight: 700; cursor: pointer; }
 .ghost-btn { font-family: var(--serif); background: transparent; border: 1px solid var(--line); color: var(--text-dim); border-radius: 6px; padding: 7px 16px; font-size: 13px; cursor: pointer; }
-.sp-toast { position: fixed; bottom: 30px; left: 50%; transform: translateX(-50%); background: var(--panel); border: 1px solid var(--gold-dim); color: var(--gold-hi); padding: 10px 22px; border-radius: 8px; font-size: 13px; z-index: 50; }
+.sp-toast { position: absolute; bottom: 30px; left: 50%; transform: translateX(-50%); /* 批H8.2: fixed→absolute */ background: var(--panel); border: 1px solid var(--gold-dim); color: var(--gold-hi); padding: 10px 22px; border-radius: 8px; font-size: 13px; z-index: 50; }
 .fade-enter-active, .fade-leave-active { transition: opacity .3s; }
 .fade-enter-from, .fade-leave-to { opacity: 0; }
 </style>
