@@ -111,6 +111,10 @@
             <input type="checkbox" v-model="includePreset" @change="onPresetToggle" />
             <span><b>附加酒馆预设文风块</b>（默认开）：把你酒馆当前启用预设里的 main/nsfw/jailbreak 块一并发给 AI，借用其文风与过审基调。若怀疑它干扰生成可关闭。</span>
           </label>
+          <label class="srow toggle-row">
+            <input type="checkbox" v-model="malePovOn" @change="onPovToggle" />
+            <span><b>男性视角模式</b>（默认关）：开启后，正文以「九条会打手小头目」的男性视角展开——主人公名字取你在酒馆里的用户名（{{ povName }}），他亲身在场、可与大小姐直接互动。关闭则为默认视角（第三人称跟随凛）。改动下一格生成起生效。</span>
+          </label>
         </div>
         <div class="set-box">
           <h3>前文记忆 · 注入设置</h3>
@@ -248,6 +252,7 @@ import { useRunnerStore } from './runner-store';
 import { dumpPromptAudit, getIncludeTavernPreset, setIncludeTavernPreset } from './tavern-ai';
 import { getMemoryConfig, setMemoryConfig, PROSE_MODE_LABELS } from './memory-settings';
 import { getExtractApiConfig, setExtractApiConfig, fetchModelList } from './api-settings';
+import { getMalePov, setMalePov, getUserName } from './pov-settings';
 import { BUILD_VERSION, DEBUG_BUILD } from './version';
 import Masthead from './components/Masthead.vue';
 import NavRail from './components/NavRail.vue';
@@ -400,6 +405,11 @@ function reopenTutorial() { tutManual.value = true; }
 const includePreset = ref(getIncludeTavernPreset());
 function onPresetToggle() { setIncludeTavernPreset(includePreset.value); }
 
+// 男性视角模式(批H2·默认关): 正文以打手小头目({{user}}名)POV展开
+const malePovOn = ref(getMalePov());
+const povName = ref(getUserName());
+function onPovToggle() { setMalePov(malePovOn.value); povName.value = getUserName(); }
+
 // 前文记忆注入设置(批B6):档位/窗口/大总结开关。生成层纪律性,设置只管注入→改动立即生效。
 const memCfg = ref(getMemoryConfig());
 function onMemChange() { setMemoryConfig({ ...memCfg.value }); }
@@ -464,6 +474,14 @@ function confirmReset() {
 
 <style scoped>
 .app { position: relative; z-index: 1; display: grid; grid-template-columns: 212px 1fr 340px; grid-template-rows: auto 1fr; height: 100vh; }
+/* 批H3·手机适配: ≤820px 单列纵排(刊头→导航横条→主区→大小姐栏),整页可滚 */
+@media (max-width: 820px) {
+  .app { display: flex; flex-direction: column; height: 100dvh; overflow-y: auto; }
+  .app > :deep(header) { flex: none; }
+  .stage { flex: none; min-height: 62dvh; overflow: visible; }
+  .action-view { padding: 12px 12px 0; }
+  .settings, .placeholder { padding: 14px; }
+}
 .app > :deep(header) { grid-column: 1 / 4; }
 .stage { overflow: hidden; display: flex; flex-direction: column; min-height: 0; }
 

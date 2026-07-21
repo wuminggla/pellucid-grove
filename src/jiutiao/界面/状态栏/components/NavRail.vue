@@ -41,6 +41,14 @@ const items = [
   display: flex; flex-direction: column; gap: 9px;
   box-shadow: inset -4px 0 10px rgba(0,0,0,.4);
 }
+/* 批H3·手机适配: 窄屏导航变横向滚动条 */
+@media (max-width: 820px) {
+  .nav { flex-direction: row; overflow-x: auto; padding: 8px 6px; gap: 6px; border-right: none; border-bottom: 2px solid #000; }
+  .nav .item { flex: none; margin: 0; padding: 8px 12px; font-size: 14px; letter-spacing: 2px; gap: 6px; }
+  .nav .item .icn { width: auto; font-size: 14px; }
+  .nav .spacer { display: none; }
+  .nav .save, .nav .exit { flex: none; margin: 0; padding: 8px 12px; font-size: 12px; }
+}
 /* 镶嵌进木栏的按钮（凹槽内阴影·不悬浮） */
 .item {
   display: flex; align-items: center; gap: 13px; margin: 0 16px; padding: 12px 15px;

@@ -9,6 +9,7 @@
 
 import { buildGamePrompt, buildExtractMessages } from '../../game/engine/prompt';
 import { demoPreset } from '../../game/worldbook/demo';
+import { getMalePov, buildMalePovDirective } from './pov-settings';
 import type { ExpandRequest, ExtractRequest } from '../../game/engine/types';
 import type { Lorebook, ChatPreset } from '../../sillytavern/types';
 
@@ -45,7 +46,9 @@ export function buildGameInject(req: ExpandRequest, lorebook: Lorebook, memoryTe
     '【最高指令·游戏事件生成】\n'
     + '你在为一个文字游戏生成【本格事件】的正文。遵守:\n'
     + '1. 命中范式:严格演下方【本格行动】指定的事件,严禁写成与之无关的其它场景(如把"口交侍奉"写成"便利店采购")。\n'
-    + '2. 【叙事视角·硬约束】正文用第三人称,镜头始终跟随九条凛,以"凛/她"称呼主角。玩家角色=九条会会长,正文中只能以"会长"指代,且仅在事件需要时出场。【严禁】用"你"称呼任何角色、严禁第二人称叙事、严禁把玩家写成正文的"你"。\n'
+    + (getMalePov()
+      ? buildMalePovDirective()
+      : '2. 【叙事视角·硬约束】正文用第三人称,镜头始终跟随九条凛,以"凛/她"称呼主角。玩家角色=九条会会长,正文中只能以"会长"指代,且仅在事件需要时出场。【严禁】用"你"称呼任何角色、严禁第二人称叙事、严禁把玩家写成正文的"你"。\n')
     + '3. 衔接而非重置:必须承接下方【前情】的当前局面自然往下写——优先衔接【前文原文】的结尾状态,其次参考【近期事件总结】。若前情显示凛已在某场景(如已在供奉现场),就从那个状态继续推进,严禁把场景退回更早的起点(如再写"她刚从外面回家/刚被叫来/刚进门")。无前情时(开局首格)才从本事件自身起笔。\n'
     + '4. 只认前情:不要续写酒馆聊天楼层里的其它历史对话,本次只依据【前情】+【本格行动】。\n'
     + '5. 【反复读·硬约束】下方范式里的词表/例句/拟声/称呼锚点是【选词方向和写作约束】,不是让你抄写的文本:\n'

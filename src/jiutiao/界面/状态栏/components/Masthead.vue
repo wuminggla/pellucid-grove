@@ -229,6 +229,15 @@ const ledger = computed(() => [...(props.engine.moneyLog ?? [])].reverse().map(m
   background: var(--wood-h); background-color: var(--wood-base); border-bottom: 2px solid #000;
   box-shadow: inset 0 -3px 8px rgba(0,0,0,.4), 0 3px 12px rgba(0,0,0,.5);
 }
+/* 批H3·手机适配: 刊头纵排收紧·数值条横向滚动 */
+@media (max-width: 820px) {
+  .masthead { flex-wrap: wrap; gap: 8px; padding: 10px 12px; }
+  .logo { font-size: 28px; }
+  .logo .sub { font-size: 10px; letter-spacing: 3px; }
+  .stat-strip { margin-left: 0; width: 100%; overflow-x: auto; }
+  .stat { padding: 3px 10px; flex: none; }
+  .stat .v { font-size: 16px; }
+}
 .logo { font-family: var(--brush); font-size: 46px; line-height: 1; color: var(--gold-hi);
   text-shadow: 0 2px 0 #000, 0 0 18px rgba(201,162,74,.3); letter-spacing: 2px; margin-top: 6px; }
 .logo .sub { font-family: var(--serif); font-size: 12px; color: var(--text-dim); letter-spacing: 6px; display: block; margin-top: 4px; }

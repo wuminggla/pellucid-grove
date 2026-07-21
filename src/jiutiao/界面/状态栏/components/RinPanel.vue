@@ -117,6 +117,11 @@ const parts = computed(() => {
 <style scoped>
 .rin { border-left: 2px solid #000; background: linear-gradient(180deg, #100b09, #0b0807);
   box-shadow: inset 3px 0 8px rgba(0,0,0,.5); display: flex; flex-direction: column; overflow: hidden; }
+/* 批H3·手机适配: 窄屏时大小姐栏跟随主内容纵排(立绘居中·秘密状态展开可滚) */
+@media (max-width: 820px) {
+  .rin { border-left: none; border-top: 2px solid #000; overflow: visible; }
+  .rin-scroll { overflow: visible; }
+}
 /* 批F1#3: 立绘框 横向×1.2(178→214) 纵向×1.6(237→380);
    批D0(用户反馈): 视窗高截短为85%(380→323)腾出下方状态栏空间——但立绘渲染尺寸不变(见 .p-img 固定px),
    顶部对齐,视窗装不下的部分直接裁掉,人物大小不受视窗缩短影响。 */
