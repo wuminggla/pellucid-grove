@@ -11,7 +11,7 @@ import {
   markRunning, completeCurrent,
 } from '../../game/action-grid/machine';
 import { runCurrentSlot, settleNight, advanceToNextDay, applyForcedSeizes, applyForcedInserts } from '../../game/engine/day-runner';
-import { eventCtxOf } from '../../game/engine/machine';
+import { eventCtxOf, buildCustomParadigm } from '../../game/engine/machine';
 import { resolveEvent } from '../../game/events/machine';
 import type { RunnerState } from '../../game/engine/day-runner';
 import { dailyDesireDemand, availableThugs, weeklyRecruitQuota, combatPower, presentCountFrom, appendMoneyLog } from '../../game/economy/machine';
@@ -26,7 +26,7 @@ import {
 } from '../../game/av/machine';
 import type { AvDefinition } from '../../game/av/machine';
 import type { UpgradeDef } from '../../game/upgrade/types';
-import { gainCorruption } from '../../game/corruption/machine';
+import { gainCorruption, attitudeForStage } from '../../game/corruption/machine';
 import { DEBUG_BUILD } from './version';
 import type { NightSettleResult } from '../../game/engine/settlement';
 import {
@@ -34,7 +34,7 @@ import {
 } from '../../game/engine/mock-ai';
 import { demoLorebook } from '../../game/worldbook/demo';
 import { createTavernAi } from './tavern-ai';
-import { nextPendingSummary, upsertSummary, pendingBigRange, pendingBigMerge, applyBigMerge } from '../../game/memory/machine';
+import { nextPendingSummary, upsertSummary, pendingBigRange, pendingBigMerge, applyBigMerge, appendProse, proseEntryId } from '../../game/memory/machine';
 import { DEVELOPMENT_LABELS } from '../../game/intrusion/machine';
 import type { DevelopmentLevel } from '../../game/intrusion/machine';
 import { routeEndingPerformance, buildEndingExpandRequest } from '../../game/endings/performance';
@@ -404,6 +404,7 @@ export const useRunnerStore = defineStore('runner', () => {
       day.value = beginNightFn(day.value); error.value = null;
       // 推进到夜晚后,白天最后一格的快照已失效 → 清掉,避免"重生成上一格"误回退白天格
       lastSettle.value = null; lastServe.value = null; lastRecruit.value = null; lastBuyCondom.value = null; preRunSnapshot = null;
+      lastExec.value = null; lastSegStart.value = 0; // 批I2: 跨时段续写宿主失效(与重roll快照同规则)
       // 批F2: 进入夜间时段先扫一次夜间强制事件(av_first等)。
       // 覆盖"玩家没排任何夜间格"的场景——nightCount=0时 beginNight 直接 settled,
       // 逐格扫描(runCurrentSlot内)永不会跑,这里兜底插入专属临时格并把时段拉回 running。
@@ -552,6 +553,7 @@ export const useRunnerStore = defineStore('runner', () => {
       lastAvIncome.value = avIncome;
       lastNight.value = nightInfo;
       autoUnlockMysteries();
+      if (ranSlot) { lastExec.value = { period: ranSlot.period, index: ranSlot.index }; lastSegStart.value = 0; } // 批I2: 续写宿主定位
       const sl = ranSlot ? `${ranSlot.period === 'day' ? '昼' : '夜'}#${ranSlot.index + 1}` : '';
       const extra: Notice[] = nightInfo ? [{ t: `夜结：供奉${nightInfo.servedToday}人·结余${nightInfo.desireLeftover}` + (nightInfo.overflowImminent ? ' ⚠次日白日供奉' : ''), tone: nightInfo.overflowImminent ? 'warn' : 'dim' }] : [];
       logNotices(`第${day.value.dayNumber}天 ${sl}`, extra);
@@ -568,6 +570,93 @@ export const useRunnerStore = defineStore('runner', () => {
     // 执行前快照(供重 roll)
     preRunSnapshot = { day: day.value, engine: engine.value };
     await execCurrentFrom(preRunSnapshot);
+  }
+
+  // ─── 批I2: 同格续写 + 按段重roll ───
+  // lastExec=最近成功执行的格(续写宿主·跨时段/跨天失效,与重roll快照同规则)。
+  // lastSegStart=最后一段续写在整格文本中的起点(0=尚无续写段→重roll段退化为整格重roll)。
+  const lastExec = ref<{ period: SlotPeriod; index: number } | null>(null);
+  const lastSegStart = ref(0);
+
+  function slotOf(refp: { period: SlotPeriod; index: number }) {
+    const list = refp.period === 'day' ? day.value.daySlots : day.value.nightSlots;
+    return list[refp.index] ?? null;
+  }
+  /** 写回某格正文(不可变更新) + 同步原文档案(重标 needsSummary → 后台用最终版全文重做小总结) */
+  function writeSlotText(refp: { period: SlotPeriod; index: number }, text: string) {
+    const key = refp.period === 'day' ? 'daySlots' : 'nightSlots';
+    const list = (day.value as any)[key].map((s: any, i: number) => i === refp.index ? { ...s, resultText: text } : s);
+    day.value = { ...day.value, [key]: list };
+    const slot = slotOf(refp);
+    const pid = proseEntryId(day.value.dayNumber, refp.period, refp.index);
+    const arch = engine.value.proseArchive ?? [];
+    const idx = arch.findIndex(p => p.id === pid);
+    if (idx >= 0) {
+      const next = arch.map((p, i) => i === idx ? { ...p, text, needsSummary: true } : p);
+      engine.value = { ...engine.value, proseArchive: next };
+    } else if (slot?.choice) {
+      engine.value = {
+        ...engine.value,
+        proseArchive: appendProse(arch, {
+          id: pid, day: day.value.dayNumber, period: refp.period, slot: refp.index,
+          label: slot.choice.label, text, needsSummary: true,
+        }, day.value.dayNumber),
+      };
+    }
+  }
+
+  /** 续写当前(最近执行)格: 已有正文作上文,AI只输出新增段,不收尾,可无限续。 */
+  async function continueLast() {
+    if (busy.value || !lastExec.value) return;
+    const refp = lastExec.value;
+    const slot = slotOf(refp);
+    if (!slot?.choice || slot.status !== 'done' || !(slot.resultText ?? '').trim()) return;
+    busy.value = true; error.value = null; lastEmpty.value = false; lastWarn.value = null;
+    genHint.value = GEN_HINTS[Math.floor(Math.random() * GEN_HINTS.length)];
+    try {
+      const opt = demoEventOptions[slot.choice.optionId];
+      if (!opt) throw new Error('未知事件选项: ' + slot.choice.optionId);
+      const resolution = resolveEvent(opt, eventCtxOf(engine.value), false);
+      if (typeof slot.choice.params?.avInlinePrompt === 'string') {
+        resolution.paradigm = { ...resolution.paradigm, inlinePrompt: slot.choice.params.avInlinePrompt as string };
+      }
+      if (slot.choice.optionId === 'custom_event') {
+        resolution.paradigm = { ...resolution.paradigm, inlinePrompt: buildCustomParadigm(
+          typeof slot.choice.params?.customPrompt === 'string' ? slot.choice.params.customPrompt : '') };
+      }
+      const prevText = (slot.resultText ?? '').trimEnd();
+      const ex = await withTimeout(ai.expand({
+        resolution, attitude: attitudeForStage(engine.value.cognition),
+        choice: slot.choice, state: engine.value, dayNumber: day.value.dayNumber,
+        continuation: { prevTail: prevText.slice(-2200) },
+      }), GEN_TIMEOUT_MS);
+      const seg = (ex.text ?? '').trim();
+      if (seg.length < MIN_TEXT_LEN) {
+        lastEmpty.value = true;
+        lastWarn.value = '续写内容为空或过短(可能被外部审核拦截/截断)。可再点一次续写重试。';
+      } else {
+        lastSegStart.value = prevText.length;
+        writeSlotText(refp, prevText + '\n\n' + seg);
+        void drainSummaries(); // 批I2: 总结兼容——writeSlotText 已重标 needsSummary,后台用最终版全文重做
+      }
+    } catch (e) {
+      error.value = (e as Error).message;
+    } finally {
+      busy.value = false;
+    }
+  }
+
+  /** 重roll最后一段续写(截掉最后一段→重新续写);尚无续写段时=整格重roll。 */
+  async function rerollLastSegment() {
+    if (busy.value || !lastExec.value) return;
+    if (lastSegStart.value <= 0) { await rerunLast(); return; }
+    const refp = lastExec.value;
+    const slot = slotOf(refp);
+    if (!slot?.choice || slot.status !== 'done') return;
+    const base = (slot.resultText ?? '').slice(0, lastSegStart.value).trimEnd();
+    writeSlotText(refp, base);
+    lastSegStart.value = 0;
+    await continueLast();
   }
 
   /** 下一格是否会被快进略写(不调AI)。预判用纯函数,与 settleSlot 同一 resolveEvent。 */
@@ -644,6 +733,7 @@ export const useRunnerStore = defineStore('runner', () => {
     }
     autoUnlockMysteries();
     lastSettle.value = null; lastServe.value = null; lastRecruit.value = null; lastBuyCondom.value = null; lastReward.value = null; lastProtection.value = null; lastAvIncome.value = null; lastWalk.value = null; lastOrgy.value = null; lastNight.value = null; error.value = null;
+    lastExec.value = null; lastSegStart.value = 0; // 批I2: 跨天续写宿主失效
     // 批B6:跨天触发后台大总结检查(跨整窗边界才真正总结)+补齐欠账小总结
     void drainSummaries();
     void runBigSummary();
@@ -654,6 +744,7 @@ export const useRunnerStore = defineStore('runner', () => {
     lastSettle.value = null; lastServe.value = null; lastRecruit.value = null; lastBuyCondom.value = null; lastReward.value = null; lastProtection.value = null; lastAvIncome.value = null; lastWalk.value = null; lastOrgy.value = null; lastNight.value = null;
     forcedLeaveToday.value = false; forcedSeize.value = null;
     reliefCleared.value = false; hardFail.value = false; hardFailReason.value = null; failWarnings.value = []; error.value = null;
+    lastExec.value = null; lastSegStart.value = 0; // 批I2: 读档/重置后续写宿主失效
   }
 
   // ─── 持久化(chat 作用域·一聊天一份存档·刷新酒馆/重开聊天不丢进度) ───
@@ -955,6 +1046,7 @@ export const useRunnerStore = defineStore('runner', () => {
     tendencyNow, salvationOpenNow,
     setFastForward, allocate, setChoice, clearChoice, fillEmpty,
     beginDay, beginNight, runCurrent, runCurrentChain, rerunLast, nextDay, loadState,
+    continueLast, rerollLastSegment, lastExec, lastSegStart,
     useMock, useTavern, saveNow: persistNow, resetGame,
   };
 });

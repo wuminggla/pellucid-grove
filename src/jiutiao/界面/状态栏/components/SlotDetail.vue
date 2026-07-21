@@ -38,6 +38,24 @@
           {{ o.label }}<span v-if="o.isNsfw" class="heart"> ♥</span>
         </button>
       </div>
+      <!-- 批I2: 自定义事件·内容输入 + 读取玩家世界书开关 -->
+      <div v-if="slot.choice?.optionId === 'custom_event'" class="custom-box">
+        <div class="cb-cap">写下你想要的事件内容（AI 按此生成，场景/人物/走向都可指定）：</div>
+        <textarea v-model="customText" class="note-ta" rows="4"
+          placeholder="例：凛独自泡汤时被两名巡夜打手撞见，从赔罪演变成……"
+          @change="saveParams"></textarea>
+        <label class="wb-row">
+          <input type="checkbox" v-model="useWb" @change="saveParams" />
+          读取我的全局世界书（按关键词命中的条目附给 AI；默认关）
+        </label>
+      </div>
+      <!-- 批I2: 普通事件·补充要求(选填·user层注入) -->
+      <div v-else-if="slot.choice" class="custom-box">
+        <div class="cb-cap">补充要求（选填，会注入给 AI）：</div>
+        <textarea v-model="noteText" class="note-ta" rows="2"
+          placeholder="例：这一场多写凛的心理活动 / 场景放在雨夜"
+          @change="saveParams"></textarea>
+      </div>
       <button v-if="slot.choice" class="clear" @click="$emit('clear')">清空本格</button>
     </div>
   </div>
@@ -57,6 +75,29 @@ defineEmits<{ pick: [optionId: string, label: string]; clear: [] }>();
 const r = useRunnerStore();
 const favDone = ref(false);
 watch(() => props.slot, () => { favDone.value = false; });
+
+// ─── 批I2: 自定义事件内容/补充要求/世界书开关(存进 choice.params·执行时注入) ───
+const customText = ref('');
+const noteText = ref('');
+const useWb = ref(false);
+watch(() => props.slot?.choice, (c) => { // 切格/换选项时从 params 回填
+  customText.value = typeof c?.params?.customPrompt === 'string' ? c.params.customPrompt as string : '';
+  noteText.value = typeof c?.params?.userNote === 'string' ? c.params.userNote as string : '';
+  useWb.value = c?.params?.useUserLorebook === true;
+}, { immediate: true });
+function saveParams() {
+  const s = props.slot; const c = s?.choice;
+  if (!s || !c || s.status === 'done' || s.status === 'running') return;
+  r.setChoice(props.period, s.index, {
+    ...c,
+    params: {
+      ...(c.params ?? {}),
+      ...(c.optionId === 'custom_event'
+        ? { customPrompt: customText.value, useUserLorebook: useWb.value }
+        : { userNote: noteText.value }),
+    },
+  });
+}
 function onFav() {
   if (!props.slot) return;
   if (r.favoriteSlot(props.slot as any)) favDone.value = true;
@@ -119,4 +160,14 @@ const tagClass = computed(() => ({
 .opt.on { border-color: var(--gold); background: rgba(201,162,74,.16); color: var(--gold-hi); font-weight: 700; }
 .opt .heart { color: var(--red-hi); }
 .clear { margin-top: 12px; background: rgba(0,0,0,.3); color: var(--text-dim); border: 1px solid var(--line); border-radius: 6px; padding: 7px 14px; font-size: 12px; cursor: pointer; }
+
+/* 批I2: 自定义事件/补充要求输入区 */
+.custom-box { margin-top: 12px; border-top: 1px dashed var(--line); padding-top: 12px; }
+.cb-cap { font-size: 12px; color: var(--gold-dim); margin-bottom: 8px; letter-spacing: 1px; }
+.note-ta { width: 100%; box-sizing: border-box; font-family: var(--serif); font-size: 13px; line-height: 1.7;
+  color: var(--text); background: rgba(0,0,0,.3); border: 1px solid var(--line); border-radius: 7px;
+  padding: 10px 12px; resize: vertical; }
+.note-ta:focus { outline: none; border-color: var(--gold-dim); }
+.wb-row { display: flex; align-items: center; gap: 8px; margin-top: 8px; font-size: 12px; color: var(--text-dim); cursor: pointer; }
+.wb-row input { accent-color: var(--gold-hi); }
 </style>

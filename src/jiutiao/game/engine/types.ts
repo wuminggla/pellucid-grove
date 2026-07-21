@@ -111,6 +111,8 @@ export interface ExpandRequest {
   serveCount?: number;
   /** 当前天数(批B6·三层记忆窗口滑动定位) */
   dayNumber?: number;
+  /** 批I2·同格续写: 传入已写正文的结尾片段 → 注入层进入续写模式(接续/不重复/不收尾/只输出新增段) */
+  continuation?: { prevTail: string };
 }
 
 /** AI2 抓数值请求 */

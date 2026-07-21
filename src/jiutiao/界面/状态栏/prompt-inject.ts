@@ -59,6 +59,8 @@ export function buildGameInject(req: ExpandRequest, lorebook: Lorebook, memoryTe
     + '   · 若本格是【夜晚】事件: 绝对不许写到天亮/早晨/第二天/起床/晨光——后面可能还有别的夜晚行动格,写到天亮逻辑就崩。结尾停在本格事件刚结束的深夜。\n'
     + '   · 若本格是【白天】事件: 绝对不许写到天黑/入夜/夜晚/华灯初上。结尾停在本格事件刚结束的白天。\n'
     + '   · 正文是这一天里的一个片段,不是一天的总结。禁止出现"这一天结束了""一夜过去""翌日"之类的跨时段收尾。\n'
+    + '7. 【留续写接口·NSFW】若本格是NSFW事件: 不要擅自给事件写"结尾",结尾停在事件仍在进行的过程点——'
+    + '不写完备收场(事后清理/众人散去/回顾感想式终结段)。玩家可能选择在本格继续扩写,收得太死会断掉续写空间。\n'
     + '【输出格式·强制】正文必须完整包裹在 <jiutiao_text> 与 </jiutiao_text> 之间。思维链/分析/预设要求的尾部格式块放在标签【之外】——标签内只有给玩家看的纯故事正文,不含任何标签/注释/格式块。';
 
   const briefBlock = memoryText.trim()
@@ -90,7 +92,17 @@ export function buildGameInject(req: ExpandRequest, lorebook: Lorebook, memoryTe
     ? '【本格时段·硬约束】现在是【白天】。正文绝对不许写到天黑/入夜/夜晚,结尾必须停在本格事件刚结束的白天。'
     : '';
 
-  return [frame, directive, periodNote, timeAnchor, briefBlock, sys, user].filter(Boolean).join('\n\n');
+  // 续写模式(批I2·同格续写): 已有正文的结尾片段 → 接续/不重复/不收尾/只输出新增段
+  const contBlock = req.continuation?.prevTail
+    ? '【续写模式·最高优先】本格正文已经写了前半(结尾片段见下),你的任务是从其结尾处自然接续往下写:\n'
+      + '· 不重复/不改写已有内容,不重启场景,直接续着写;\n'
+      + '· 保持同一视角/时段/人物状态与情绪走向;\n'
+      + '· 【绝对不要收尾】——结尾仍停在事件进行中的过程点,玩家可能还要继续;\n'
+      + '· 只输出【新增的续写段】,不要重抄任何已有正文。\n'
+      + `【已写正文·结尾片段】\n${req.continuation.prevTail}`
+    : '';
+
+  return [frame, directive, periodNote, timeAnchor, contBlock, briefBlock, sys, user].filter(Boolean).join('\n\n');
 }
 
 // (批B6) 生成前串行的"连贯性导演简报"已退役:前情改为三层记忆纯函数渲染(零延迟注入),

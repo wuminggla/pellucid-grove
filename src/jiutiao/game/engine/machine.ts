@@ -48,6 +48,18 @@ export function sanitizeExtract(
 }
 
 /** 从 EngineState 构造 events 上下文 */
+/** 批I2: 玩家自定义事件的动态范式(settleSlot 与 续写 共用)。 */
+export function buildCustomParadigm(text: string): string {
+  const req = text.trim();
+  return '[玩家自定义事件·动态范式]\n'
+    + (req
+      ? `本格内容完全由玩家指定,下述玩家要求就是本格的演出方向:\n【玩家要求】${req}\n`
+      : '玩家未填写具体要求 → 按当前局面自由发挥一段大宅日常/氛围演出。\n')
+    + '执行规则: ①以玩家要求为最高内容依据,在不违反视角/时段/成年红线约束的前提下完整演出;'
+    + '②世界观与人物仍遵守全局设定(凛的认知防线阶段/态度层/称呼锚点/宅邸现状),不因玩家要求而人格重置;'
+    + '③玩家要求未提及的细节按当前局面自然补全;④本格是纯演出格,不改变任何系统数值。';
+}
+
 export function eventCtxOf(state: EngineState): EventContext { // 批I1: 导出供快进链预判渲染模式
   return {
     corruption: state.corruption,
@@ -87,6 +99,14 @@ export async function settleSlot(
     resolution.paradigm = {
       ...resolution.paradigm,
       inlinePrompt: choice.params.avInlinePrompt as string,
+    };
+  }
+  // 批I2: 完全自定义事件格——玩家要求文本动态构造范式(同 AV inlinePrompt 通道)
+  if (choice.optionId === 'custom_event') {
+    resolution.paradigm = {
+      ...resolution.paradigm,
+      inlinePrompt: buildCustomParadigm(
+        typeof choice.params?.customPrompt === 'string' ? choice.params.customPrompt : ''),
     };
   }
   const mode = resolution.renderMode;

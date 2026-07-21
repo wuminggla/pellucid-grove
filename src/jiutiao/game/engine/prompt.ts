@@ -110,13 +110,19 @@ export function buildGamePrompt(req: ExpandRequest, ctx: GamePromptCtx): Array<{
   const sceneLine = n != null
     ? `[当前场景] 本格凛要处理 ${n} 名打手(这是结算数,正文人数必须与之一致——写成"十几人/几十人"的规模感可以,但绝不能写成只有一两人);${state.isDangerousPeriod ? '危险期' : '安全期'};认知防线「${state.cognition}」;堕落度 ${state.corruption}。`
     : `[当前场景] 在场约 ${state.presentCount} 人；${state.isDangerousPeriod ? '危险期' : '安全期'}；认知防线「${state.cognition}」；堕落度 ${state.corruption}。`;
-  const crowdRule = (isNsfw && (n == null || n > 1))
+  // 批I2: 自定义事件免多人铁律(玩家可能定制一对一场景,群像匿名规则会扭曲其要求)
+  const crowdRule = (isNsfw && req.choice.optionId !== 'custom_event' && (n == null || n > 1))
     ? '[多人铁律] ①打手是matched群像:一律匿名(用"为首的壮汉/络腮胡/年轻的那个"等特征代称),【绝不给打手起名字】,不塑造任何单个打手的持续角色;②本事件是多人轮换场面,严禁写成一对一恋爱式二人转;③正文必须实写本格事件本身的性爱过程(范式规定的玩法),不许只写氛围/对话而跳过事件内容。\n'
     : '';
 
   // 文案方向提示(批C1·招募10变体等): day-runner 按数值状态选好风味线,AI 按此方向展开(不照抄)
   const flavorHint = typeof req.choice.params?.flavorHint === 'string'
     ? `[文案方向] 本格按此方向展开(用自己的话写,不要照抄): ${req.choice.params.flavorHint}\n`
+    : '';
+
+  // 批I2: 玩家补充要求(选事件时旁边的自由输入·user层注入补完)
+  const userNote = typeof req.choice.params?.userNote === 'string' && req.choice.params.userNote.trim()
+    ? `[玩家补充要求·尽量满足] ${req.choice.params.userNote.trim()}\n(在不违反上方视角/时段/红线约束的前提下,把这些要求实际写进本格正文,不要无视。)\n`
     : '';
 
   const user =
@@ -126,6 +132,7 @@ export function buildGamePrompt(req: ExpandRequest, ctx: GamePromptCtx): Array<{
     + `${sceneLine}\n`
     + crowdRule
     + flavorHint
+    + userNote
     + `[扩写规格] ${SPEC_BY_MODE[renderMode] ?? '正常扩写。'}\n`
     + (LENGTH_OVERRIDE[option.id] ? `${LENGTH_OVERRIDE[option.id]}\n` : '')
     + `[输出格式] ${outputSpec}\n`

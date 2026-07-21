@@ -308,6 +308,14 @@ export const demoEventOptions: Record<string, EventOption> = {
   // 夜晚供奉事件(isServe=true·抵供奉吞吐)
   // ═══════════════════════════════════════════════════
 
+  // 批I2: 完全自定义事件格——玩家自己写内容要求,AI按其生成(inlinePrompt 通道·复用AV定制机制)。
+  // 无 first/isServe/计数映射 → 不加堕落/不结算供奉欲望/不进部位计数,纯演出格。
+  custom_event: {
+    id: 'custom_event', label: '✎ 自定义事件', period: 'any', shape: 'born_nsfw',
+    neverFast: true, // 玩家亲手写的要求,永远出正文
+    nsfw: { worldbookKey: 'wb_custom_event' }, // 占位·实际由 params.customPrompt 动态覆盖
+  },
+
   serve_oral: {
     id: 'serve_oral', label: '口交侍奉', period: 'night', shape: 'born_nsfw', isServe: true, noCondom: true,
     nsfw: { worldbookKey: 'wb_serve_oral' },

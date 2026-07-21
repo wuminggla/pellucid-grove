@@ -73,6 +73,43 @@ function presetSystemBlocks(): RolePrompt[] {
   }
 }
 
+// ─── 批I2: 玩家全局世界书扫描(自定义事件格开关·默认关) ───
+// 通过酒馆助手 API 读玩家当前启用的全局世界书,用绿灯关键词匹配玩家自定义文本,
+// 命中条目附进注入(条数/字数双上限防token失控;蓝灯常驻不收)。API 缺失/异常 → 静默跳过。
+declare function getLorebookSettings(): { selected_global_lorebooks?: string[] };
+declare function getLorebookEntries(lorebook: string): Promise<Array<{
+  enabled?: boolean; type?: string; keys?: string[]; content?: string; comment?: string;
+}>>;
+const USER_WB_MAX_ENTRIES = 6;
+const USER_WB_MAX_CHARS = 4000;
+async function scanUserLorebooks(queryText: string): Promise<string> {
+  try {
+    if (!queryText.trim()) return '';
+    const books = (getLorebookSettings()?.selected_global_lorebooks ?? []).slice(0, 4);
+    if (!books.length) return '';
+    const q = queryText.toLowerCase();
+    const hits: string[] = [];
+    let chars = 0;
+    for (const book of books) {
+      let entries;
+      try { entries = await getLorebookEntries(book); } catch { continue; }
+      for (const e of entries ?? []) {
+        if (hits.length >= USER_WB_MAX_ENTRIES || chars >= USER_WB_MAX_CHARS) break;
+        if (!e?.enabled || !e.content) continue;
+        if (e.type === 'constant') continue; // 蓝灯常驻不收(会无差别塞满)
+        const keys = (e.keys ?? []).filter(k => typeof k === 'string' && k.trim());
+        if (!keys.length) continue;
+        if (!keys.some(k => q.includes(k.toLowerCase()))) continue;
+        const body = e.content.slice(0, 1200);
+        hits.push(`- ${e.comment || keys[0]}: ${body}`);
+        chars += body.length;
+      }
+    }
+    if (!hits.length) return '';
+    return '【玩家全局世界书·命中条目(自定义事件的辅助设定;与本卡设定冲突时以本卡为准,红线约束不变)】\n' + hits.join('\n');
+  } catch { return ''; }
+}
+
 const SAMPLING: CustomApiConfig = {
   temperature: 'same_as_preset',
   top_p: 'same_as_preset',
@@ -174,7 +211,14 @@ export function createTavernAi(opts: TavernAiOpts): AiPort {
       const nowDay = req.dayNumber
         ?? Math.max(0, ...(req.state.proseArchive ?? []).map(p => p.day)); // 兜底:档案里最新一天
       const memoryText = renderTieredMemory(req.state, nowDay, getMemoryConfig());
-      const inject = buildGameInject(req, opts.lorebook, memoryText);
+      let inject = buildGameInject(req, opts.lorebook, memoryText);
+      // 批I2: 自定义格开启"读取我的世界书"时,扫描玩家全局世界书附进注入
+      if (req.choice.params?.useUserLorebook === true) {
+        const queryText = [req.choice.params?.customPrompt, req.choice.params?.userNote]
+          .filter((s): s is string => typeof s === 'string').join(' ');
+        const wb = await scanUserLorebooks(queryText);
+        if (wb) inject += '\n\n' + wb;
+      }
       const ordered: (PlaceholderPrompt | RolePrompt)[] = [
         ...(includeTavernPreset ? presetSystemBlocks() : []), // 酒馆预设块(默认开·设置页可关)
         // 批H6: 注入块用 user 角色。此前全 system → Gemini 系端点把 system 全转 systemInstruction,
