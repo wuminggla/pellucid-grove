@@ -59,12 +59,30 @@ $(() => {
     let inlineMounted = false;             // 退化路径已挂载标记
 
     function open() {
+      // 批H5: open() 全程保护——此前只有 mount 段有 try,克隆样式/建宿主任何一步抛错
+      // 都表现为"点击无反应"(v1.2.0 手机模拟实测卡第一步)。现在任何异常都直接上屏可截图。
+      try {
+        openInner();
+      } catch (err: any) {
+        const stack = err?.stack || String(err);
+        console.error('[pellucid] open 失败', err);
+        // 错误显示在楼层按钮区(顶层宿主可能没建成,楼层是唯一可靠画布)
+        if (local) {
+          local.innerHTML = '<div style="padding:16px;color:#e06666;background:#1a0e12;font-family:monospace;'
+            + 'font-size:12px;white-space:pre-wrap;line-height:1.6;border-radius:8px;">[pellucid 展开失败 · 请把本屏截图发给开发]\n\n'
+            + stack + '</div>';
+        }
+      }
+    }
+
+    function openInner() {
       const topDoc = getTopDoc();
 
       // 退化路径: 拿不到顶层 → 楼层内直接挂载
       if (!topDoc || !topDoc.body) {
+        console.warn('[pellucid] 顶层不可达,楼层内退化挂载');
         if (!inlineMounted) {
-          local!.innerHTML = '<div id="pellucid-inline"></div>';
+          local!.innerHTML = '<div id="pellucid-inline" style="min-height:70vh"></div>';
           const app = createApp(App);
           app.provide('pellucidCollapse', () => { try { location.reload(); } catch { /* ignore */ } });
           app.use(createPinia()).mount('#pellucid-inline');
@@ -76,10 +94,13 @@ $(() => {
       if (host) { host.style.display = 'block'; return; }
 
       // 1) 克隆本文档(楼层)的所有 <style> 到顶层 <head>（已 scope 到 .pellucid-root，安全）
+      // 单条失败不阻塞(某条样式异常≠全部失败)
       document.querySelectorAll('style').forEach((s) => {
-        const c = topDoc.importNode(s, true) as HTMLElement;
-        c.setAttribute('data-pellucid', '');
-        topDoc.head.appendChild(c);
+        try {
+          const c = topDoc.importNode(s, true) as HTMLElement;
+          c.setAttribute('data-pellucid', '');
+          (topDoc.head ?? topDoc.body).appendChild(c);
+        } catch (e) { console.warn('[pellucid] 样式克隆失败(跳过一条)', e); }
       });
 
       // 2) 全屏宿主
@@ -121,6 +142,7 @@ $(() => {
     }
 
     btn.addEventListener('click', open);
+    wrap.addEventListener('click', (e) => { if (e.target === wrap) open(); }); // 批H5:木纹底板整块可点(手机小屏容错)
     console.log('[pellucid] 启动按钮已就绪');
   } catch (err: any) {
     console.error('[pellucid] 入口异常', err);
