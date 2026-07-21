@@ -480,8 +480,8 @@ function confirmReset() {
 @media (max-width: 820px) {
   .app { display: flex; flex-direction: column; height: 100dvh; overflow: hidden; }
   .app > :deep(header) { flex: none; }
-  /* 主区占满剩余高度,自身滚动;给底部tab栏留出空间 */
-  .stage { flex: 1; min-height: 0; overflow-y: auto; padding-bottom: 64px; }
+  /* 主区占满剩余高度,自身滚动(批H8: 导航改布局钉底,不再需要64px fixed留白) */
+  .stage { flex: 1; min-height: 0; overflow-y: auto; padding-bottom: 12px; }
   .action-view { padding: 10px 10px 0; height: auto; min-height: 100%; }
   .av-detail { max-height: none; overflow: visible; }
   /* 底部操作条: 纵排(工具开关一行+状态提示+主按钮全宽) */

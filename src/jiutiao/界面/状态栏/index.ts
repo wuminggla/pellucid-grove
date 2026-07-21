@@ -164,6 +164,15 @@ $(() => {
             const visible = rc.width >= Math.min(280, w * 0.7) && rc.height >= Math.min(280, h * 0.5)
               && rc.bottom > 0 && rc.right > 0 && rc.top < h && rc.left < w;
             console.log('[pellucid] 宿主几何自检', JSON.stringify({ x: rc.x, y: rc.y, w: rc.width, h: rc.height, vw: w, vh: h, visible }));
+            // 批H8诊断: 底部导航栏几何(手机布局问题定位用)
+            try {
+              const nav = host.querySelector('.nav') as HTMLElement | null;
+              if (nav) {
+                const nr = nav.getBoundingClientRect();
+                const cs = topDoc.defaultView?.getComputedStyle(nav);
+                console.log('[pellucid] 导航几何', JSON.stringify({ x: nr.x, y: nr.y, w: nr.width, h: nr.height, pos: cs?.position, disp: cs?.display }));
+              } else console.warn('[pellucid] 导航元素未找到(.nav)');
+            } catch { /* ignore */ }
             if (!visible) {
               console.warn('[pellucid] 顶层宿主被宿主页样式压制不可见,自动回退楼层内联挂载');
               host.remove(); host = null;

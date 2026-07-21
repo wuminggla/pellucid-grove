@@ -41,10 +41,12 @@ const items = [
   display: flex; flex-direction: column; gap: 9px;
   box-shadow: inset -4px 0 10px rgba(0,0,0,.4);
 }
-/* 批H4·手机重排: 导航=底部固定tab栏(游戏式·不占主流布局·不再被挤压) */
+/* 批H4·手机重排: 导航=底部tab栏。
+   批H8改法: 不用 position:fixed(用户实测在顶层宿主环境下 fixed 导航不渲染,具体被哪环干扰难考),
+   改为 .app flex 纵列的末位子项(order:99)被布局钉在底部——零视口/包含块依赖,环境再怪也杀不掉。 */
 @media (max-width: 820px) {
   .nav {
-    position: fixed; left: 0; right: 0; bottom: 0; z-index: 40;
+    position: static; order: 99; flex: none; width: 100%;
     flex-direction: row; overflow-x: auto; -webkit-overflow-scrolling: touch;
     padding: 6px 4px calc(6px + env(safe-area-inset-bottom)); gap: 4px;
     border-right: none; border-top: 2px solid #000;
