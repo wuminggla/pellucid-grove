@@ -496,6 +496,7 @@ export const demoEventOptions: Record<string, EventOption> = {
   // ═══ A4 白天突发侵蚀(批C1·设计正典§4"开发度过阈值→白天自动NSFW事件") ═══
   daily_erosion: {
     id: 'daily_erosion', label: '身体擅自发情', period: 'day', shape: 'born_nsfw',
+    neverFast: true, // 批K: 突发事件不被快进吞掉(玩家需看到并有机会处理)
     nsfw: { worldbookKey: 'wb_daily_erosion' },
     first: { ledgerKey: 'daily_erosion_first', paradigm: { worldbookKey: 'wb_daily_erosion_first' }, corruptionWeight: 2 },
     // 白天在外/在宅被开发过的身体擅自求欢=A面NSFW,曝光风险高(隐瞒失败转淫名较多)

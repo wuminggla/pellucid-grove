@@ -678,7 +678,7 @@ export const useRunnerStore = defineStore('runner', () => {
   /** 下一格是否会被快进略写(不调AI)。预判用纯函数,与 settleSlot 同一 resolveEvent。 */
   function nextSlotIsFast(): boolean {
     const cur = currentSlot(day.value);
-    if (!cur?.choice) return false;
+    if (!cur?.choice) return false; // 批K: 未选选项的格(dual事件等)需玩家先选,不快进
     const opt = demoEventOptions[cur.choice.optionId];
     if (!opt) return false;
     try {
@@ -925,6 +925,10 @@ export const useRunnerStore = defineStore('runner', () => {
   const TUT_KEY = '九条会教程已读';
   const tutorialSeen = ref<boolean>(!!readSlot(TUT_KEY));
   function markTutorialSeen() { tutorialSeen.value = true; writeSlot(TUT_KEY, true); }
+  /** 批K: 跳过教学关时补发初始套(Day0的buy_condoms格未执行→condomStock=0→开局无套) */
+  function skipTutorialGiveCondoms() {
+    if (engine.value.condomStock === 0) engine.value = { ...engine.value, condomStock: 20 };
+  }
   /** 实操教学关(批G3·Day0): 3格微型的一天,收益真实入账,结算后进入第1天正式游戏 */
   function startTutorialDay0() {
     day.value = startDay(0, 3);
@@ -1058,7 +1062,7 @@ export const useRunnerStore = defineStore('runner', () => {
     endingProse, endingProseBusy, endingProseLabel, canRollback, rollbackFromEnding,
     manualSlotInfos, autoSlotInfo, autoSaveDay, saveToSlot, loadFromSlot, loadAutoSave,
     favorites, addFavorite, removeFavorite, favoriteSlot, renameFavorite, togglePinFavorite,
-    tutorialSeen, markTutorialSeen, startTutorialDay0,
+    tutorialSeen, markTutorialSeen, startTutorialDay0, skipTutorialGiveCondoms,
     tendencyNow, salvationOpenNow,
     setFastForward, allocate, setChoice, clearChoice, fillEmpty,
     beginDay, beginNight, runCurrent, runCurrentChain, rerunLast, nextDay, loadState,

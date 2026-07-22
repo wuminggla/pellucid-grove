@@ -386,7 +386,11 @@ const tutDismissed = ref(false);    // 本次会话已跳过/完成(防重弹)
 const showTutorial = computed(() => tutManual.value || (!r.tutorialSeen && !tutStage.value && !tutDismissed.value));
 const tutMode = computed<'full' | 'guide'>(() => tutManual.value ? 'guide' : 'full');
 function closeTutorial() { // 跳过序章=跳过全部教学
-  if (!tutManual.value) { r.markTutorialSeen(); tutDismissed.value = true; }
+  if (!tutManual.value) {
+    r.markTutorialSeen(); tutDismissed.value = true;
+    // 批K: 跳过教学关时补发初始套(Day0的buy_condoms格未执行→condomStock=0→开局无套)
+    r.skipTutorialGiveCondoms();
+  }
   tutManual.value = false;
 }
 function startTutStage() { // 序章末页交棒: 启动 Day0 教学关
