@@ -23,13 +23,22 @@
             <div class="toggles">
               <button class="tg" :class="{ on: r.fastForward }" @click="r.setFastForward(!r.fastForward)"
                 title="快进：非特殊事件不调用 AI，直接出 CG + 总结词并更新数值。想刷数值/看结果就开；想读叙事就关。首次里程碑事件仍正常扩写。">⏩ 快进</button>
+              <button v-if="r.fastForward" class="tg" :class="{ on: r.chainFast }" @click="r.setChainFast(!r.chainFast)"
+                title="批量跳过：开启后快进会连续把可快进的格一次算完；关闭则快进只影响单格渲染，仍一格一格推进（每格停下让你确认）。">⏭ 批量跳过</button>
               <button class="tg" :class="{ on: autoAdvance }" @click="autoAdvance = !autoAdvance"
                 title="自动跳转下一事件：生成正文后自动选中并展开下一格，连续推进。关闭则停留在刚生成的格子看正文，由你手动点选下一格再执行。">⤵ 自动跳转下一事件</button>
             </div>
           </div>
 
           <Transition name="collapse">
-            <DaySlider v-if="phase === 'allocating'" :total="r.day.totalSlots" @change="onAllocate" />
+            <div v-if="phase === 'allocating'" class="alloc-tools">
+              <DaySlider :total="r.day.totalSlots" @change="onAllocate" />
+              <button v-if="r.prevSchedule" class="copy-prev" @click="onCopyPrev"
+                title="把前一天你安排的行动照搬到今天：只填当前空格，与今日强占/临时事件格不冲突，越界或不合法的选项自动跳过。">
+                📋 复制前一天日程
+              </button>
+              <span v-if="copyPrevHint" class="copy-prev-hint">{{ copyPrevHint }}</span>
+            </div>
           </Transition>
 
           <SlotStrip v-if="hasSlots" :day="r.day" :selectedKey="selKey" @select="onSelect" />
@@ -279,6 +288,8 @@ const view = ref('行动');
 const mast = ref<InstanceType<typeof Masthead> | null>(null);
 const autoAdvance = ref(true); // 生成后是否自动跳到下一格（开关·tool-row 按钮）
 const showHistory = ref(false);
+const copyPrevHint = ref(''); // 批K2: 复制前一天日程的即时反馈(3秒自消)
+let copyPrevTimer: number | null = null;
 const historyView = computed(() => [...r.notifyLog].reverse());
 
 const phase = computed(() => r.day.phase);
@@ -329,6 +340,16 @@ function startDay() { r.beginDay(); selected.value = null; }
 function toNight() { r.beginNight(); selected.value = null; }
 function toNextDay() { r.nextDay(); selected.value = null; }
 function onAllocate(day: number, night: number) { r.allocate(day, night); selected.value = null; }
+// 批K2: 一键复制前一天日程(只在 allocating 阶段可用;需先拖滑条分好白天/夜晚格)
+function onCopyPrev() {
+  const n = r.applyPrevSchedule();
+  selected.value = null;
+  copyPrevHint.value = n > 0
+    ? `已复制前一天 ${n} 项安排`
+    : '当前没有可填入的空格（先拖动滑条分配白天/夜晚格）';
+  if (copyPrevTimer) clearTimeout(copyPrevTimer);
+  copyPrevTimer = window.setTimeout(() => { copyPrevHint.value = ''; }, 3200);
+}
 
 // (批I4-6: canRerun/续写按钮组已并入 SlotDetail 正文区,底部栏不再持有)
 const gateLabel = computed(() => (r.lastSettle?.events.firedGateIds ?? []).map(g => '堕落度（' + g.replace(/\D/g, '') + '）').join('、'));
@@ -499,10 +520,17 @@ function confirmReset() {
   background: rgba(0,0,0,.3); border: 1px solid var(--line); border-radius: 16px; padding: 6px 14px; transition: .12s; }
 .tg:hover { color: var(--text); border-color: var(--gold-dim); }
 .tg.on { color: #1a120a; font-weight: 700; background: linear-gradient(180deg, var(--gold-hi), var(--gold)); border-color: var(--gold); }
+/* 批K2: 分配区工具(滑条 + 复制前一天日程) */
+.alloc-tools { display: flex; flex-direction: column; gap: 8px; }
+.copy-prev { align-self: flex-start; font-family: var(--serif); font-size: 12px; letter-spacing: 1px;
+  color: var(--gold); cursor: pointer; background: rgba(0,0,0,.3); border: 1px solid var(--gold-dim);
+  border-radius: 16px; padding: 6px 14px; transition: .12s; }
+.copy-prev:hover { color: #1a120a; font-weight: 700; background: linear-gradient(180deg, var(--gold-hi), var(--gold)); border-color: var(--gold); }
+.copy-prev-hint { font-family: var(--serif); font-size: 12px; color: var(--text-dim); align-self: flex-start; }
 /* 滑条折叠消失动画 */
 .collapse-enter-active, .collapse-leave-active { transition: max-height .35s ease, opacity .28s ease, margin-bottom .35s ease, transform .35s ease; overflow: hidden; }
 .collapse-enter-from, .collapse-leave-to { max-height: 0; opacity: 0; transform: translateY(-6px); margin-bottom: 0 !important; }
-.collapse-enter-to, .collapse-leave-from { max-height: 140px; }
+.collapse-enter-to, .collapse-leave-from { max-height: 220px; }
 
 /* 底部状态提示栏 */
 .status-strip { flex: 1; min-width: 0; display: flex; flex-wrap: wrap; align-content: flex-start; gap: 6px; max-height: 76px; overflow-y: auto; }

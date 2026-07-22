@@ -43,7 +43,7 @@ import type { EndingKind } from '../../game/endings/performance';
 import { endingTendency, isSalvationOpen } from '../../game/endings/machine';
 import { getMemoryConfig } from './memory-settings';
 import type { ForcedEvent } from '../../game/events/machine';
-import type { DayState, SlotChoice, SlotPeriod } from '../../game/action-grid/types';
+import type { DayState, ActionSlot, SlotChoice, SlotPeriod } from '../../game/action-grid/types';
 import type { EngineState, SettleOptions, SettleResult, AiPort } from '../../game/engine/types';
 
 const DEFAULT_FORCED_LEAVE_CHOICE: SlotChoice = { optionId: 'serve_vaginal', label: '供奉（白日供奉）' };
@@ -75,6 +75,12 @@ export const useRunnerStore = defineStore('runner', () => {
   const day = ref<DayState>(startDay(1, TOTAL_SLOTS));
   const engine = ref<EngineState>(initialEngine());
   const fastForward = ref(false);
+  // 批K2: 批量快进(默认关)——快进开着时是否链式连算;关=快进只影响单格渲染模式,仍一格一格推进
+  const chainFast = ref(false);
+  function setChainFast(v: boolean) { chainFast.value = v; }
+  // 批K2: 前一天日程快照(供新一天"一键复制前一天安排")。只存玩家可派的选项(optionId+label+params),
+  // 不含 locked/inserted 格(强占/临时格由新一天事件系统自行插入,复制会冲突)。
+  const prevSchedule = ref<{ day: SlotChoice[]; night: SlotChoice[] } | null>(null);
   const busy = ref(false);
   const lastSettle = ref<SettleResult | null>(null);
   const lastServe = ref<{ condomUsed: number; condomShort: boolean; served: number; desireRelieved: number } | null>(null);
@@ -389,6 +395,38 @@ export const useRunnerStore = defineStore('runner', () => {
     catch (e) { error.value = (e as Error).message; }
   }
 
+  // 批K2: 记录一天里玩家自主安排的选项(排除强占/临时格),纯选项引用,新一天可复制。
+  function captureSchedule(d: DayState) {
+    const pick = (slots: ActionSlot[]): SlotChoice[] =>
+      slots.filter(s => s.choice && !s.locked && !s.inserted)
+        .map(s => JSON.parse(JSON.stringify(s.choice)) as SlotChoice);
+    const dayPicks = pick(d.daySlots);
+    const nightPicks = pick(d.nightSlots);
+    prevSchedule.value = (dayPicks.length || nightPicks.length)
+      ? { day: dayPicks, night: nightPicks } : null;
+  }
+
+  /** 批K2: 一键把前一天日程套用到当前(allocating 阶段)。只填空格/可派格,locked 与越界丢弃。
+   *  返回本次实际套用的格数;无快照或不在分配阶段返回 0。 */
+  function applyPrevSchedule(): number {
+    const snap = prevSchedule.value;
+    if (!snap || day.value.phase !== 'allocating') return 0;
+    let applied = 0;
+    const fill = (period: SlotPeriod, picks: SlotChoice[]) => {
+      const slots = period === 'day' ? day.value.daySlots : day.value.nightSlots;
+      for (let i = 0; i < picks.length && i < slots.length; i++) {
+        const s = slots[i];
+        if (s.locked || s.status === 'running' || s.status === 'done') continue;
+        try { day.value = setChoiceFn(day.value, period, i, picks[i]); applied++; }
+        catch { /* 该选项在新一天不合法(条件不满足)→跳过 */ }
+      }
+    };
+    fill('day', snap.day);
+    fill('night', snap.night);
+    if (applied) error.value = null;
+    return applied;
+  }
+
   function clearChoice(period: SlotPeriod, index: number) {
     try { day.value = clearChoiceFn(day.value, period, index); error.value = null; }
     catch (e) { error.value = (e as Error).message; }
@@ -690,9 +728,10 @@ export const useRunnerStore = defineStore('runner', () => {
    *  直到撞上第一个必出正文的格(首次里程碑/AV定制等 neverFast)为止,该格停下待玩家执行。 */
   async function runCurrentChain() {
     if (busy.value) return;
-    if (!fastForward.value || !nextSlotIsFast()) { await runCurrent(); return; }
+    // 批K2: 批量快进未勾选→正常单格推进(快进仍只影响渲染模式)
+    if (!fastForward.value || !chainFast.value || !nextSlotIsFast()) { await runCurrent(); return; }
     let guard = 0;
-    while (guard++ < 24 && fastForward.value && nextSlotIsFast()) {
+    while (guard++ < 24 && fastForward.value && chainFast.value && nextSlotIsFast()) {
       await runCurrent();
       if (error.value) return; // 失败即停,错误已上屏
     }
@@ -707,6 +746,8 @@ export const useRunnerStore = defineStore('runner', () => {
 
   function nextDay() {
     const settledDayNo = day.value.dayNumber; // 结算的是哪一天(批G3: day0=教学日免审)
+    // 批K2: 结算前抓当天玩家可派选项(非 locked/inserted),供新一天"一键复制"
+    captureSchedule(day.value);
     const r = advanceToNextDay(
       engine.value, day.value.dayNumber, engine.value.totalSlots ?? TOTAL_SLOTS,
       DEFAULT_FORCED_LEAVE_CHOICE,
@@ -771,7 +812,7 @@ export const useRunnerStore = defineStore('runner', () => {
   let _loadingSave = false;
   let _saveTimer: ReturnType<typeof setTimeout> | null = null;
   function snapshot() {
-    return JSON.parse(JSON.stringify({ v: 1, engine: engine.value, day: day.value, fastForward: fastForward.value }));
+    return JSON.parse(JSON.stringify({ v: 1, engine: engine.value, day: day.value, fastForward: fastForward.value, chainFast: chainFast.value, prevSchedule: prevSchedule.value }));
   }
   function persistNow() {
     if (_loadingSave || !hasTavernVars) return;
@@ -794,6 +835,8 @@ export const useRunnerStore = defineStore('runner', () => {
         _loadingSave = true;
         engine.value = s.engine; day.value = s.day;
         if (typeof s.fastForward === 'boolean') fastForward.value = s.fastForward;
+        if (typeof s.chainFast === 'boolean') chainFast.value = s.chainFast;
+        if (s.prevSchedule) prevSchedule.value = s.prevSchedule;
         _loadingSave = false;
         return true;
       }
@@ -1045,7 +1088,7 @@ export const useRunnerStore = defineStore('runner', () => {
   refreshSlotInfo(); // 存档槽天数信息(批E1·驱动存档页/回退按钮文案)
   loadFavorites();   // 留档收藏(批E2)
   autoUnlockMysteries(); // 读档后补结:堕落度已到但???尚未解锁的补齐(如旧档升级)
-  watch([day, engine, fastForward], schedulePersist, { deep: true });
+  watch([day, engine, fastForward, chainFast], schedulePersist, { deep: true });
 
   return {
     day, engine, fastForward, busy, lastSettle, lastServe, lastRecruit, lastNight,
@@ -1063,6 +1106,7 @@ export const useRunnerStore = defineStore('runner', () => {
     manualSlotInfos, autoSlotInfo, autoSaveDay, saveToSlot, loadFromSlot, loadAutoSave,
     favorites, addFavorite, removeFavorite, favoriteSlot, renameFavorite, togglePinFavorite,
     tutorialSeen, markTutorialSeen, startTutorialDay0, skipTutorialGiveCondoms,
+    chainFast, setChainFast, prevSchedule, applyPrevSchedule,
     tendencyNow, salvationOpenNow,
     setFastForward, allocate, setChoice, clearChoice, fillEmpty,
     beginDay, beginNight, runCurrent, runCurrentChain, rerunLast, nextDay, loadState,
