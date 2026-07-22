@@ -92,6 +92,9 @@ const wrapEl = ref<HTMLElement | null>(null);
 let panning = false, panSX = 0, panSY = 0, panLeft = 0, panTop = 0;
 function panStart(e: PointerEvent) {
   if ((e.target as HTMLElement).closest('.node')) return; // 节点上不平移,保留点击
+  // 批H9: 触屏/触控笔交给原生 overflow 滚动(见 .canvas-wrap touch-action)。
+  // 原先对触屏也用 setPointerCapture+手动 scroll,与浏览器原生触摸滚动抢指针→pointercancel→拖不动。
+  if (e.pointerType !== 'mouse') return;
   const el = wrapEl.value; if (!el) return;
   panning = true; panSX = e.clientX; panSY = e.clientY; panLeft = el.scrollLeft; panTop = el.scrollTop;
   el.setPointerCapture(e.pointerId);
@@ -211,13 +214,6 @@ function unlockNodeName(p: SkillPage): string {
 .locked-page b { color: var(--gold); }
 
 .canvas-wrap { flex: 1; min-height: 120px; overflow: auto; cursor: grab; border: 1px dashed rgba(201,162,74,.14); border-radius: 8px; }
-/* 批H4·手机重排: 树画布保证可视高度(拖拽平移本就支持触屏);详情卡放宽 */
-@media (max-width: 820px) {
-  .canvas-wrap { min-height: 42dvh; }
-  .detail { max-height: 38vh; }
-  .pg-tabs { overflow-x: auto; flex-wrap: nowrap; -webkit-overflow-scrolling: touch; padding-bottom: 4px; }
-  .pg-tabs > * { flex: none; }
-}
 .canvas-wrap:active { cursor: grabbing; }
 .canvas { position: relative; flex: none; }
 .links { position: absolute; left: 0; top: 0; pointer-events: none; }
@@ -267,4 +263,22 @@ function unlockNodeName(p: SkillPage): string {
 .d-corr { font-size: 11px; color: var(--rose-hi); }
 .buy { margin-left: auto; font-family: var(--serif); background: linear-gradient(180deg, var(--gold-hi), var(--gold)); color: #1a120a; border: none; border-radius: 6px; padding: 8px 18px; font-size: 13px; font-weight: 700; cursor: pointer; }
 .buy:disabled { background: rgba(0,0,0,.3); color: var(--text-dim); border: 1px solid var(--line); cursor: not-allowed; font-weight: 400; }
+
+/* ═══ 手机重排(≤820px)·批H9: 此块必须在【所有基础规则之后】——
+   同特异性后者胜。原先手机块写在中部,基础 .detail{max-height:30vh}/.d-foot 写在其后
+   反杀了手机覆盖 → detail 卡连同 buy 按钮被裁在容器外(用户反馈"升级按钮显示不全")。 ═══ */
+@media (max-width: 820px) {
+  /* 根容器不再 height:100%+overflow:hidden(会把 detail 卡+buy 按钮裁在容器外),
+     改为内容自然撑开,交给外层 .stage 滚动 */
+  .tree { height: auto; min-height: 100%; overflow: visible; padding: 12px 12px 18px; }
+  /* 技能树画布: 触屏用原生双向滚动(pan-x pan-y)查看整树,不再依赖 JS pan(与原生滚动打架=拖不动) */
+  .canvas-wrap { min-height: 44dvh; touch-action: pan-x pan-y; }
+  /* 详情卡完整显示(不裁),d-foot 换行让 buy 按钮整行可见可点 */
+  .detail { max-height: none; }
+  .d-foot { flex-wrap: wrap; row-gap: 8px; }
+  .d-foot .buy { margin-left: 0; width: 100%; text-align: center; padding: 11px 18px; }
+  /* 子页选项卡横向可滚(标签多时不挤压) */
+  .pg-tabs { overflow-x: auto; flex-wrap: nowrap; -webkit-overflow-scrolling: touch; padding-bottom: 4px; }
+  .pg-tabs > * { flex: none; }
+}
 </style>

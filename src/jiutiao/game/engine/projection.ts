@@ -52,6 +52,7 @@ export function projectGameState(state: EngineState, dayNumber: number): Record<
         子宫生育: partProj(state, '子宫生育'),
       },
       怀孕: !!state.pregnant,
+      身体计数: state.bodyCounts ?? {},
     },
     九条会: {
       打手总数: state.thugTotal,

@@ -253,7 +253,9 @@ export function createTavernAi(opts: TavernAiOpts): AiPort {
         ordered_prompts: sumPrompts,
         should_stream: false,
         should_silence: true,                            // 后台静默,不产生楼层消息
-        custom_api: { ...(getExtractApiForCall() ?? opts.extractApi ?? {}), max_tokens: 'unset' }, // 副端点(批E1·调用时读取即时生效)
+        // 批H9: 副API未配→沿用正文 expand 的 same_as_preset 锚(走主连接/插头,已验证可用);
+        //   原先传只含 max_tokens 的空 custom_api,酒馆无法定位连接端点→弹"Chat Completion API · model is required"。
+        custom_api: (() => { const ex = getExtractApiForCall() ?? opts.extractApi; return ex ? { ...ex, max_tokens: 'unset' as const } : { ...SAMPLING, max_tokens: 'unset' as const }; })(),
       }), SUMMARIZE_TIMEOUT_MS);
       auditPush({
         when: new Date().toISOString(), kind: 'summary',
@@ -270,7 +272,9 @@ export function createTavernAi(opts: TavernAiOpts): AiPort {
         ordered_prompts: exPrompts,
         should_stream: false,
         should_silence: true,                            // 后台静默
-        custom_api: { ...(getExtractApiForCall() ?? opts.extractApi ?? {}), max_tokens: 'unset' }, // 副端点(批E1·调用时读取即时生效)
+        // 批H9: 副API未配→沿用正文 expand 的 same_as_preset 锚(走主连接/插头,已验证可用);
+        //   原先传只含 max_tokens 的空 custom_api,酒馆无法定位连接端点→弹"Chat Completion API · model is required"。
+        custom_api: (() => { const ex = getExtractApiForCall() ?? opts.extractApi; return ex ? { ...ex, max_tokens: 'unset' as const } : { ...SAMPLING, max_tokens: 'unset' as const }; })(),
       });
       auditPush({ when: new Date().toISOString(), kind: 'extract', label: '数值抽取', prompts: exPrompts, rawResponse: raw });
       return extractVarsJson(raw);

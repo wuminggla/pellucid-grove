@@ -39,7 +39,6 @@
               <span class="dots"><i v-for="n in 4" :key="n" :class="{ on: n <= p.lv }"></i></span>
               <span class="lv">{{ p.lv }}/4</span><span class="arr">▸</span>
             </summary>
-            <!-- TODO(数据): 分部位次数未追踪，先占位 — -->
             <div class="part-body"><div class="cnt3"><div v-for="c in p.cnt" :key="c.k"><div class="k">{{ c.k }}</div><div class="v">{{ c.v }}</div></div></div></div>
           </details>
 

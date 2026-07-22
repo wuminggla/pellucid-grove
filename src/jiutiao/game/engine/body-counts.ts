@@ -29,7 +29,18 @@ const EVENT_CATEGORY: Record<string, CountCategory> = {
   // 生育线(子宫计数联动)
   condom_zero_3: 'womb', birth_rape: 'womb',
   // AV(混合: 小穴为主+口腔参半)
-  av_first: 'mixed', av_custom: 'mixed',
+  av_first: 'mixed', av_custom: 'mixed', av_shoot: 'mixed', av_first_forced: 'mixed',
+  // ─── 批J·映射补漏(用户反馈"次数从没更新")——以下高频事件此前未映射,做多少次都不计数 ───
+  // dual/翻面事件放心映射: SFW面结算时 isNsfw=false→served=0→不计数,只有NSFW面才累加。
+  rest: 'vaginal',            // 轮奸起居(睡奸·夜间最常用)
+  serve_advance: 'vaginal',   // 强占进阶·大规模轮奸
+  garden_rock: 'vaginal', garbage: 'vaginal', walk_toy: 'vaginal',
+  protection: 'vaginal', protection_a4: 'vaginal', bribe: 'vaginal',
+  condom_zero: 'vaginal', condom_zero_1: 'vaginal', condom_zero_2: 'mixed', // E2口戴套=口+穴
+  school: 'vaginal', school_25: 'vaginal', school_50: 'vaginal', school_75: 'vaginal',
+  // 外出翻面线(全部轮奸主轴经小穴)
+  dine: 'vaginal', mall: 'vaginal', beach: 'vaginal', hiking: 'vaginal', camping: 'vaginal',
+  festival: 'vaginal', concert: 'vaginal', amusement: 'vaginal', street: 'vaginal',
 };
 
 /** 每场高潮数 · 按认知防线阶段(身体越陷落越藏不住) */
