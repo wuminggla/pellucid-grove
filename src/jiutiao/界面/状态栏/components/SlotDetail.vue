@@ -34,25 +34,19 @@
           <button class="fav-btn" @click="onFav">{{ favDone ? '✓ 已收藏到留档' : '❤ 收藏本段正文' }}</button>
           <button class="fav-btn" @click="startEdit">✎ 编辑正文</button>
         </div>
-        <!-- 批I4-6: 续写/重roll操作集中区(仅最近执行格·底部栏分散按钮已并入此处) -->
-        <div v-if="isLastExec" class="cont-box">
+        <!-- 批I4-6/批Q: 续写·重roll 操作区。批Q 前这一块被 isLastExec 锁死在"最近执行的那一格",
+             玩家往前推进一格,刚看完的场面(首次AV/临盆这类想接着扩的)就再也续不了了。
+             现在续写/重roll最后一段/重新生成对【任意已结算格】开放;
+             只有「重roll整格」仍限最近执行格——它要连数值一起重算,依赖执行前快照,历史格没有。 -->
+        <div class="cont-box">
           <textarea v-model="contNote" class="note-ta" rows="2"
             placeholder="续写要求（选填·例：接下来转到浴室 / 多写对话）"></textarea>
           <div class="ops-row">
             <button class="op-btn gold" :disabled="r.busy" @click="doCont">▸ 续写本格</button>
             <button v-if="segs.length > 1" class="op-btn" :disabled="r.busy" @click="doRerollSeg">↻ 重roll最后一段</button>
-            <button class="op-btn" :disabled="r.busy" @click="doRerollAll">↻ 重roll整格</button>
-          </div>
-        </div>
-        <!-- 批L: 非"最近执行格"的历史格也要有重生成入口(玩家翻回旧格时按钮此前完全消失)。
-             走 regenerateSlotText——只重出正文,不重跑已入账的数值结算。 -->
-        <div v-else class="cont-box">
-          <textarea v-model="contNote" class="note-ta" rows="2"
-            placeholder="补充要求（选填·重新生成时一并发给 AI）"></textarea>
-          <div class="ops-row">
-            <button class="op-btn" :disabled="r.busy" @click="doRegen">
-              {{ r.busy ? '生成中…' : '↻ 重新生成本格正文' }}
-            </button>
+            <button class="op-btn" :disabled="r.busy" @click="doRegen">↻ 重新生成正文</button>
+            <button v-if="isLastExec" class="op-btn" :disabled="r.busy" @click="doRerollAll"
+              title="连数值一起重算（恢复执行前快照重跑本格）。仅最近执行的那一格可用。">↻ 重roll整格</button>
           </div>
         </div>
       </template>
@@ -199,9 +193,16 @@ const isLastExec = computed(() => {
 // 批N(社区实证·用户"塞拉": "重ROLL似乎要提前复制一遍,否则就要完全重写,不小心吞掉自己以前的
 // 要求好几次了"): 此前 doCont/doRerollSeg 用完就把输入框清空,doRerollAll 更是压根不传 note。
 // 现在改为【用完保留】,玩家可以拿同一条要求反复重roll直到满意;换格时才由下方 watch 清掉。
+// 批Q: 续写/重roll最后一段改为按格调用(不再依赖 store 的"最近执行格"单例)
 const contNote = ref('');
-async function doCont() { await r.continueLast(contNote.value); }
-async function doRerollSeg() { await r.rerollLastSegment(contNote.value); }
+async function doCont() {
+  if (!props.slot) return;
+  await r.continueSlot(props.period, props.slot.index, contNote.value);
+}
+async function doRerollSeg() {
+  if (!props.slot) return;
+  await r.rerollLastSegment(props.period, props.slot.index, contNote.value);
+}
 async function doRerollAll() { await r.rerunLast(contNote.value); }
 // 批L: 空回/截断格的重新生成(只补正文,不重跑数值结算)
 async function doRegen() {

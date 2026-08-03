@@ -442,7 +442,7 @@ export const useRunnerStore = defineStore('runner', () => {
       day.value = beginNightFn(day.value); error.value = null;
       // 推进到夜晚后,白天最后一格的快照已失效 → 清掉,避免"重生成上一格"误回退白天格
       lastSettle.value = null; lastServe.value = null; lastRecruit.value = null; lastBuyCondom.value = null; preRunSnapshot = null;
-      lastExec.value = null; lastSegStart.value = 0; // 批I2: 跨时段续写宿主失效(与重roll快照同规则)
+      lastExec.value = null; // 批I2: 跨时段"最近执行格"失效(与重roll快照同规则·批Q后只影响整格重roll)
       // 批F2: 进入夜间时段先扫一次夜间强制事件(av_first等)。
       // 覆盖"玩家没排任何夜间格"的场景——nightCount=0时 beginNight 直接 settled,
       // 逐格扫描(runCurrentSlot内)永不会跑,这里兜底插入专属临时格并把时段拉回 running。
@@ -593,7 +593,7 @@ export const useRunnerStore = defineStore('runner', () => {
       lastAvIncome.value = avIncome;
       lastNight.value = nightInfo;
       autoUnlockMysteries();
-      if (ranSlot) { lastExec.value = { period: ranSlot.period, index: ranSlot.index }; lastSegStart.value = 0; } // 批I2: 续写宿主定位
+      if (ranSlot) { lastExec.value = { period: ranSlot.period, index: ranSlot.index }; } // 批I2: 续写宿主定位
       const sl = ranSlot ? `${ranSlot.period === 'day' ? '昼' : '夜'}#${ranSlot.index + 1}` : '';
       const extra: Notice[] = nightInfo ? [{ t: `夜结：供奉${nightInfo.servedToday}人·结余${nightInfo.desireLeftover}` + (nightInfo.overflowImminent ? ' ⚠次日白日供奉' : ''), tone: nightInfo.overflowImminent ? 'warn' : 'dim' }] : [];
       logNotices(`第${day.value.dayNumber}天 ${sl}`, extra);
@@ -612,11 +612,21 @@ export const useRunnerStore = defineStore('runner', () => {
     await execCurrentFrom(preRunSnapshot);
   }
 
-  // ─── 批I2: 同格续写 + 按段重roll ───
-  // lastExec=最近成功执行的格(续写宿主·跨时段/跨天失效,与重roll快照同规则)。
-  // lastSegStart=最后一段续写在整格文本中的起点(0=尚无续写段→重roll段退化为整格重roll)。
+  // ─── 批I2: 同格续写 + 按段重roll(批Q: 泛化到任意格) ───
+  // lastExec=最近成功执行的格。批Q后它【只】决定「重roll整格」可不可用——那个功能依赖
+  // preRunSnapshot(执行前快照),历史格没有快照所以泛化不了。续写/重roll最后一段不再受它约束。
+  //
+  // 批Q: 原先还有个 lastSegStart(全局单值,记最后一段续写的起点)已删除 —— 它有两个毛病:
+  //   ① 全局单值,泛化到任意格后会串格;
+  //   ② 不进存档,刷新酒馆后归零 → "重roll最后一段"静默退化成"重roll整格",玩家的续写段被整段吞掉。
+  // 现改为从 slot.segStarts 派生(本来就是按格存、且随存档持久化的),两个毛病一起没了。
   const lastExec = ref<{ period: SlotPeriod; index: number } | null>(null);
-  const lastSegStart = ref(0);
+
+  /** 该格最后一段(续写段)在整格文本中的起点;返回 0 表示只有首段、尚无续写段。 */
+  function lastSegStartOf(slot: ActionSlot | null): number {
+    const starts = slot?.segStarts?.length ? slot.segStarts : [0];
+    return starts.length > 1 ? starts[starts.length - 1] : 0;
+  }
 
   function slotOf(refp: { period: SlotPeriod; index: number }) {
     const list = refp.period === 'day' ? day.value.daySlots : day.value.nightSlots;
@@ -646,10 +656,16 @@ export const useRunnerStore = defineStore('runner', () => {
     }
   }
 
-  /** 续写当前(最近执行)格: 已有正文作上文,AI只输出新增段,不收尾,可无限续。note=玩家续写要求(批I4-5) */
-  async function continueLast(note?: string) {
-    if (busy.value || !lastExec.value) return;
-    const refp = lastExec.value;
+  /**
+   * 续写【指定格】: 已有正文作上文,AI只输出新增段,不收尾,可无限续。note=玩家续写要求(批I4-5)。
+   *
+   * 批Q(用户点名泛化): 原 continueLast 只认 lastExec=最近执行格,玩家往前推进一格后,
+   * 刚才那个场面(首次AV/临盆分娩这类看完想接着扩的)就再也续不了了。现改为任意格可续。
+   * 注: day.value 只持有当天的格,所以 dayNumber 恒正确;engine 用当前值(晚几格的状态,可接受)。
+   */
+  async function continueSlot(period: SlotPeriod, index: number, note?: string) {
+    if (busy.value) return;
+    const refp = { period, index };
     const slot = slotOf(refp);
     if (!slot?.choice || slot.status !== 'done' || !(slot.resultText ?? '').trim()) return;
     busy.value = true; error.value = null; lastEmpty.value = false; lastWarn.value = null;
@@ -676,7 +692,6 @@ export const useRunnerStore = defineStore('runner', () => {
         lastEmpty.value = true;
         lastWarn.value = '续写内容为空或过短(可能被外部审核拦截/截断)。可再点一次续写重试。';
       } else {
-        lastSegStart.value = prevText.length;
         // 批I4-6: 段偏移追加(新段起点=旧文长+分隔'\n\n'),UI按段渲染独立卡片
         const starts = [...((slot.segStarts?.length ? slot.segStarts : [0])), prevText.length + 2];
         writeSlotText(refp, prevText + '\n\n' + seg, starts);
@@ -687,6 +702,12 @@ export const useRunnerStore = defineStore('runner', () => {
     } finally {
       busy.value = false;
     }
+  }
+
+  /** 续写最近执行格(批Q 后 = continueSlot 的薄包装,保留旧调用点/旧存档兼容) */
+  async function continueLast(note?: string) {
+    if (!lastExec.value) return;
+    await continueSlot(lastExec.value.period, lastExec.value.index, note);
   }
 
   /**
@@ -740,8 +761,7 @@ export const useRunnerStore = defineStore('runner', () => {
         lastWarn.value = '重新生成仍为空或过短。多半是被上游审核拦下或输出被截断——'
           + '可再点一次重试;反复失败就去设置页确认预设里的破甲条目已启用,或把「前文记忆」注入档位调低。';
       } else {
-        writeSlotText(refp, t, [0]);
-        lastExec.value = { period, index }; lastSegStart.value = 0; // 补完正文后本格即可续写
+        writeSlotText(refp, t, [0]); // 段结构重置为单段(重生成=换了一份全新正文)
         void drainSummaries();
       }
     } catch (e) {
@@ -751,18 +771,29 @@ export const useRunnerStore = defineStore('runner', () => {
     }
   }
 
-  /** 重roll最后一段续写(截掉最后一段→重新续写·可带续写要求);尚无续写段时=整格重roll。 */
-  async function rerollLastSegment(note?: string) {
-    if (busy.value || !lastExec.value) return;
-    if (lastSegStart.value <= 0) { await rerunLast(note); return; } // 批N: 尚无续写段→退化为整格重roll,要求一并带上
-    const refp = lastExec.value;
+  /**
+   * 重roll【指定格】最后一段续写(截掉最后一段→重新续写·可带续写要求)。
+   * 批Q: 泛化到任意格,段起点改从 slot.segStarts 派生(见 lastSegStartOf 注释)。
+   * 尚无续写段时的退化路径分两种:
+   *   · 该格就是最近执行格 → 有执行前快照,可整格重roll(连数值一起重算);
+   *   · 历史格 → 没有快照,只能重出正文(数值早已入账,绝不能重算)。
+   */
+  async function rerollLastSegment(period: SlotPeriod, index: number, note?: string) {
+    if (busy.value) return;
+    const refp = { period, index };
     const slot = slotOf(refp);
     if (!slot?.choice || slot.status !== 'done') return;
-    const base = (slot.resultText ?? '').slice(0, lastSegStart.value).trimEnd();
+    const segStart = lastSegStartOf(slot);
+    if (segStart <= 0) { // 批N: 要求一并带上
+      const isLast = lastExec.value?.period === period && lastExec.value?.index === index;
+      if (isLast && preRunSnapshot) await rerunLast(note);
+      else await regenerateSlotText(period, index, note);
+      return;
+    }
+    const base = (slot.resultText ?? '').slice(0, segStart).trimEnd();
     const starts = (slot.segStarts?.length ? slot.segStarts : [0]).slice(0, -1);
     writeSlotText(refp, base, starts.length ? starts : [0]);
-    lastSegStart.value = 0;
-    await continueLast(note);
+    await continueSlot(period, index, note);
   }
 
   /** 批I4-7: 玩家直接编辑正文(当天已结算格)。保存后重标needsSummary,段结构重置为单段。 */
@@ -772,7 +803,7 @@ export const useRunnerStore = defineStore('runner', () => {
     const t = text.trim();
     if (!t) return false;
     writeSlotText({ period, index }, t, [0]);
-    if (lastExec.value?.period === period && lastExec.value?.index === index) lastSegStart.value = 0;
+
     void drainSummaries();
     return true;
   }
@@ -872,7 +903,7 @@ export const useRunnerStore = defineStore('runner', () => {
     }
     autoUnlockMysteries();
     lastSettle.value = null; lastServe.value = null; lastRecruit.value = null; lastBuyCondom.value = null; lastReward.value = null; lastProtection.value = null; lastAvIncome.value = null; lastWalk.value = null; lastOrgy.value = null; lastNight.value = null; error.value = null;
-    lastExec.value = null; lastSegStart.value = 0; // 批I2: 跨天续写宿主失效
+    lastExec.value = null; // 批I2: 跨天失效
     // 批B6:跨天触发后台大总结检查(跨整窗边界才真正总结)+补齐欠账小总结
     void drainSummaries();
     void runBigSummary();
@@ -883,7 +914,7 @@ export const useRunnerStore = defineStore('runner', () => {
     lastSettle.value = null; lastServe.value = null; lastRecruit.value = null; lastBuyCondom.value = null; lastReward.value = null; lastProtection.value = null; lastAvIncome.value = null; lastWalk.value = null; lastOrgy.value = null; lastNight.value = null;
     forcedLeaveToday.value = false; forcedSeize.value = null;
     reliefCleared.value = false; hardFail.value = false; hardFailReason.value = null; failWarnings.value = []; error.value = null;
-    lastExec.value = null; lastSegStart.value = 0; // 批I2: 读档/重置后续写宿主失效
+    lastExec.value = null; // 批I2: 读档/重置后失效
   }
 
   // ─── 持久化(chat 作用域·一聊天一份存档·刷新酒馆/重开聊天不丢进度) ───
@@ -1192,7 +1223,7 @@ export const useRunnerStore = defineStore('runner', () => {
     tendencyNow, salvationOpenNow,
     setFastForward, allocate, setChoice, clearChoice, fillEmpty,
     beginDay, beginNight, runCurrent, runCurrentChain, rerunLast, nextDay, loadState,
-    continueLast, rerollLastSegment, regenerateSlotText, editSlotText, lastExec, lastSegStart,
+    continueLast, continueSlot, rerollLastSegment, regenerateSlotText, editSlotText, lastExec,
     useMock, useTavern, saveNow: persistNow, resetGame,
   };
 });
