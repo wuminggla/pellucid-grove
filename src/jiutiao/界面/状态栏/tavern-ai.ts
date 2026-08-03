@@ -15,6 +15,7 @@
 //   若实测有世界书漏入干扰,再考虑 overrides 屏蔽。
 
 import { buildGameInject, buildExtractInject } from './prompt-inject';
+import { LONG_FORM_EVENTS, LONG_FORM_TRUNCATE_RATIO } from '../../game/engine/prompt';
 import { extractGameText, extractContinuity, extractVarsJson, stripThinking } from './extract';
 import { renderTieredMemory } from '../../game/memory/machine';
 import { getMemoryConfig } from './memory-settings';
@@ -218,38 +219,81 @@ export function createTavernAi(opts: TavernAiOpts): AiPort {
 
   return {
     async expand(req: ExpandRequest): Promise<ExpandResult> {
-      // 三层记忆注入(纯函数渲染,无AI调用,零延迟)
-      const nowDay = req.dayNumber
-        ?? Math.max(0, ...(req.state.proseArchive ?? []).map(p => p.day)); // 兜底:档案里最新一天
-      const memoryText = renderTieredMemory(req.state, nowDay, getMemoryConfig());
-      // 批I4-2: 双消息制——system=全部卡侧说明;user=玩家真实输入(无输入自动占位,恒非空=Gemini系
-      // "contents is required"兼容,取代 H6 的"整包发user"权宜(卡侧说明曾稀释真实用户输入)。
-      const inj = buildGameInject(req, opts.lorebook, memoryText);
-      let sysContent = inj.system;
-      // 批I2: 自定义格开启"读取我的世界书"时,扫描玩家全局世界书附进 system(设定类内容)
-      if (req.choice.params?.useUserLorebook === true) {
-        const queryText = [req.choice.params?.customPrompt, req.choice.params?.userNote]
-          .filter((s): s is string => typeof s === 'string').join(' ');
-        const wb = await scanUserLorebooks(queryText);
-        if (wb) sysContent += '\n\n' + wb;
+      // 批P: 长篇事件(首部AV等)单独放宽输出上限——病根是"输出预算 < 所需长度",不是文案问题
+      const lf = LONG_FORM_EVENTS[req.resolution.option.id];
+      const sampling: CustomApiConfig = lf ? { ...SAMPLING, max_tokens: lf.maxTokens } : SAMPLING;
+
+      // 组装 ordered_prompts(首轮与"截断自动续写"轮共用,只是 req.continuation 不同)
+      const buildOrdered = async (r: ExpandRequest): Promise<(PlaceholderPrompt | RolePrompt)[]> => {
+        // 三层记忆注入(纯函数渲染,无AI调用,零延迟)
+        const nowDay = r.dayNumber
+          ?? Math.max(0, ...(r.state.proseArchive ?? []).map(p => p.day)); // 兜底:档案里最新一天
+        const memoryText = renderTieredMemory(r.state, nowDay, getMemoryConfig());
+        // 批I4-2: 双消息制——system=全部卡侧说明;user=玩家真实输入(无输入自动占位,恒非空=Gemini系
+        // "contents is required"兼容,取代 H6 的"整包发user"权宜(卡侧说明曾稀释真实用户输入)。
+        const inj = buildGameInject(r, opts.lorebook, memoryText);
+        let sysContent = inj.system;
+        // 批I2: 自定义格开启"读取我的世界书"时,扫描玩家全局世界书附进 system(设定类内容)
+        if (r.choice.params?.useUserLorebook === true) {
+          const queryText = [r.choice.params?.customPrompt, r.choice.params?.userNote]
+            .filter((s): s is string => typeof s === 'string').join(' ');
+          const wb = await scanUserLorebooks(queryText);
+          if (wb) sysContent += '\n\n' + wb;
+        }
+        return [
+          ...(includeTavernPreset ? presetSystemBlocks() : []), // 酒馆预设(默认开·设置页可关)
+          { role: 'system', content: sysContent },         // 卡侧全部: 框架+指令+时段+时间锚+前情+main/JB+世界书+范式+态度+状态+输出格式
+          { role: 'user', content: inj.user },             // 玩家真实输入(补充要求/自定义/续写)或占位
+          // 不放 'chat_history' → 不发楼层历史
+        ];
+      };
+
+      const ordered = await buildOrdered(req);
+      let raw: string;
+      try {
+        raw = await generateRaw({ ordered_prompts: ordered, should_stream: false, custom_api: sampling });
+      } catch (e) {
+        // 抬高的 max_tokens 可能超出该端点/模型的单次输出上限而被拒 → 回落预设采样重试一次,
+        // 绝不能让"想写长一点"反而把这一格彻底打死。
+        if (!lf) throw e;
+        raw = await generateRaw({ ordered_prompts: ordered, should_stream: false, custom_api: SAMPLING });
       }
-      const ordered: (PlaceholderPrompt | RolePrompt)[] = [
-        ...(includeTavernPreset ? presetSystemBlocks() : []), // 酒馆预设块(默认开·设置页可关)
-        { role: 'system', content: sysContent },         // 卡侧全部: 框架+指令+时段+时间锚+前情+main/JB+世界书+范式+态度+状态+输出格式
-        { role: 'user', content: inj.user },             // 玩家真实输入(补充要求/自定义/续写)或占位
-        // 不放 'chat_history' → 不发楼层历史
-      ];
-      const raw = await generateRaw({
-        ordered_prompts: ordered,
-        should_stream: false,
-        custom_api: SAMPLING,
-      });
       auditPush({
         when: new Date().toISOString(), kind: 'expand', label: req.resolution.option.label,
         prompts: ordered.filter((p): p is RolePrompt => typeof p !== 'string'),
         rawResponse: raw,
       });
-      const text = extractGameText(raw);
+      let text = extractGameText(raw);
+
+      // 批P: 长篇事件截断兜底——正常一次写完就零额外开销,只有真被截断才自动补一段。
+      // 判定: 有开标签却没闭标签(典型截断特征) 或 正文不足要求字数的 60%。
+      // 只对首轮生效(req.continuation 为空),避免玩家手动续写时被二次追加。
+      if (lf && !req.continuation && text) {
+        const hasOpen = /<(jiutiao_text|maintext)>/i.test(raw);
+        const hasClose = /<\/(jiutiao_text|maintext)>/i.test(raw);
+        const tooShort = text.length < Math.floor(lf.minChars * LONG_FORM_TRUNCATE_RATIO);
+        if ((hasOpen && !hasClose) || tooShort) {
+          try {
+            const ordered2 = await buildOrdered({
+              ...req,
+              continuation: {
+                prevTail: text.slice(-2200),
+                note: '上一段因为输出长度上限被中断了。请从中断处【无缝接续】把本事件剩余的节拍演完,'
+                  + '保持与前文同样的细节密度(不要因为是补写就草草收束),不要重述已经写过的内容。',
+              },
+            });
+            const raw2 = await generateRaw({ ordered_prompts: ordered2, should_stream: false, custom_api: sampling });
+            auditPush({
+              when: new Date().toISOString(), kind: 'expand',
+              label: req.resolution.option.label + '·截断自动续写',
+              prompts: ordered2.filter((p): p is RolePrompt => typeof p !== 'string'),
+              rawResponse: raw2,
+            });
+            const seg = extractGameText(raw2).trim();
+            if (seg.length >= 20) text = text.trimEnd() + '\n\n' + seg;
+          } catch { /* 兜底续写失败不影响已生成的正文,玩家仍可手动点续写 */ }
+        }
+      }
       // 正文入档由 day-runner 维护(EngineState.proseArchive·批B6),此处不持有状态
       return { text, continuity: extractContinuity(raw) };
     },

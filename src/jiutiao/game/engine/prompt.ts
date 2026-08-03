@@ -52,15 +52,41 @@ const SPEC_BY_MODE: Record<string, string> = {
 };
 
 /** 事件级篇幅覆盖(批F2): 剧情特别长的事件明确允许并要求长文,压过默认规格 */
-// 批L(社区实证·用户"molin": "每次只要到拍摄第一部AV事件就无法正常生成"):
-// 原文案要求"不少于5000字"≈7500+ tokens 输出,而 custom_api.max_tokens 走 same_as_preset,
-// 绝大多数预设设在 2000-4000 → 每次必被上游截断。叠加 av_first 是 locked 插入格(空回时
-// 连重生成入口都没有),就成了"每次都过不去"。改为节拍完整优先 + 明确告知可续写。
-const LENGTH_OVERRIDE: Record<string, string> = {
-  av_first: '【篇幅】本格剧情节拍多(供奉→提议→寸止拉锯→答应→摄影室正片),允许并鼓励长文,不许略写或跳节拍。'
-    + '但【务必在输出预算内写完并正常闭合 </jiutiao_text> 标签】:若篇幅不够,优先保证节拍推进完整、把细节密度让出来,'
-    + '停在事件仍在进行的过程点即可(玩家可以点续写继续往下拍),绝不要为了凑长度而写到一半被硬截断。',
+/**
+ * 长篇事件登记表(批P) —— 篇幅/预算/节拍的唯一真相源。
+ *
+ * 背景(社区实证·用户"molin": "每次只要到拍摄第一部AV事件就无法正常生成"):
+ * 原先只有一句"正文不少于5000字"的 prompt 硬要求,但 custom_api.max_tokens 走 same_as_preset,
+ * 绝大多数预设设在 2000-4000 → 5000汉字≈7500+ tokens 必被截断,每次必现;
+ * 叠加 av_first 是 locked 插入格(v1.8.0 前空回连重生成入口都没有)= 每次都过不去。
+ *
+ * v1.8.0 的临时处理是撤掉字数要求、让 AI"用细节密度换节拍完整"——止血但会写得紧凑,
+ * 长范式事件的质量被牺牲。本表是真正的解法: 病根是【输出预算 < 所需长度】,那就抬预算。
+ *  - maxTokens: 覆盖预设的 same_as_preset,给该事件单独放宽单次输出上限;
+ *  - minChars : 写进 prompt 的字数硬要求(恢复),同时作为截断检测的基准;
+ *  - beats    : 节拍清单,写进 prompt 防跳拍。
+ * 端点/模型若拒绝抬高的 max_tokens,tavern-ai 会回落预设采样重试(见该文件 expand);
+ * 仍被截断时自动补一段续写(检测: 开标签无闭标签 或 正文不足 minChars 的 60%)。
+ */
+export interface LongFormSpec {
+  minChars: number;
+  maxTokens: number;
+  beats: string;
+}
+export const LONG_FORM_EVENTS: Record<string, LongFormSpec> = {
+  av_first: { minChars: 5000, maxTokens: 8000, beats: '供奉→提议→寸止拉锯→答应→摄影室正片' },
 };
+
+/** 截断判定阈值: 正文短于 minChars 的这个比例即视为被截断,触发自动续写兜底 */
+export const LONG_FORM_TRUNCATE_RATIO = 0.6;
+
+/** 事件级篇幅覆盖(批F2): 剧情特别长的事件明确允许并要求长文,压过默认规格 */
+const LENGTH_OVERRIDE: Record<string, string> = Object.fromEntries(
+  Object.entries(LONG_FORM_EVENTS).map(([id, s]) => [id,
+    `【篇幅·硬要求】本格剧情节拍多(${s.beats}),明确允许且要求长文:正文不少于${s.minChars}字,不许略写或跳节拍。`
+    + '每个节拍都要写厚写透——细节密度是本格的核心价值,不要为了赶完节拍而压缩描写。'
+    + '本格已单独放宽了输出上限,放开写;万一仍写不完,停在事件进行中的过程点即可(系统会自动接着补完),不要仓促收尾。']),
+);
 
 /** 从预设取采样参数(传 api-router) */
 export function presetSampling(preset: ChatPreset): Record<string, unknown> {
