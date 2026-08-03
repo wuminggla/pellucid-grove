@@ -321,7 +321,8 @@ export async function runCurrentSlot(
     }) };
   }
 
-  const dayDone = completeCurrent(dayForInsert, settle.resultText);
+  // 批L: 记下"本格走的是首次里程碑范式",供事后【重新生成本格正文】还原同一范式
+  const dayDone = completeCurrent(dayForInsert, settle.resultText, settle.events.isFirstSpecial);
 
   // 在场打手数刷新(每格结算后·忠诚越高越易刷高)。白天在场≤总-派驻(派驻的白天不在场);夜晚派驻回来,不限。
   const _nextPeriod = dayDone.cursor?.period;

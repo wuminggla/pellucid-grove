@@ -118,8 +118,16 @@
           <h3>AI 生成 · 选项</h3>
           <label class="srow toggle-row">
             <input type="checkbox" v-model="includePreset" @change="onPresetToggle" />
-            <span><b>附加酒馆预设文风块</b>（默认开）：把你酒馆当前启用预设里的 main/nsfw/jailbreak 块一并发给 AI，借用其文风与过审基调。若怀疑它干扰生成可关闭。</span>
+            <span><b>附加酒馆预设</b>（默认开）：把你酒馆当前预设里<b>所有已启用的条目</b>（含破甲/越狱/文风等）一并发给 AI。要注入什么请<b>直接在酒馆预设界面开关条目</b>——这里不再做二次筛选。生成总被打回时，先确认预设里的破甲条目是开着的。</span>
           </label>
+          <div class="srow">
+            <b>生成出问题时的自查</b>：正文空白 / 被截断 / 混进思维链时，导出最近几次实际发给 AI 的完整
+            prompt 与原始返回，一眼分清是<b>被上游拦了</b>、<b>输出被截断</b>还是<b>卡本身出 bug</b>。
+            反馈问题时把它一并贴出来最省事。
+            <div class="set-btns">
+              <button class="ghost-btn" @click="copyPromptAudit">复制最近的 prompt 与 AI 原始返回</button>
+            </div>
+          </div>
           <label class="srow toggle-row">
             <input type="checkbox" v-model="malePovOn" @change="onPovToggle" />
             <span><b>男性视角模式</b>（默认关）：开启后，正文以「九条会打手小头目」的男性视角展开——主人公名字取你在酒馆里的用户名（{{ povName }}），他亲身在场、可与大小姐直接互动。关闭则为默认视角（第三人称跟随凛）。改动下一格生成起生效。</span>
@@ -140,7 +148,7 @@
           <div class="srow">
             <b>近期总结窗口</b>：原文之外，注入最近几天的逐事件总结（窗口每日滑动，永不突然断档）。
             <div class="mem-opts">
-              <label v-for="w in [10, 20, 30, 60]" :key="w" class="mem-opt" :class="{ on: memCfg.windowDays === w }">
+              <label v-for="w in [10, 15, 20, 30, 60]" :key="w" class="mem-opt" :class="{ on: memCfg.windowDays === w }">
                 <input type="radio" :value="w" v-model.number="memCfg.windowDays" @change="onMemChange" />{{ w }}天
               </label>
             </div>

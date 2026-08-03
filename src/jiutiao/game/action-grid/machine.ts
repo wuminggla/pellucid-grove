@@ -232,12 +232,12 @@ export function markRunning(state: DayState): DayState {
 }
 
 /** 完成当前 cursor 格（写入结果文本），推进 cursor 到下一格；本时段完则进入结算 */
-export function completeCurrent(state: DayState, resultText: string): DayState {
+export function completeCurrent(state: DayState, resultText: string, wasFirst?: boolean): DayState {
   if (!state.cursor) throw new Error('无当前执行格');
   const { period, index } = state.cursor;
   const slots = slotsOf(state, period);
   const nextSlots = slots.map((s, i) =>
-    i === index ? { ...s, status: 'done' as const, resultText } : s);
+    i === index ? { ...s, status: 'done' as const, resultText, ...(wasFirst ? { wasFirst: true } : {}) } : s);
   let s2 = withSlots(state, period, nextSlots);
 
   const isLast = index >= slots.length - 1;

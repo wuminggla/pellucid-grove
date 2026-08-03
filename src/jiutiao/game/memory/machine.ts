@@ -116,11 +116,19 @@ export interface MemoryInjectConfig {
   /** 原文保留档位: 注入多少前文原文 */
   proseMode: 'none' | 'ev1' | 'ev3' | 'day1' | 'day3';
   /** 小总结注入窗口(天) */
-  windowDays: 10 | 20 | 30 | 60;
+  windowDays: 10 | 15 | 20 | 30 | 60;
   /** 是否注入大总结 */
   bigEnabled: boolean;
 }
-export const DEFAULT_MEMORY_CONFIG: MemoryInjectConfig = { proseMode: 'ev1', windowDays: 10, bigEnabled: true };
+export const DEFAULT_MEMORY_CONFIG: MemoryInjectConfig = { proseMode: 'ev1', windowDays: 15, bigEnabled: true };
+
+/**
+ * 小总结注入条数硬上限(批L·524根因)。
+ * 原先窗口只按天过滤、无条数上限:一天8-15格 × 窗口天数 = 数百条 × ~120字,
+ * system 注入随游玩时长线性膨胀到几万字 → 网关超时(524)/上游截断。
+ * 现取窗口内【最近 N 条】,更老的交给大总结层承载。
+ */
+export const WINDOW_SUMMARY_MAX = 150;
 
 /** 数据保留参数(生成层·与注入设置无关) */
 export const PROSE_RETAIN_DAYS = 3;      // 原文档案保留最近3天(最大原文档位)
@@ -193,7 +201,9 @@ export function selectWindowSummaries(
   summaries: EventSummary[] | undefined, nowDay: number, windowDays: number, excludeIds: Set<string>,
 ): EventSummary[] {
   const from = nowDay - windowDays + 1;
-  return (summaries ?? []).filter(s => s.day >= from && !excludeIds.has(s.id));
+  const inWindow = (summaries ?? []).filter(s => s.day >= from && !excludeIds.has(s.id));
+  // 批L: 条数硬上限——窗口内条目过多时只取最近 WINDOW_SUMMARY_MAX 条(数组尾部=最新)
+  return inWindow.length > WINDOW_SUMMARY_MAX ? inWindow.slice(-WINDOW_SUMMARY_MAX) : inWindow;
 }
 
 /** 三层记忆渲染 → 注入文本(空层省略)。 */

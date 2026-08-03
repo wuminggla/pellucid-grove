@@ -49,6 +49,12 @@ export interface ActionSlot {
   lockedBy?: string;
   /** 是否为事件专属临时格（insertEventSlot 插入，不计入当日预算 dayCount/nightCount） */
   inserted?: boolean;
+  /**
+   * 批L: 本格结算时是否走的"首次里程碑"范式。
+   * 供【重新生成本格正文】还原成同一范式——里程碑账本在首次结算时已被标记，
+   * 事后重解析只会拿到常规范式，重生成出来的会是弱一档的场景。
+   */
+  wasFirst?: boolean;
 }
 
 /** 一天的完整行动格状态 */

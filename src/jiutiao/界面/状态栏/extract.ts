@@ -19,9 +19,13 @@ export function extractGameText(raw: string): string {
     text = m[1];
   } else {
     const openIdx = raw.search(/<jiutiao_text>/i);
+    const mt = raw.match(/<maintext>([\s\S]*?)<\/maintext>/i);
     if (openIdx >= 0) {
       // 1b. 截断兜底: 有开标签没闭标签(生成被截断)→ 取开标签之后的全部
       text = raw.slice(openIdx).replace(/<jiutiao_text>/i, '');
+    } else if (mt) {
+      // 1c. 批L: 兼容 <maintext>——历史 prompt 曾同时下发两种标签指令,旧聊天/习惯性输出仍会用它
+      text = mt[1];
     } else {
       // 2. 兜底: 没按标签输出时,剥离常见思维链/尾部 XML 块,尽量留正文
       let t = raw;
@@ -36,6 +40,7 @@ export function extractGameText(raw: string): string {
   let t = text;
   t = t.replace(/<continuity>[\s\S]*?(?:<\/continuity>|$)/gi, '');
   t = t.replace(/<\/?jiutiao_text>/gi, '');
+  t = t.replace(/<\/?maintext>/gi, '');
   t = t.replace(/^[ \t]*(?:【?前情)[|·:：】][^\n]*$/gm, ''); // 只删以"前情|"/"【前情】"等起头的整行,不动正文里提及"前情"的句子
   return t.trim();
 }

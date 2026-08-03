@@ -8,7 +8,7 @@ import type { MemoryInjectConfig } from '../../game/memory/machine';
 const KEY = 'pellucid_memory_config';
 
 const PROSE_MODES: MemoryInjectConfig['proseMode'][] = ['none', 'ev1', 'ev3', 'day1', 'day3'];
-const WINDOWS: MemoryInjectConfig['windowDays'][] = [10, 20, 30, 60];
+const WINDOWS: MemoryInjectConfig['windowDays'][] = [10, 15, 20, 30, 60];
 
 export function getMemoryConfig(): MemoryInjectConfig {
   try {

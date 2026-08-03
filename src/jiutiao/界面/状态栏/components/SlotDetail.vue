@@ -44,8 +44,46 @@
             <button class="op-btn" :disabled="r.busy" @click="doRerollAll">↻ 重roll整格</button>
           </div>
         </div>
+        <!-- 批L: 非"最近执行格"的历史格也要有重生成入口(玩家翻回旧格时按钮此前完全消失)。
+             走 regenerateSlotText——只重出正文,不重跑已入账的数值结算。 -->
+        <div v-else class="cont-box">
+          <textarea v-model="contNote" class="note-ta" rows="2"
+            placeholder="补充要求（选填·重新生成时一并发给 AI）"></textarea>
+          <div class="ops-row">
+            <button class="op-btn" :disabled="r.busy" @click="doRegen">
+              {{ r.busy ? '生成中…' : '↻ 重新生成本格正文' }}
+            </button>
+          </div>
+        </div>
       </template>
     </template>
+
+    <!-- 批L: 已结算但没有正文 = AI 空回/被截断。此前这里会掉进下面的「选项列表」或「强占提示」
+         分支,且续写/重roll按钮被 v-if="showProse" 挡住 → 玩家完全没有出口(尤其突发事件等
+         locked 插入格,直接卡关)。现给一个独立的失败面板,任何已结算格都能就地补救。 -->
+    <div v-else-if="slot.status === 'done'" class="fail-pane">
+      <div class="fp-title">⚠ 本格没有生成出正文</div>
+      <div class="fp-desc">
+        AI 返回了空内容或被中途截断（数值结算已经正常入账，只是正文丢了）。<br />
+        直接点下面重新生成即可；连续失败多半是<b>预设破甲没生效</b>或<b>注入太长被上游拦下</b>，
+        可去「设置 → AI 生成」确认预设条目开关，或把「前文记忆」档位调低再试。
+      </div>
+      <textarea v-model="contNote" class="note-ta" rows="2"
+        placeholder="补充要求（选填·会一并发给 AI，例：写短一点 / 避开露骨描写）"></textarea>
+      <div class="ops-row">
+        <button class="op-btn gold" :disabled="r.busy" @click="doRegen">
+          {{ r.busy ? '生成中…' : '↻ 重新生成本格正文' }}
+        </button>
+        <button class="op-btn" @click="startEdit">✎ 手动补写</button>
+      </div>
+      <div v-if="editing" class="edit-box">
+        <textarea v-model="editText" class="edit-ta" rows="10"></textarea>
+        <div class="ops-row">
+          <button class="op-btn gold" @click="saveEdit">✓ 保存</button>
+          <button class="op-btn" @click="editing = false">取消</button>
+        </div>
+      </div>
+    </div>
 
     <!-- 进行中 -->
     <div v-else-if="slot.status === 'running'" class="hint-pane">⏳ 本格正在生成…</div>
@@ -158,10 +196,18 @@ const isLastExec = computed(() => {
 });
 
 // ─── 批I4-5/6: 续写要求 + 操作 ───
+// 批N(社区实证·用户"塞拉": "重ROLL似乎要提前复制一遍,否则就要完全重写,不小心吞掉自己以前的
+// 要求好几次了"): 此前 doCont/doRerollSeg 用完就把输入框清空,doRerollAll 更是压根不传 note。
+// 现在改为【用完保留】,玩家可以拿同一条要求反复重roll直到满意;换格时才由下方 watch 清掉。
 const contNote = ref('');
-async function doCont() { await r.continueLast(contNote.value); contNote.value = ''; }
-async function doRerollSeg() { await r.rerollLastSegment(contNote.value); contNote.value = ''; }
-async function doRerollAll() { await r.rerunLast(); }
+async function doCont() { await r.continueLast(contNote.value); }
+async function doRerollSeg() { await r.rerollLastSegment(contNote.value); }
+async function doRerollAll() { await r.rerunLast(contNote.value); }
+// 批L: 空回/截断格的重新生成(只补正文,不重跑数值结算)
+async function doRegen() {
+  if (!props.slot) return;
+  await r.regenerateSlotText(props.period, props.slot.index, contNote.value);
+}
 
 // ─── 批I4-7: 编辑正文 ───
 const editing = ref(false);
@@ -218,6 +264,12 @@ const tagClass = computed(() => ({
 .prose .first { font-family: var(--brush); font-size: 32px; color: var(--gold-hi); float: left; line-height: 1; margin: 6px 12px 0 0; }
 
 .hint-pane { color: var(--text-dim); font-size: 14px; padding: 20px 0; text-align: center; }
+
+/* 批L: 空回/截断失败面板 */
+.fail-pane { border: 1px solid rgba(179,33,46,.45); border-radius: 8px; background: rgba(179,33,46,.07); padding: 16px 18px; }
+.fp-title { font-size: 15px; color: var(--red-hi); letter-spacing: 1px; margin-bottom: 10px; }
+.fp-desc { font-size: 13px; line-height: 1.9; color: var(--text-dim); margin-bottom: 12px; }
+.fp-desc b { color: var(--gold-hi); font-weight: 700; }
 
 .picker-cap { font-size: 13px; color: var(--text-dim); margin-bottom: 12px; letter-spacing: 1px; }
 .opts { display: flex; flex-direction: column; gap: 8px; }

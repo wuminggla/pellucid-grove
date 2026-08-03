@@ -133,11 +133,20 @@ export async function settleSlot(
     const ex = await ai.expand({ resolution, attitude, choice, state, serveCount, dayNumber: opts.dayNumber });
     resultText = ex.text;
     continuity = ex.continuity;
-    const req: ExtractRequest = { narrative: resultText, choice, state };
-    const raw = await ai.extract(req);
-    const s = sanitizeExtract(raw, opts.extractBounds);
-    extracted = s.clean;
-    rejected = s.rejected;
+    // 批L(社区实证·用户"星梦": "调用明明有响应,前端却不渲染不推进"):
+    // extract 是副AI,唯一产出 presentCount 且当前并未被消费(见下方 void extracted)。
+    // 此前它一抛错(副API超时/model required/返回异常)就会连坐掉【已经生成成功的正文】,
+    // 整格 reject、cursor 不推进,玩家白等一次长生成。现降级为"失败即空",绝不连坐正文。
+    try {
+      const req: ExtractRequest = { narrative: resultText, choice, state };
+      const raw = await ai.extract(req);
+      const s = sanitizeExtract(raw, opts.extractBounds);
+      extracted = s.clean;
+      rejected = s.rejected;
+    } catch {
+      extracted = {};
+      rejected = [];
+    }
   }
 
   // —— 应用叙事数值 ——

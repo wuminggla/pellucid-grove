@@ -56,17 +56,25 @@ export function setIncludeTavernPreset(v: boolean) {
   try { localStorage.setItem(PRESET_TOGGLE_KEY, v ? '1' : '0'); } catch { /* 忽略 */ }
 }
 
-/** 从当前预设抽出 JB/main/nsfw 系统块(保留过审基调+文风),转成 RolePrompt[]。 */
+/**
+ * 从当前预设抽出所有【已启用且有正文】的条目,转成 RolePrompt[]。
+ *
+ * 批L(社区实证·用户"元素潮汐"): 此前只抓 id∈{main,nsfw,jailbreak} 的系统提示词 +
+ * 名字含"文风/风格/style"的普通条目。而现代破限预设的破甲/越狱几乎全写在普通条目里
+ * (名字叫 破甲/越狱/JB/预填充/正文规则…),一个都命中不了 → 破甲根本没进 prompt,
+ * 玩到第3天前情里堆了露骨原文就被上游一律打回。该用户实测"把破甲手动加进 main 块就好了"
+ * 即此根因的直接证据。
+ *
+ * 现改为全量放行,由玩家在酒馆预设界面自行开关条目决定注入什么。
+ * 唯一排除项 = 占位符条目(chat_history/char_description 等),它们本就无 content,
+ * 且 chat_history 一旦放行会把楼层历史带进来(违背"不续写楼层"的根本设计)。
+ */
 function presetSystemBlocks(): RolePrompt[] {
   try {
     const preset = getPreset('in_use');
     if (!preset?.prompts) return [];
-    // 系统块 id: main(主提示/文风) / nsfw(NSFW强化) / jailbreak(越狱·过审)
-    // 另抓名字含 文风/风格/style 的普通启用条目
     return preset.prompts
-      .filter(p => p.enabled && p.content && (
-        ['main', 'nsfw', 'jailbreak'].includes(p.id) || /文风|风格|style/i.test(p.name)
-      ))
+      .filter(p => p.enabled && typeof p.content === 'string' && p.content.trim())
       .map(p => ({ role: p.role, content: p.content as string }));
   } catch {
     return []; // 取预设失败(无预设/异常)→ 空,只发我们的范式
@@ -144,6 +152,9 @@ export function dumpPromptAudit(): string {
 
 // ─── 后台总结调参(批B6·事后小总结取代生成前串行简报 → 正文生成不再排队等总结) ───
 const SUMMARIZE_TIMEOUT_MS = 60_000; // 后台总结超时(失败留待下次重试,不影响游玩)
+// 批L: extract 独立超时。此前它无超时,只被 runner-store 那层 120s 总预算罩着——
+// expand 跑了110s时 extract 必然把整格拖爆,连已生成的正文一起丢。现独立限时并可失败降级。
+const EXTRACT_TIMEOUT_MS = 45_000;
 
 // ─── 总结提示词(批B6·给弱模型的目的性说明,用户定稿的过滤规则) ───
 // 小总结: 单事件正文 → 前情条目
@@ -268,14 +279,14 @@ export function createTavernAi(opts: TavernAiOpts): AiPort {
     async extract(req: ExtractRequest): Promise<Record<string, unknown>> {
       const inject = buildExtractInject(req);
       const exPrompts = [{ role: 'user' as const, content: inject }]; // 批H6: user角色·Gemini系兼容
-      const raw = await generateRaw({
+      const raw = await withTimeout(generateRaw({
         ordered_prompts: exPrompts,
         should_stream: false,
         should_silence: true,                            // 后台静默
         // 批H9: 副API未配→沿用正文 expand 的 same_as_preset 锚(走主连接/插头,已验证可用);
         //   原先传只含 max_tokens 的空 custom_api,酒馆无法定位连接端点→弹"Chat Completion API · model is required"。
         custom_api: (() => { const ex = getExtractApiForCall() ?? opts.extractApi; return ex ? { ...ex, max_tokens: 'unset' as const } : { ...SAMPLING, max_tokens: 'unset' as const }; })(),
-      });
+      }), EXTRACT_TIMEOUT_MS);
       auditPush({ when: new Date().toISOString(), kind: 'extract', label: '数值抽取', prompts: exPrompts, rawResponse: raw });
       return extractVarsJson(raw);
     },

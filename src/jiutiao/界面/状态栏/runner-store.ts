@@ -575,7 +575,9 @@ export const useRunnerStore = defineStore('runner', () => {
       const wasAi = r.settle.events.renderMode !== 'fast_summary';
       if (wasAi && text.length < MIN_TEXT_LEN) {
         lastEmpty.value = true;
-        lastWarn.value = '本次生成内容为空或过短(可能被外部审核拦截/截断)。可点「重新生成」重试。';
+        // 批L: 指向真实存在的入口——点该格进 SlotDetail,失败面板里有「↻ 重新生成本格正文」。
+        //   (旧文案指的"重新生成"按钮在批I4-6 就已被撤掉,空回时页面上根本没有那个按钮。)
+        lastWarn.value = '本次生成为空或被截断(多半被上游审核拦下)。点开该格,用面板里的「↻ 重新生成本格正文」重试。';
       }
       // (批B6)生成前串行简报已退役:前情=三层记忆纯函数注入(零延迟);小总结改为事后后台生成(见 drainSummaries)
       day.value = r.state.day;
@@ -687,10 +689,72 @@ export const useRunnerStore = defineStore('runner', () => {
     }
   }
 
+  /**
+   * 批L: 重新生成【任意已结算格】的正文 —— 只补正文,不重跑任何数值结算。
+   *
+   * 起因(社区多人实证·ssrf/Naoya666/molin + 用户口头反馈"身体擅自发情截断后卡关"):
+   * AI 空回/被截断时,格子照样落 status='done' 但 resultText='',于是
+   *   · 普通格 → SlotDetail 落进选项列表分支(玩家看到"已展开查看却还是选择事项",刷新也没用);
+   *   · locked 格(突发事件/避孕套三连/首次AV/白日供奉日) → 落进"不可改派"提示;
+   * 而唯一的重生成入口(续写/重roll)被 showProse 包着,正文为空时根本不渲染 = 彻底没出口。
+   *
+   * 本函数是那个缺失的出口。相比 rerunLast(按执行前快照重跑整格)的关键差别:
+   * 数值早在首次结算时就已入账,这里【绝不能】再结算一次,所以只调 expand 写回正文。
+   * 因此它对任意历史格都安全可用,不限于"最近执行的那一格"。
+   */
+  async function regenerateSlotText(period: SlotPeriod, index: number, note?: string) {
+    if (busy.value) return;
+    const refp = { period, index };
+    const slot = slotOf(refp);
+    if (!slot?.choice || slot.status !== 'done') return;
+    busy.value = true; error.value = null; lastEmpty.value = false; lastWarn.value = null;
+    genHint.value = GEN_HINTS[Math.floor(Math.random() * GEN_HINTS.length)];
+    try {
+      const opt = demoEventOptions[slot.choice.optionId];
+      if (!opt) throw new Error('未知事件选项: ' + slot.choice.optionId);
+      const resolution = resolveEvent(opt, eventCtxOf(engine.value), false);
+      // 首次里程碑格: 账本已在首次结算时标记,此刻重解析只会拿到常规范式 → 用 wasFirst 强行拨回首次范式
+      if (slot.wasFirst && opt.first) {
+        resolution.paradigm = opt.first.paradigm;
+        resolution.isFirstMilestone = true;
+        resolution.renderMode = 'ai_full';
+      }
+      if (typeof slot.choice.params?.avInlinePrompt === 'string') {
+        resolution.paradigm = { ...resolution.paradigm, inlinePrompt: slot.choice.params.avInlinePrompt as string };
+      }
+      if (slot.choice.optionId === 'custom_event') {
+        resolution.paradigm = { ...resolution.paradigm, inlinePrompt: buildCustomParadigm(
+          typeof slot.choice.params?.customPrompt === 'string' ? slot.choice.params.customPrompt : '') };
+      }
+      const n = note?.trim();
+      const choice = n
+        ? { ...slot.choice, params: { ...(slot.choice.params ?? {}), userNote: n } }
+        : slot.choice;
+      const ex = await withTimeout(ai.expand({
+        resolution, attitude: attitudeForStage(engine.value.cognition),
+        choice, state: engine.value, dayNumber: day.value.dayNumber,
+      }), GEN_TIMEOUT_MS);
+      const t = (ex.text ?? '').trim();
+      if (t.length < MIN_TEXT_LEN) {
+        lastEmpty.value = true;
+        lastWarn.value = '重新生成仍为空或过短。多半是被上游审核拦下或输出被截断——'
+          + '可再点一次重试;反复失败就去设置页确认预设里的破甲条目已启用,或把「前文记忆」注入档位调低。';
+      } else {
+        writeSlotText(refp, t, [0]);
+        lastExec.value = { period, index }; lastSegStart.value = 0; // 补完正文后本格即可续写
+        void drainSummaries();
+      }
+    } catch (e) {
+      error.value = (e as Error).message;
+    } finally {
+      busy.value = false;
+    }
+  }
+
   /** 重roll最后一段续写(截掉最后一段→重新续写·可带续写要求);尚无续写段时=整格重roll。 */
   async function rerollLastSegment(note?: string) {
     if (busy.value || !lastExec.value) return;
-    if (lastSegStart.value <= 0) { await rerunLast(); return; }
+    if (lastSegStart.value <= 0) { await rerunLast(note); return; } // 批N: 尚无续写段→退化为整格重roll,要求一并带上
     const refp = lastExec.value;
     const slot = slotOf(refp);
     if (!slot?.choice || slot.status !== 'done') return;
@@ -719,6 +783,11 @@ export const useRunnerStore = defineStore('runner', () => {
     if (!cur?.choice) return false; // 批K: 未选选项的格(dual事件等)需玩家先选,不快进
     const opt = demoEventOptions[cur.choice.optionId];
     if (!opt) return false;
+    // 批N(社区实证·用户"玉竹林天": "批量跳过连中间穿插的骚扰和攻打都自己跳过了"):
+    // 攻打/骚扰/刺探/贿赂是地图选择格,正常路径由 App.exec 转 beginMapSelect 让玩家选目标。
+    // 但那个检查只做了链条第一格,链内直接调 runCurrent → 这些格被快进模板静默结算,
+    // 玩家从没机会选目标、地盘也毫无变化(resolveMapSlot 压根没跑)= 纯白扔一个行动格。
+    if (opt.mapSelect) return false;
     try {
       return resolveEvent(opt, eventCtxOf(engine.value), fastForward.value).renderMode === 'fast_summary';
     } catch { return false; }
@@ -738,10 +807,23 @@ export const useRunnerStore = defineStore('runner', () => {
     // 循环停在: 时段结算完(无当前格) 或 下一格需要AI正文(留给玩家点执行)
   }
 
-  /** 重新生成当前(刚执行完的)格: 恢复执行前快照,重跑一次。 */
-  async function rerunLast() {
+  /** 重新生成当前(刚执行完的)格: 恢复执行前快照,重跑一次。
+   *  批N: 可带 note——正文区那个输入框填的要求此前对"重roll整格"完全无效
+   *  (它只读选格时填的 params.userNote),玩家反复反馈"要求被吞"。现在并进快照再重跑。 */
+  async function rerunLast(note?: string) {
     if (busy.value || !preRunSnapshot) return;
-    await execCurrentFrom(preRunSnapshot);
+    let snap = preRunSnapshot;
+    const n = note?.trim();
+    const cur = n ? currentSlot(snap.day) : null;
+    if (n && cur?.choice) {
+      const key = cur.period === 'day' ? 'daySlots' : 'nightSlots';
+      const list = (snap.day as any)[key].map((s: ActionSlot, i: number) =>
+        i === cur.index && s.choice
+          ? { ...s, choice: { ...s.choice, params: { ...(s.choice.params ?? {}), userNote: n } } }
+          : s);
+      snap = { ...snap, day: { ...snap.day, [key]: list } };
+    }
+    await execCurrentFrom(snap);
   }
 
   function nextDay() {
@@ -1110,7 +1192,7 @@ export const useRunnerStore = defineStore('runner', () => {
     tendencyNow, salvationOpenNow,
     setFastForward, allocate, setChoice, clearChoice, fillEmpty,
     beginDay, beginNight, runCurrent, runCurrentChain, rerunLast, nextDay, loadState,
-    continueLast, rerollLastSegment, editSlotText, lastExec, lastSegStart,
+    continueLast, rerollLastSegment, regenerateSlotText, editSlotText, lastExec, lastSegStart,
     useMock, useTavern, saveNow: persistNow, resetGame,
   };
 });

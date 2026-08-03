@@ -52,8 +52,14 @@ const SPEC_BY_MODE: Record<string, string> = {
 };
 
 /** 事件级篇幅覆盖(批F2): 剧情特别长的事件明确允许并要求长文,压过默认规格 */
+// 批L(社区实证·用户"molin": "每次只要到拍摄第一部AV事件就无法正常生成"):
+// 原文案要求"不少于5000字"≈7500+ tokens 输出,而 custom_api.max_tokens 走 same_as_preset,
+// 绝大多数预设设在 2000-4000 → 每次必被上游截断。叠加 av_first 是 locked 插入格(空回时
+// 连重生成入口都没有),就成了"每次都过不去"。改为节拍完整优先 + 明确告知可续写。
 const LENGTH_OVERRIDE: Record<string, string> = {
-  av_first: '【篇幅·硬要求】本格剧情节拍多(供奉→提议→寸止拉锯→答应→摄影室正片),明确允许且要求长文:正文不少于5000字,不许略写或跳节拍。',
+  av_first: '【篇幅】本格剧情节拍多(供奉→提议→寸止拉锯→答应→摄影室正片),允许并鼓励长文,不许略写或跳节拍。'
+    + '但【务必在输出预算内写完并正常闭合 </jiutiao_text> 标签】:若篇幅不够,优先保证节拍推进完整、把细节密度让出来,'
+    + '停在事件仍在进行的过程点即可(玩家可以点续写继续往下拍),绝不要为了凑长度而写到一半被硬截断。',
 };
 
 /** 从预设取采样参数(传 api-router) */
@@ -105,9 +111,12 @@ export function buildGamePrompt(req: ExpandRequest, ctx: GamePromptCtx): Array<{
     : (getParadigmByKey(lorebook, paradigm.worldbookKey)
        ?? `[范式条目] ${paradigm.worldbookKey}（世界书未写,按事件名扩写）`);
 
+  // 批L: 标签统一——此前这里写 <maintext>(老 real-ai 路径遗留),与注入层 directive 的
+  // <jiutiao_text> 硬要求互斥,且本行拼在 system 末尾(近因位)更容易被模型采纳 →
+  // extract.ts 只认 jiutiao_text,匹配失败落兜底路径 → 预设自定义思维链标签整段漏进正文。
   const outputSpec = needsContinuity
-    ? '只输出 <maintext>正文</maintext>;并在其后追加一行 <continuity>一句话延续摘要:本格引入的需后续回调的具体实体/独特事实</continuity>。'
-    : '只输出 <maintext>正文</maintext>，不要其它标签或解释。';
+    ? '正文必须完整包裹在 <jiutiao_text> 与 </jiutiao_text> 之间;并在其后(标签外)追加一行 <continuity>一句话延续摘要:本格引入的需后续回调的具体实体/独特事实</continuity>。'
+    : '正文必须完整包裹在 <jiutiao_text> 与 </jiutiao_text> 之间,标签内只有纯故事正文,不含其它标签或解释。';
 
   // 供奉/多人场景硬约束:人数与结算同源+打手群像匿名(根治"AI只写一个有名字的打手二人转")
   const n = req.serveCount;
